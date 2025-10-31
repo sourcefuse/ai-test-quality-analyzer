@@ -49,18 +49,6 @@ inputs:
     description: 'Branch name to clone'
     required: false
     default: 'main'
-  save_to_file:
-    description: 'Save analysis results to files (true/false)'
-    required: false
-    default: 'true'
-  upload_to_confluence:
-    description: 'Upload results to Confluence (true/false)'
-    required: false
-    default: 'true'
-  minimum_score:
-    description: 'Minimum acceptable test quality score (0-10)'
-    required: false
-    default: '6.0'
   aws_region_bedrock:
     description: 'AWS region for Bedrock service'
     required: false
@@ -175,5 +163,26 @@ runs:
         echo "🔍 Generating unit test cases..."
         npm run analyze-test-quality
         echo "✅ Unit test generation completed"
+     
+    - name: Step 3 - Upload to Confluence
+      id: upload_confluence
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        echo "📤 Uploading results to Confluence..."
+        echo "   Score: ${TEST_QUALITY_SCORE}/10 (Threshold: ${MINIMUM_SCORE_THRESHOLD})"
+        OUTPUT=$(npm run upload-requirements 2>&1)
+        echo "$OUTPUT"
+
+        # Extract Confluence URL from output
+        CONFLUENCE_URL="${{ inputs.confluence_url }}/wiki$(echo "$OUTPUT" | grep -oP 'URL: \K.*' | head -1)"
+
+        if [ -n "$CONFLUENCE_URL" ]; then
+          echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
+          echo "✅ Results uploaded to Confluence: $CONFLUENCE_URL"
+        else
+          echo "confluence_url=" >> $GITHUB_OUTPUT
+          echo "✅ Results uploaded to Confluence"
+        fi
 
     
