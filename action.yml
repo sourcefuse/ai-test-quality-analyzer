@@ -1,5 +1,5 @@
-name: 'Check Unit Test Cases Quality'
-description: 'Analyze unit test quality against JIRA requirements and generate comprehensive reports'
+name: 'Generate Unit Test Cases Via AI'
+description: 'Generate unit test cases using AI by analyzing JIRA requirements, Confluence documentation, and repository code'
 author: 'Vishal Gupta'
 
 branding:
@@ -17,7 +17,7 @@ inputs:
     description: 'JIRA API token'
     required: true
   jira_ticket_id:
-    description: 'JIRA ticket ID to analyze (e.g., BB-15690)'
+    description: 'JIRA ticket ID for generating unit tests (e.g., BB-15690)'
     required: true
   jira_project_key:
     description: 'JIRA project key'
@@ -43,7 +43,7 @@ inputs:
     required: false
     default: ''
   repository_url:
-    description: 'Repository URL to clone for test analysis'
+    description: 'Repository URL to clone for generating unit tests'
     required: true
   repository_branch:
     description: 'Branch name to clone'
@@ -84,26 +84,6 @@ inputs:
     required: false
     default: '1'
 
-outputs:
-  test_quality_score:
-    description: 'Test quality score (0-10)'
-    value: ${{ steps.extract_score.outputs.score }}
-  analysis_path:
-    description: 'Path to the analysis results folder'
-    value: ${{ steps.extract_paths.outputs.analysis_path }}
-  requirements_file:
-    description: 'Path to the requirements file'
-    value: ${{ steps.extract_paths.outputs.requirements_file }}
-  result_file:
-    description: 'Path to the result file'
-    value: ${{ steps.extract_paths.outputs.result_file }}
-  score_passed:
-    description: 'Whether the score meets the minimum threshold (true/false)'
-    value: ${{ steps.check_score.outputs.passed }}
-  confluence_url:
-    description: 'Confluence URL to the uploaded analysis report'
-    value: ${{ steps.upload_confluence.outputs.confluence_url }}
-
 runs:
   using: 'composite'
   steps:
@@ -119,11 +99,11 @@ runs:
         npm install
         npm install -g @anthropic-ai/claude-code
 
-    - name: Clone repository for analysis
+    - name: Clone repository for test generation
       shell: bash
       run: |
         cd ${{ github.action_path }}
-        echo "📥 Cloning repository for test analysis..."
+        echo "📥 Cloning repository for unit test generation..."
 
         # Use head_ref for PRs (gives branch name like BB-2244), ref_name for other events
         BRANCH="${{ github.head_ref || github.ref_name }}"
@@ -164,6 +144,8 @@ runs:
         # Analysis Configuration
         CURRENT_ANALYSIS_PATH=$(echo $(date +'%Y%m%d-%H-%M-%S')-Via-AI)
         SAVE_TO_FILE=${{ inputs.save_to_file }}
+
+        CONFLUENCE_ROOT_PAGE_SUFFIX=Generate-Unit-Tests-Via-AI
         EOF
         echo "✅ Environment configuration created"
 
@@ -190,158 +172,8 @@ runs:
         npm run create-requirement-doc
         echo "✅ Requirements document created"
 
-        echo "🔍 Analyzing unit test quality..."
+        echo "🔍 Generating unit test cases..."
         npm run analyze-test-quality
-        echo "✅ Test quality analysis completed"
+        echo "✅ Unit test generation completed"
 
-    - name: Extract analysis paths
-      id: extract_paths
-      shell: bash
-      run: |
-        cd ${{ github.action_path }}
-        SPACE_KEY="${{ inputs.confluence_space_key }}"
-        TICKET_ID="${{ inputs.jira_ticket_id }}"
-
-        # Find the latest analysis folder
-        ANALYSIS_FOLDER=$(find . -type d -path "*${SPACE_KEY}-Quality-Check-Via-AI/${TICKET_ID}-Via-AI/*-Via-AI" -print | sort -r | head -1)
-
-        if [ -z "$ANALYSIS_FOLDER" ]; then
-          echo "❌ Analysis folder not found"
-          exit 1
-        fi
-
-        echo "analysis_path=$ANALYSIS_FOLDER" >> $GITHUB_OUTPUT
-        echo "requirements_file=$ANALYSIS_FOLDER/Requirements.md" >> $GITHUB_OUTPUT
-
-        # Find result file (could be AnalysisReport.md or AnalysisReport_*.md)
-        RESULT_FILE=$(find "$ANALYSIS_FOLDER" -name "AnalysisReport*.md" -type f | head -1)
-        echo "result_file=$RESULT_FILE" >> $GITHUB_OUTPUT
-
-        echo "📁 Analysis folder: $ANALYSIS_FOLDER"
-        echo "📄 Requirements file: $ANALYSIS_FOLDER/Requirements.md"
-        echo "📊 Result file: $RESULT_FILE"
-
-    - name: Extract test quality score
-      id: extract_score
-      shell: bash
-      run: |
-        cd ${{ github.action_path }}
-        RESULT_FILE="${{ steps.extract_paths.outputs.result_file }}"
-
-        if [ ! -f "$RESULT_FILE" ]; then
-          echo "❌ Result file not found: $RESULT_FILE"
-          exit 1
-        fi
-
-        # Extract the numeric score (e.g., "3.5" from "**Total Score:** 3.5/10")
-        SCORE=$(grep -E "^\*\*Total Score:\*\*|^Total Score:" "$RESULT_FILE" | grep -oE "[0-9]+(\.[0-9]+)?" | head -1)
-
-        if [ -z "$SCORE" ]; then
-          echo "❌ Could not extract score from result file"
-          exit 1
-        fi
-
-        echo "score=$SCORE" >> $GITHUB_OUTPUT
-        echo "📊 Test Quality Score: $SCORE/10"
-
-    - name: Check score threshold
-      id: check_score
-      shell: bash
-      run: |
-        SCORE="${{ steps.extract_score.outputs.score }}"
-        THRESHOLD="${{ inputs.minimum_score }}"
-
-        # Compare scores using awk (more portable than bc)
-        PASSED=$(awk -v score="$SCORE" -v threshold="$THRESHOLD" 'BEGIN { print (score >= threshold) ? "true" : "false" }')
-
-        echo "passed=$PASSED" >> $GITHUB_OUTPUT
-
-        if [ "$PASSED" = "true" ]; then
-          echo "✅ Test quality score ($SCORE) meets minimum threshold ($THRESHOLD)"
-        else
-          echo "⚠️  Test quality score ($SCORE) is below minimum threshold ($THRESHOLD)"
-        fi
-
-    - name: Step 4 - Upload to Confluence
-      id: upload_confluence
-      if: inputs.upload_to_confluence == 'true'
-      shell: bash
-      run: |
-        cd ${{ github.action_path }}
-        echo "📤 Uploading results to Confluence..."
-        OUTPUT=$(npm run upload-requirements 2>&1)
-        echo "$OUTPUT"
-
-        # Extract Confluence URL from output
-        CONFLUENCE_URL="${{ inputs.confluence_url }}/wiki$(echo "$OUTPUT" | grep -oP 'URL: \K.*' | head -1)"
-
-        if [ -n "$CONFLUENCE_URL" ]; then
-          echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
-          echo "✅ Results uploaded to Confluence: $CONFLUENCE_URL"
-        else
-          echo "confluence_url=" >> $GITHUB_OUTPUT
-          echo "✅ Results uploaded to Confluence"
-        fi
-
-    - name: Generate summary
-      shell: bash
-      run: |
-        cd ${{ github.action_path }}
-        SCORE="${{ steps.extract_score.outputs.score }}"
-        THRESHOLD="${{ inputs.minimum_score }}"
-        PASSED="${{ steps.check_score.outputs.passed }}"
-        RESULT_FILE="${{ steps.extract_paths.outputs.result_file }}"
-        CONFLUENCE_URL="${{ steps.upload_confluence.outputs.confluence_url }}"
-
-        echo "## 📊 Unit Test Quality Analysis Report" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**JIRA Ticket:** ${{ inputs.jira_ticket_id }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Test Quality Score:** ${SCORE}/10" >> $GITHUB_STEP_SUMMARY
-        echo "**Minimum Threshold:** ${THRESHOLD}/10" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        if [ "$PASSED" = "true" ]; then
-          echo "✅ **Status:** PASSED - Score meets minimum threshold" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "⚠️  **Status:** BELOW THRESHOLD - Additional test coverage needed" >> $GITHUB_STEP_SUMMARY
-        fi
-
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
-
-        # Add PR link if available
-        if [ -n "${{ github.event.pull_request.html_url }}" ]; then
-          echo "- **Pull Request:** [${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})" >> $GITHUB_STEP_SUMMARY
-        fi
-
-        # Add Confluence link if upload was successful
-        if [ -n "$CONFLUENCE_URL" ]; then
-          echo "- **Confluence Report:** [View Analysis Report](${CONFLUENCE_URL})" >> $GITHUB_STEP_SUMMARY
-        fi
-
-        # Add GitHub Actions artifacts link
-        echo "- **GitHub Artifacts:** [Download Reports](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        echo "### 📁 Generated Files" >> $GITHUB_STEP_SUMMARY
-        echo "- Requirements: \`${{ steps.extract_paths.outputs.requirements_file }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- Analysis Report: \`$RESULT_FILE\`" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        # Extract score breakdown from result file
-        echo "### 📈 Score Breakdown" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        grep -A 1 "Test Coverage Analysis\|Test Quality Assessment\|Edge Cases & Error Scenarios\|Test Assertions Quality\|Code Organization & Maintainability" "$RESULT_FILE" | grep -E "\([0-9.]+/[0-9.]+ points\)" | head -5 >> $GITHUB_STEP_SUMMARY || echo "Score breakdown not available" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
-        echo "📄 **Full report available in job artifacts**" >> $GITHUB_STEP_SUMMARY
-
-    # - name: Fail if score below threshold
-    #   if: steps.check_score.outputs.passed == 'false'
-    #   shell: bash
-    #   run: |
-    #     echo "❌ Test quality score (${{ steps.extract_score.outputs.score }}) is below minimum threshold (${{ inputs.minimum_score }})"
-    #     echo "Please improve test coverage before merging."
-    #     exit 1
+    
