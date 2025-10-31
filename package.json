@@ -7,7 +7,8 @@
     "create-requirements": "npx ts-node create-requirements.ts",
     "upload-requirements": "npx ts-node upload-requirements-to-confluence.ts",
     "create-requirement-doc": "claude --print --dangerously-skip-permissions < prompts/create-requirement.md",
-    "analyze-test-quality": "claude --print --dangerously-skip-permissions < prompts/analyze-test-quality.md"
+    "analyze-test-quality": "claude --print --dangerously-skip-permissions < prompts/analyze-test-quality.md",
+    "generate-unit-testcases": "claude --print --dangerously-skip-permissions < prompts/generate-unit-testcases.md"
   },
   "keywords": [],
   "author": "Vishal Gupta",

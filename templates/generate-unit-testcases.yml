@@ -23,13 +23,23 @@
 #
 # Usage:
 # This workflow must be triggered manually via workflow_dispatch.
-# Provide the JIRA ticket ID (which will also be used as the branch name).
+# Provide the JIRA ticket ID (which will also be used as the source branch name).
+# Optionally provide a target branch where generated unit tests should be created (default: main).
 #
 # Flow:
 # 1. Read JIRA ticket and Confluence documentation
-# 2. Analyze repository code from the branch matching the ticket ID
+# 2. Analyze repository code from the target branch
 # 3. Generate unit test cases using AI
 # 4. Upload results to Confluence
+# 5. Commit generated tests to {ticket_id}-via-ai branch
+# 6. Create Pull Request targeting the specified branch
+#
+# Inputs:
+# - jira_ticket_id: JIRA ticket ID (used for branch name: {ticket_id}-via-ai)
+# - target_branch: Branch where generated tests should be merged (default: main)
+#
+# Environment Variables Available:
+# - TARGET_BRANCH: Available in all workflow steps for custom logic
 ##############################################################################
 
 name: Generate Unit Test Cases Via AI
@@ -40,6 +50,11 @@ on:
       jira_ticket_id:
         description: 'JIRA Ticket ID / Branch Name (e.g., BB-15690)'
         required: true
+        type: string
+      target_branch:
+        description: 'Target branch for generated unit test cases (default: main)'
+        required: false
+        default: 'main'
         type: string
 
 concurrency:
@@ -52,7 +67,14 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
+      contents: write      # Required to push commits
+      pull-requests: write # Required to create PRs
+
+    env:
+      TARGET_BRANCH: ${{ github.event.inputs.target_branch || 'main' }}
+      # TARGET_BRANCH is available to all steps in this job
+      # Use ${{ env.TARGET_BRANCH }} to access it in workflow steps
+      # Or use $TARGET_BRANCH in bash scripts
 
     steps:
       - name: Checkout repository
@@ -89,6 +111,7 @@ jobs:
           confluence_space_key: ${{ vars.UT_QUALITY_CONFLUENCE_SPACE_KEY || 'BB' }}
           repository_url: ${{ github.server_url }}/${{ github.repository }}
           repository_branch: ${{ steps.extract_ticket.outputs.ticket_id }}
+          target_branch: ${{ env.TARGET_BRANCH }}
           aws_region_bedrock: ${{ secrets.UT_QUALITY_AWS_REGION_BEDROCK }}
           aws_access_key_bedrock: ${{ secrets.UT_QUALITY_AWS_ACCESS_KEY_BEDROCK }}
           aws_secret_key_bedrock: ${{ secrets.UT_QUALITY_AWS_SECRET_KEY_BEDROCK }}
@@ -107,7 +130,8 @@ jobs:
           echo "========================================"
           echo ""
           echo "📋 JIRA Ticket: ${{ steps.extract_ticket.outputs.ticket_id }}"
-          echo "🌿 Branch: ${{ steps.extract_ticket.outputs.ticket_id }}"
+          echo "🌿 Generated Branch: ${{ steps.extract_ticket.outputs.ticket_id }}-via-ai"
+          echo "🎯 Target Branch: ${{ env.TARGET_BRANCH }}"
           echo ""
           echo "📁 Analysis Path: ${{ steps.generate_tests.outputs.analysis_path }}"
           echo "📄 Requirements File: ${{ steps.generate_tests.outputs.requirements_file }}"
@@ -118,6 +142,28 @@ jobs:
           if [ -n "${{ steps.generate_tests.outputs.confluence_url }}" ]; then
             echo "   • Confluence Report: ${{ steps.generate_tests.outputs.confluence_url }}"
           fi
+          if [ -n "${{ steps.generate_tests.outputs.pr_url }}" ]; then
+            echo "   • Pull Request: ${{ steps.generate_tests.outputs.pr_url }}"
+          fi
+          echo ""
+          if [ "${{ steps.generate_tests.outputs.branch_name }}" != "" ]; then
+            echo "📝 Generated tests committed to: ${{ steps.generate_tests.outputs.branch_name }}"
+          fi
+          if [ "${{ steps.generate_tests.outputs.pr_action }}" == "created" ]; then
+            echo "🔀 Pull Request created: #${{ steps.generate_tests.outputs.pr_number }}"
+          elif [ "${{ steps.generate_tests.outputs.pr_action }}" == "updated" ]; then
+            echo "🔀 Pull Request updated: #${{ steps.generate_tests.outputs.pr_number }}"
+          fi
           echo ""
           echo "🤖 Generated unit test cases are ready for review!"
           echo "========================================"
+
+      # Optional: Upload generated test cases as artifacts
+      # Uncomment to save generated test files to GitHub Actions artifacts
+      # - name: Upload Generated Test Cases
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: generated-tests-${{ steps.extract_ticket.outputs.ticket_id }}-${{ github.run_number }}
+      #     path: ${{ steps.generate_tests.outputs.analysis_path }}
+      #     retention-days: ${{ vars.UT_QUALITY_WORKFLOW_RETENTION_DAYS || '7' }}
