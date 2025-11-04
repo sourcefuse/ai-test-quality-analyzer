@@ -1,7 +1,6 @@
 /**
- * Upload Jira.md, Confluence.md, Requirements.md, and AnalysisReport.md to Confluence
- * Uploads all available analysis files to Confluence as a combined page with proper hierarchy
- * Works even if Requirements.md is not found - will upload Jira.md and Confluence.md
+ * Upload Jira.md, Requirements.md, and AnalysisReport.md to Confluence
+ * Uploads all three analysis files to Confluence as a combined page with proper hierarchy
  */
 
 import * as dotenv from 'dotenv';
@@ -80,33 +79,27 @@ async function main(): Promise<void> {
     loadEnvironment();
 
     console.log('='.repeat(60));
-    console.log('UPLOAD JIRA + CONFLUENCE + REQUIREMENTS + ANALYSIS TO CONFLUENCE');
+    console.log('UPLOAD JIRA + REQUIREMENTS + ANALYSIS TO CONFLUENCE');
     console.log('='.repeat(60));
 
     try {
         // Get analysis folder from environment variables
         const analysisFolder = getAnalysisFolder();
         const jiraFileName = process.env.JIRA_FILE_NAME || 'Jira.md';
-        const confluenceFileName = process.env.CONFLUENCE_FILE_NAME || 'Confluence.md';
         const requirementsFileName = process.env.REQUIREMENTS_FILE_NAME || 'Requirements.md';
         const analysisReportFileName = process.env.ANALYSIS_REPORT_FILE_NAME || 'AnalysisReport.md';
 
         const jiraFilePath = `${analysisFolder}/${jiraFileName}`;
-        const confluenceFilePath = `${analysisFolder}/${confluenceFileName}`;
         const requirementsFilePath = `${analysisFolder}/${requirementsFileName}`;
         const analysisReportFilePath = `${analysisFolder}/${analysisReportFileName}`;
 
         // Check if files exist
         const jiraExists = fs.existsSync(jiraFilePath);
-        const confluenceExists = fs.existsSync(confluenceFilePath);
         const requirementsExists = fs.existsSync(requirementsFilePath);
         const analysisReportExists = fs.existsSync(analysisReportFilePath);
 
         if (!jiraExists) {
             console.log(`⚠️  Warning: ${jiraFileName} not found: ${jiraFilePath}`);
-        }
-        if (!confluenceExists) {
-            console.log(`⚠️  Warning: ${confluenceFileName} not found: ${confluenceFilePath}`);
         }
         if (!requirementsExists) {
             console.log(`⚠️  Warning: ${requirementsFileName} not found: ${requirementsFilePath}`);
@@ -116,22 +109,18 @@ async function main(): Promise<void> {
         }
 
         // At least one file must exist
-        if (!jiraExists && !confluenceExists && !requirementsExists && !analysisReportExists) {
-            throw new Error(`No analysis files (${jiraFileName}, ${confluenceFileName}, ${requirementsFileName}, ${analysisReportFileName}) found in the analysis folder`);
+        if (!jiraExists && !requirementsExists && !analysisReportExists) {
+            throw new Error(`No analysis files (${jiraFileName}, ${requirementsFileName}, ${analysisReportFileName}) found in the analysis folder`);
         }
 
         // Read files
         console.log('\n📖 Reading files...');
         const jiraContent = jiraExists ? fs.readFileSync(jiraFilePath, 'utf-8') : '';
-        const confluencePagesContent = confluenceExists ? fs.readFileSync(confluenceFilePath, 'utf-8') : '';
         const requirementsContent = requirementsExists ? fs.readFileSync(requirementsFilePath, 'utf-8') : '';
         const analysisReportContent = analysisReportExists ? fs.readFileSync(analysisReportFilePath, 'utf-8') : '';
 
         if (jiraContent) {
             console.log(`   ✅ ${jiraFileName} read successfully (${(jiraContent.length / 1024).toFixed(2)} KB)`);
-        }
-        if (confluencePagesContent) {
-            console.log(`   ✅ ${confluenceFileName} read successfully (${(confluencePagesContent.length / 1024).toFixed(2)} KB)`);
         }
         if (requirementsContent) {
             console.log(`   ✅ ${requirementsFileName} read successfully (${(requirementsContent.length / 1024).toFixed(2)} KB)`);
@@ -158,6 +147,16 @@ async function main(): Promise<void> {
         console.log(`   Space: ${spaceKey}`);
         console.log(`   Ticket: ${ticketKey}`);
         console.log(`   Timestamp: ${timestampFolderName}`);
+
+        // Log score if available
+        const testQualityScore = process.env.TEST_QUALITY_SCORE || 'N/A';
+        const minimumThreshold = process.env.MINIMUM_SCORE_THRESHOLD || 'N/A';
+        const scorePassed = process.env.SCORE_PASSED === 'true';
+
+        if (testQualityScore !== 'N/A') {
+            const scoreIcon = scorePassed ? '✅' : '⚠️';
+            console.log(`   ${scoreIcon} Score: ${testQualityScore}/10 (Threshold: ${minimumThreshold}/10)`);
+        }
 
         // Step 1: Create/Get root page
         const confluenceRootSuffix = process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Quality-Check-Via-AI';
@@ -187,55 +186,56 @@ async function main(): Promise<void> {
         const analysisPageTitle = timestampFolderName;
         console.log(`\n📄 Step 3/3: Creating/Updating analysis page: ${analysisPageTitle}`);
 
+        // Format score badge (using variables already defined above)
+        let scoreBadge = '';
+        if (testQualityScore !== 'N/A') {
+            const badgeColor = scorePassed ? '#36B37E' : '#FF5630';
+            const badgeIcon = scorePassed ? '✅' : '⚠️';
+            scoreBadge = `
+<p>
+    <strong>Test Quality Score:</strong>
+    <span style="background-color: ${badgeColor}; color: white; padding: 4px 12px; border-radius: 3px; font-weight: bold;">
+        ${badgeIcon} ${testQualityScore}/10
+    </span>
+    ${minimumThreshold !== 'N/A' ? `<span style="color: #6B778C; margin-left: 8px;">(Threshold: ${minimumThreshold}/10)</span>` : ''}
+</p>`;
+        }
+
         // Format content for Confluence
         let confluenceContent = `<h1>Complete Analysis Report</h1>
 <p><strong>Generated:</strong> ${new Date().toISOString()}</p>
 <p><strong>Ticket:</strong> ${ticketKey}</p>
 <p><strong>Space:</strong> ${spaceKey}</p>
 <p><strong>Analysis Path:</strong> ${timestampFolderName}</p>
+${scoreBadge}
 <hr />`;
 
         // Add JIRA content if available
-        let sectionNumber = 1;
         if (jiraContent) {
             confluenceContent += `
-<h2>${sectionNumber}. JIRA Ticket Details</h2>
+<h2>1. JIRA Ticket Details</h2>
 <ac:structured-macro ac:name="code">
 <ac:parameter ac:name="language">markdown</ac:parameter>
 <ac:plain-text-body><![CDATA[${jiraContent}]]></ac:plain-text-body>
 </ac:structured-macro>
 <hr />`;
-            sectionNumber++;
-        }
-
-        // Add raw Confluence pages content if available
-        if (confluencePagesContent) {
-            confluenceContent += `
-<h2>${sectionNumber}. Confluence Documentation</h2>
-<ac:structured-macro ac:name="code">
-<ac:parameter ac:name="language">markdown</ac:parameter>
-<ac:plain-text-body><![CDATA[${confluencePagesContent}]]></ac:plain-text-body>
-</ac:structured-macro>
-<hr />`;
-            sectionNumber++;
         }
 
         // Add Requirements content if available
         if (requirementsContent) {
             confluenceContent += `
-<h2>${sectionNumber}. Requirements Analysis</h2>
+<h2>2. Requirements Analysis</h2>
 <ac:structured-macro ac:name="code">
 <ac:parameter ac:name="language">markdown</ac:parameter>
 <ac:plain-text-body><![CDATA[${requirementsContent}]]></ac:plain-text-body>
 </ac:structured-macro>
 <hr />`;
-            sectionNumber++;
         }
 
         // Add Analysis Report content if available
         if (analysisReportContent) {
             confluenceContent += `
-<h2>${sectionNumber}. Test Cases Quality Analysis</h2>
+<h2>3. Test Cases Quality Analysis</h2>
 <ac:structured-macro ac:name="code">
 <ac:parameter ac:name="language">markdown</ac:parameter>
 <ac:plain-text-body><![CDATA[${analysisReportContent}]]></ac:plain-text-body>
@@ -254,7 +254,7 @@ async function main(): Promise<void> {
         console.log(`   Root Page: ${rootPageTitle}`);
         console.log(`   Ticket Page: ${ticketPageTitle}`);
         console.log(`   Analysis Page: ${analysisPageTitle}`);
-        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, confluencePagesContent && confluenceFileName, requirementsContent && requirementsFileName, analysisReportContent && analysisReportFileName].filter(Boolean).join(', ')}`);
+        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, requirementsContent && requirementsFileName, analysisReportContent && analysisReportFileName].filter(Boolean).join(', ')}`);
         if (analysisPageResponse.url) {
             console.log(`   URL: ${analysisPageResponse.url}`);
         }
