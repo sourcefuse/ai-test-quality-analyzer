@@ -1,5 +1,5 @@
 /**
- * Upload Jira.md, Requirements.md, and AnalysisReport.md to Confluence
+ * Upload Jira.md, Requirements.md, and GeneratedTestsReport.md to Confluence
  * Uploads all three analysis files to Confluence as a combined page with proper hierarchy
  */
 
@@ -117,16 +117,16 @@ async function main(): Promise<void> {
         }
         const jiraFileName = process.env.JIRA_FILE_NAME || 'Jira.md';
         const requirementsFileName = process.env.REQUIREMENTS_FILE_NAME || 'Requirements.md';
-        const analysisReportFileName = process.env.ANALYSIS_REPORT_FILE_NAME || 'AnalysisReport.md';
+        const generatedTestsReportFileName = process.env.GENERATED_TESTS_REPORT_FILE_NAME || 'GeneratedTestsReport.md';
 
         const jiraFilePath = `${analysisFolder}/${jiraFileName}`;
         const requirementsFilePath = `${analysisFolder}/${requirementsFileName}`;
-        const analysisReportFilePath = `${analysisFolder}/${analysisReportFileName}`;
+        const generatedTestsReportFilePath = `${analysisFolder}/${generatedTestsReportFileName}`;
 
         // Check if files exist
         const jiraExists = fs.existsSync(jiraFilePath);
         const requirementsExists = fs.existsSync(requirementsFilePath);
-        const analysisReportExists = fs.existsSync(analysisReportFilePath);
+        const generatedTestsReportExists = fs.existsSync(generatedTestsReportFilePath);
 
         if (!jiraExists) {
             console.log(`⚠️  Warning: ${jiraFileName} not found: ${jiraFilePath}`);
@@ -134,20 +134,20 @@ async function main(): Promise<void> {
         if (!requirementsExists) {
             console.log(`⚠️  Warning: ${requirementsFileName} not found: ${requirementsFilePath}`);
         }
-        if (!analysisReportExists) {
-            console.log(`⚠️  Warning: ${analysisReportFileName} not found: ${analysisReportFilePath}`);
+        if (!generatedTestsReportExists) {
+            console.log(`⚠️  Warning: ${generatedTestsReportFileName} not found: ${generatedTestsReportFilePath}`);
         }
 
         // At least one file must exist
-        if (!jiraExists && !requirementsExists && !analysisReportExists) {
-            throw new Error(`No analysis files (${jiraFileName}, ${requirementsFileName}, ${analysisReportFileName}) found in the analysis folder`);
+        if (!jiraExists && !requirementsExists && !generatedTestsReportExists) {
+            throw new Error(`No analysis files (${jiraFileName}, ${requirementsFileName}, ${generatedTestsReportFileName}) found in the analysis folder`);
         }
 
         // Read files
         console.log('\n📖 Reading files...');
         const jiraContent = jiraExists ? fs.readFileSync(jiraFilePath, 'utf-8') : '';
         const requirementsContent = requirementsExists ? fs.readFileSync(requirementsFilePath, 'utf-8') : '';
-        const analysisReportContent = analysisReportExists ? fs.readFileSync(analysisReportFilePath, 'utf-8') : '';
+        const generatedTestsReportContent = generatedTestsReportExists ? fs.readFileSync(generatedTestsReportFilePath, 'utf-8') : '';
 
         if (jiraContent) {
             console.log(`   ✅ ${jiraFileName} read successfully (${(jiraContent.length / 1024).toFixed(2)} KB)`);
@@ -155,8 +155,8 @@ async function main(): Promise<void> {
         if (requirementsContent) {
             console.log(`   ✅ ${requirementsFileName} read successfully (${(requirementsContent.length / 1024).toFixed(2)} KB)`);
         }
-        if (analysisReportContent) {
-            console.log(`   ✅ ${analysisReportFileName} read successfully (${(analysisReportContent.length / 1024).toFixed(2)} KB)`);
+        if (generatedTestsReportContent) {
+            console.log(`   ✅ ${generatedTestsReportFileName} read successfully (${(generatedTestsReportContent.length / 1024).toFixed(2)} KB)`);
         }
 
         const confluenceService = new ConfluenceService(confluenceConfig);
@@ -239,13 +239,13 @@ async function main(): Promise<void> {
 <hr />`;
         }
 
-        // Add Analysis Report content if available
-        if (analysisReportContent) {
+        // Add Generated Tests Report content if available
+        if (generatedTestsReportContent) {
             confluenceContent += `
 <h2>3. Generated Unit Test Cases</h2>
 <ac:structured-macro ac:name="code">
 <ac:parameter ac:name="language">markdown</ac:parameter>
-<ac:plain-text-body><![CDATA[${analysisReportContent}]]></ac:plain-text-body>
+<ac:plain-text-body><![CDATA[${generatedTestsReportContent}]]></ac:plain-text-body>
 </ac:structured-macro>`;
         }
 
@@ -261,7 +261,7 @@ async function main(): Promise<void> {
         console.log(`   Root Page: ${rootPageTitle}`);
         console.log(`   Ticket Page: ${ticketPageTitle}`);
         console.log(`   Analysis Page: ${analysisPageTitle}`);
-        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, requirementsContent && requirementsFileName, analysisReportContent && analysisReportFileName].filter(Boolean).join(', ')}`);
+        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, requirementsContent && requirementsFileName, generatedTestsReportContent && generatedTestsReportFileName].filter(Boolean).join(', ')}`);
         if (analysisPageResponse.url) {
             console.log(`   URL: ${analysisPageResponse.url}`);
         }

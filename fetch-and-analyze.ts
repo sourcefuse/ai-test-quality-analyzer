@@ -1,5 +1,5 @@
 /**
- * Main entry point for CheckUnitTestCases
+ * Main entry point for Generate Unit Tests
  * Demonstrates JIRA and Confluence integration following SourceFuse design patterns
  */
 
@@ -79,7 +79,7 @@ async function main(): Promise<void> {
     loadEnvironment();
 
     console.log('='.repeat(60));
-    console.log('CheckUnitTestCases - JIRA & Confluence Integration Demo');
+    console.log('Generate Unit Tests - JIRA & Confluence Integration');
     console.log('='.repeat(60));
     console.log('Node version:', process.version);
     console.log('Current directory:', process.cwd());
@@ -499,7 +499,7 @@ Your task is to:
    - Any other personal identifiers
 
 IMPORTANT OUTPUT FORMAT:
-- Remove the content which you think is a analysis report, like having text GenerateTestCasesReport_
+- Remove the content which you think is a generated tests report, like having text GeneratedTestsReport_
 - If NO content is relevant, return ONLY the word "EMPTY" (without quotes)
 - If content IS relevant, return ONLY the relevant sections with PII removed as clean markdown
 - Do NOT include explanations, summaries, or metadata - only the filtered content or "EMPTY"
@@ -571,7 +571,7 @@ Return only relevant content with PII removed, or "EMPTY" if nothing is relevant
 - AI-generated reports excluded: ${totalAIReportsSkipped}
 - Completed: ${new Date().toISOString()}
 
-**Note:** AI-generated analysis reports are automatically excluded to prevent feedback loops.
+**Note:** AI-generated test reports are automatically excluded to prevent feedback loops.
 `;
                 fs.appendFileSync(confluenceFilePath, summary);
                 console.log(`✅ Confluence pages saved to ${confluenceFilePath}`);
@@ -1109,7 +1109,7 @@ Extract and structure the relevant information according to the analysis framewo
         }
 
         console.log('\n' + '='.repeat(60));
-        console.log('✅ CheckUnitTestCases - Completed successfully!');
+        console.log('✅ Generate Unit Tests - Completed successfully!');
         console.log('='.repeat(60));
 
         // Explicitly exit with success code

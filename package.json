@@ -1,5 +1,5 @@
 {
-  "name": "checkunittestcases",
+  "name": "generate-unit-tests",
   "version": "1.0.0",
   "main": "dist/check-unit-test-cases.js",
   "scripts": {
@@ -13,7 +13,7 @@
   "keywords": [],
   "author": "Vishal Gupta",
   "license": "ISC",
-  "description": "Unit test case checker",
+  "description": "AI-powered unit test generator",
   "devDependencies": {
     "@types/node": "^24.9.2",
     "ts-node": "^10.9.2",

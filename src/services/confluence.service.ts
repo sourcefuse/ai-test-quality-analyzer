@@ -37,9 +37,9 @@ export class ConfluenceService {
   // Patterns to exclude - pages created by this AI tool
   private readonly EXCLUDE_PATTERNS = [
     'Via-AI',
-    'Quality-Check',
-    'QUALITY-CHECK',
-    'GenerateTestCasesReport_',
+    'Generate-Unit-Tests',
+    'GENERATE-UNIT-TESTS',
+    'GeneratedTestsReport_',
     'Unit-Test-Report',
     'Test-Coverage-Report',
     'AI-Generated',
@@ -400,7 +400,7 @@ export class ConfluenceService {
       console.log(`🏗️  Creating hierarchical page structure for ${ticketId}`);
 
       // Step 1: Create/Get project root page
-      const projectPageTitle = `${projectKey}-QUALITY-CHECK`;
+      const projectPageTitle = `${projectKey}-GENERATE-UNIT-TESTS`;
       console.log(`   Creating project root page: ${projectPageTitle}`);
       const projectPageResponse = await this.createPage({
         title: projectPageTitle,

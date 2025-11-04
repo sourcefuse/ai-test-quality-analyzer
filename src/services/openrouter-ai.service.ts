@@ -42,7 +42,7 @@ export class OpenRouterAIService {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${config.apiKey}`,
         'HTTP-Referer': 'https://github.com/sourcefuse',
-        'X-Title': 'CheckUnitTestCases',
+        'X-Title': 'GenerateUnitTests',
       },
     });
 

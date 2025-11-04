@@ -334,7 +334,7 @@
     "Use organization-level secrets for shared credentials across repos",
     "Enable secret scanning on your repository",
     "Review and audit secret access logs periodically",
-    "Use separate tokens for test generation vs quality checking",
+    "Use separate tokens for test generation vs other workflows",
     "Restrict GitHub token permissions to only necessary scopes"
   ],
   "workflow_features": {
