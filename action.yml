@@ -102,6 +102,7 @@ runs:
         cd ${{ github.action_path }}
         npm install
         npm install -g @anthropic-ai/claude-code
+        echo "$(npm config get prefix)/bin" >> $GITHUB_PATH
 
     - name: Clone repository for test generation
       shell: bash
@@ -161,6 +162,7 @@ runs:
         CONFLUENCE_ROOT_PAGE_SUFFIX=Generate-Unit-Tests-Via-AI
         CONFLUENCE_TICKET_PAGE_SUFFIX=Via-AI
         EOF
+        cat .env
         echo "✅ Environment configuration created"
 
     - name: Step 1 - Fetch JIRA and Confluence data
@@ -382,5 +384,3 @@ runs:
         fi
       env:
         GH_TOKEN: ${{ github.token }}
-
-
