@@ -1,10 +1,9 @@
 {
   "name": "generate-unit-tests",
   "version": "1.0.0",
-  "main": "dist/main.js",
+  "main": "dist/fetch-and-analyze.js",
   "scripts": {
-    "start": "ts-node main.ts",
-    "start:legacy": "ts-node fetch-and-analyze.ts",
+    "start": "ts-node fetch-and-analyze.ts",
     "create-requirement-doc": "claude-code --prompt prompts/create-requirement.md",
     "generate-unit-testcases": "claude-code --prompt prompts/generate-unit-testcases.md",
     "upload-requirements": "ts-node upload-requirements-to-confluence.ts",
