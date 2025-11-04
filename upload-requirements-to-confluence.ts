@@ -140,7 +140,7 @@ async function main(): Promise<void> {
 
         // At least one file must exist
         if (!jiraExists && !requirementsExists && !generatedTestsReportExists) {
-            throw new Error(`No analysis files (${jiraFileName}, ${requirementsFileName}, ${generatedTestsReportFileName}) found in the analysis folder`);
+            throw new Error(`No test generation files (${jiraFileName}, ${requirementsFileName}, ${generatedTestsReportFileName}) found in the folder`);
         }
 
         // Read files
