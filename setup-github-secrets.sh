@@ -4,7 +4,7 @@
 # Setup GitHub Secrets and Variables
 #
 # This script automatically sets up GitHub Actions secrets and variables
-# for the Check Unit Test Cases Quality action by reading values from .env
+# for the Generate Unit Test Cases action by reading values from .env
 #
 # Prerequisites:
 # - GitHub CLI (gh) installed and authenticated
@@ -31,7 +31,7 @@ CONFIG_FILE="$SCRIPT_DIR/GITHUB_CONFIGURATION.json"
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║  GitHub Actions Secrets & Variables Setup                 ║${NC}"
-echo -e "${BLUE}║  Check Unit Test Cases Quality Action                     ║${NC}"
+echo -e "${BLUE}║  Generate Unit Test Cases Action                          ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 

@@ -37,7 +37,7 @@ function getAnalysisFolder(): string {
     const spaceKey = process.env.CONFLUENCE_SPACE_KEY || 'BB';
     const ticketId = process.env.JIRA_TICKET_ID;
     const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
-    const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
+    const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Generate-Unit-Tests-Via-AI';
     const ticketFolderSuffix = process.env.TICKET_FOLDER_SUFFIX || 'Via-AI';
 
     if (!ticketId) {
@@ -176,25 +176,18 @@ async function main(): Promise<void> {
         console.log(`   Ticket: ${ticketKey}`);
         console.log(`   Timestamp: ${timestampFolderName}`);
 
-        // Log score if available
-        const testQualityScore = process.env.TEST_QUALITY_SCORE || 'N/A';
-        const minimumThreshold = process.env.MINIMUM_SCORE_THRESHOLD || 'N/A';
-        const scorePassed = process.env.SCORE_PASSED === 'true';
-
-        if (testQualityScore !== 'N/A') {
-            const scoreIcon = scorePassed ? '✅' : '⚠️';
-            console.log(`   ${scoreIcon} Score: ${testQualityScore}/10 (Threshold: ${minimumThreshold}/10)`);
-        }
+        // Test generation completed
+        console.log(`   ✅ Unit test generation completed successfully`);
 
         // Step 1: Create/Get root page
-        const confluenceRootSuffix = process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Quality-Check-Via-AI';
+        const confluenceRootSuffix = process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Generate-Unit-Tests-Via-AI';
         const confluenceTicketSuffix = process.env.CONFLUENCE_TICKET_PAGE_SUFFIX || 'Via-AI';
 
         const rootPageTitle = `${spaceKey}-${confluenceRootSuffix}`;
         console.log(`\n📄 Step 1/3: Creating/Getting root page: ${rootPageTitle}`);
         const rootPageResponse = await confluenceService.createPage({
             title: rootPageTitle,
-            content: `<p>This page contains AI-generated quality check reports for ${spaceKey} space.</p>`,
+            content: `<p>This page contains AI-generated unit test reports for ${spaceKey} space.</p>`,
             spaceKey: spaceKey,
         });
         console.log(`   ✅ Root page ID: ${rootPageResponse.pageId}`);
@@ -204,7 +197,7 @@ async function main(): Promise<void> {
         console.log(`\n📄 Step 2/3: Creating/Getting ticket page: ${ticketPageTitle}`);
         const ticketPageResponse = await confluenceService.createPage({
             title: ticketPageTitle,
-            content: `<p>Quality check reports for ticket ${ticketKey}.</p>`,
+            content: `<p>Generated unit test reports for ticket ${ticketKey}.</p>`,
             spaceKey: spaceKey,
             parentId: rootPageResponse.pageId,
         });
@@ -214,28 +207,14 @@ async function main(): Promise<void> {
         const analysisPageTitle = timestampFolderName;
         console.log(`\n📄 Step 3/3: Creating/Updating analysis page: ${analysisPageTitle}`);
 
-        // Format score badge (using variables already defined above)
-        let scoreBadge = '';
-        if (testQualityScore !== 'N/A') {
-            const badgeColor = scorePassed ? '#36B37E' : '#FF5630';
-            const badgeIcon = scorePassed ? '✅' : '⚠️';
-            scoreBadge = `
-<p>
-    <strong>Test Quality Score:</strong>
-    <span style="background-color: ${badgeColor}; color: black; padding: 4px 12px; border-radius: 3px; font-weight: bold;">
-        ${badgeIcon} ${testQualityScore}/10
-    </span>
-    ${minimumThreshold !== 'N/A' ? `<span style="color: #6B778C; margin-left: 8px;">(Threshold: ${minimumThreshold}/10)</span>` : ''}
-</p>`;
-        }
+        // No scoring for test generation
 
         // Format content for Confluence
-        let confluenceContent = `<h1>Complete Analysis Report</h1>
+        let confluenceContent = `<h1>Generated Unit Tests Report</h1>
 <p><strong>Generated:</strong> ${new Date().toISOString()}</p>
 <p><strong>Ticket:</strong> ${ticketKey}</p>
 <p><strong>Space:</strong> ${spaceKey}</p>
 <p><strong>Analysis Path:</strong> ${timestampFolderName}</p>
-${scoreBadge}
 <hr />`;
 
         // Add JIRA content if available
@@ -263,7 +242,7 @@ ${scoreBadge}
         // Add Analysis Report content if available
         if (analysisReportContent) {
             confluenceContent += `
-<h2>3. Test Cases Quality Analysis</h2>
+<h2>3. Generated Unit Test Cases</h2>
 <ac:structured-macro ac:name="code">
 <ac:parameter ac:name="language">markdown</ac:parameter>
 <ac:plain-text-body><![CDATA[${analysisReportContent}]]></ac:plain-text-body>
