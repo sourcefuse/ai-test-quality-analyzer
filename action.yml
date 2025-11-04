@@ -117,6 +117,7 @@ runs:
         mkdir -p repo
         cd repo
         git clone --depth 1 --branch "$BRANCH" --single-branch https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git .
+        touch .txt
         echo "✅ Repository cloned successfully (branch: $BRANCH)"
 
     - name: Create .env file
@@ -165,7 +166,6 @@ runs:
         cat .env
         echo "✅ Environment configuration created"
 
-    # COMMENTED FOR TESTING - Skip slow operations
     # - name: Step 1 - Fetch JIRA and Confluence data
     #   shell: bash
     #   run: |
@@ -212,42 +212,6 @@ runs:
     #       echo "confluence_url=" >> $GITHUB_OUTPUT
     #       echo "✅ Results uploaded to Confluence"
     #     fi
-
-    - name: TEST ONLY - Create dummy test file
-      shell: bash
-      run: |
-        cd ${{ github.action_path }}/repo
-        echo "🧪 TEST MODE: Creating dummy test file for PR testing..."
-        
-        # Create a simple test file
-        mkdir -p src/tests
-        cat > src/tests/dummy.test.ts << 'EOF'
-        // TEST FILE - Generated for testing PR creation workflow
-        // JIRA Ticket: ${{ inputs.jira_ticket_id }}
-        // Generated at: $(date)
-        
-        describe('Dummy Test Suite', () => {
-          it('should pass basic test', () => {
-            expect(true).toBe(true);
-          });
-          
-          it('should validate string operations', () => {
-            const testString = 'Hello World';
-            expect(testString).toContain('World');
-            expect(testString.length).toBe(11);
-          });
-          
-          it('should test array operations', () => {
-            const testArray = [1, 2, 3, 4, 5];
-            expect(testArray).toHaveLength(5);
-            expect(testArray).toContain(3);
-          });
-        });
-        EOF
-        
-        echo "✅ Dummy test file created at src/tests/dummy.test.ts"
-        echo "📋 File contents:"
-        cat src/tests/dummy.test.ts
 
     - name: Step 4 - Commit and Push Generated Tests
       id: commit_tests
@@ -363,7 +327,7 @@ TEST_FILES_PLACEHOLDER
 ```
 
 ### 📚 Documentation
-- **Confluence Report:** (Skipped in test mode)
+- **Confluence Report:** ${{ steps.upload_confluence.outputs.confluence_url }}
 
 ### ✅ Next Steps
 1. Review the generated test files
