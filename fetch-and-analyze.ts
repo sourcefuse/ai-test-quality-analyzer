@@ -145,7 +145,7 @@ async function main(): Promise<void> {
                 // Create folder with naming convention: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{date-time-TIMESTAMP_FOLDER_SUFFIX}
                 const spaceKey = process.env.CONFLUENCE_SPACE_KEY || 'DEFAULT';
                 const ticketKey = ticketDetails.issue.key;
-                const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
+                const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Generate-Unit-Tests-Via-AI';
                 const ticketFolderSuffix = process.env.TICKET_FOLDER_SUFFIX || 'Via-AI';
                 const timestampFolderSuffix = process.env.TIMESTAMP_FOLDER_SUFFIX || 'Via-AI';
 
@@ -268,7 +268,7 @@ async function main(): Promise<void> {
             if (process.env.SAVE_TO_FILE === 'true') {
                 // Create folder with naming convention
                 const spaceKey = confluenceConfig.spaceKey || 'DEFAULT';
-                const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
+                const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Generate-Unit-Tests-Via-AI';
                 const ticketFolderSuffix = process.env.TICKET_FOLDER_SUFFIX || 'Via-AI';
                 const timestampFolderSuffix = process.env.TIMESTAMP_FOLDER_SUFFIX || 'Via-AI';
                 const baseDir = `./${spaceKey}-${baseFolderSuffix}`;
@@ -393,7 +393,7 @@ Strategy: Incremental batch processing - saving raw content to file
 
                 // Get AI-generated report title patterns to exclude from processing
                 const excludeTitlePatterns = [
-                    process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Quality-Check-Via-AI',
+                    process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Generate-Unit-Tests-Via-AI',
                     process.env.CONFLUENCE_TICKET_PAGE_SUFFIX || 'Via-AI',
                 ];
 
