@@ -1,9 +1,9 @@
 {
   "name": "checkunittestcases",
   "version": "1.0.0",
-  "main": "dist/check-unit-test-cases.js",
+  "main": "dist/fetch-and-analyze.js",
   "scripts": {
-    "start": "npx ts-node check-unit-test-cases.ts",
+    "start": "npx ts-node fetch-and-analyze.ts",
     "create-requirements": "npx ts-node create-requirements.ts",
     "upload-requirements": "npx ts-node upload-requirements-to-confluence.ts",
     "create-requirement-doc": "claude --print --dangerously-skip-permissions < prompts/create-requirement.md",
