@@ -1,0 +1,353 @@
+{
+  "secrets": {
+    "description": "Sensitive data that must be encrypted. Set these in: Repository Settings → Secrets and variables → Actions → Secrets",
+    "required": [
+      {
+        "name": "UT_GENERATE_JIRA_URL",
+        "env_var": "JIRA_URL",
+        "description": "JIRA instance URL (e.g., https://yourcompany.atlassian.net)",
+        "example": "https://yourcompany.atlassian.net",
+        "sensitive": true,
+        "reason": "May contain company-specific domain information"
+      },
+      {
+        "name": "UT_GENERATE_JIRA_EMAIL",
+        "env_var": "JIRA_EMAIL",
+        "description": "JIRA user email for authentication",
+        "example": "jira-bot@yourcompany.com",
+        "sensitive": true,
+        "reason": "Contains user credentials"
+      },
+      {
+        "name": "UT_GENERATE_JIRA_API_TOKEN",
+        "env_var": "JIRA_API_TOKEN",
+        "description": "JIRA API token for authentication",
+        "example": "ATBBxxxxxxxxxxxxxxxxxxxxxx",
+        "sensitive": true,
+        "reason": "API token with full access to JIRA"
+      },
+      {
+        "name": "UT_GENERATE_CONFLUENCE_URL",
+        "env_var": "CONFLUENCE_URL",
+        "description": "Confluence instance URL",
+        "example": "https://yourcompany.atlassian.net/wiki",
+        "sensitive": true,
+        "reason": "May contain company-specific domain information"
+      },
+      {
+        "name": "UT_GENERATE_CONFLUENCE_EMAIL",
+        "env_var": "CONFLUENCE_EMAIL",
+        "description": "Confluence user email for authentication",
+        "example": "confluence-bot@yourcompany.com",
+        "sensitive": true,
+        "reason": "Contains user credentials"
+      },
+      {
+        "name": "UT_GENERATE_CONFLUENCE_API_TOKEN",
+        "env_var": "CONFLUENCE_API_TOKEN",
+        "description": "Confluence API token for authentication",
+        "example": "ATBBxxxxxxxxxxxxxxxxxxxxxx",
+        "sensitive": true,
+        "reason": "API token with full access to Confluence"
+      },
+      {
+        "name": "UT_GENERATE_CONFLUENCE_UPLOAD_URL",
+        "env_var": "CONFLUENCE_UPLOAD_URL",
+        "description": "Confluence instance URL for uploading generated test cases (optional - if different from fetch URL)",
+        "example": "https://targetcompany.atlassian.net/wiki",
+        "sensitive": true,
+        "reason": "May contain company-specific domain information"
+      },
+      {
+        "name": "UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL",
+        "env_var": "CONFLUENCE_UPLOAD_EMAIL",
+        "description": "Confluence user email for uploading generated test cases (optional - if different from fetch email)",
+        "example": "upload-bot@targetcompany.com",
+        "sensitive": true,
+        "reason": "Contains user credentials"
+      },
+      {
+        "name": "UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN",
+        "env_var": "CONFLUENCE_UPLOAD_API_TOKEN",
+        "description": "Confluence API token for uploading generated test cases (optional - if different from fetch token)",
+        "example": "ATBBxxxxxxxxxxxxxxxxxxxxxx",
+        "sensitive": true,
+        "reason": "API token with full access to Confluence"
+      },
+      {
+        "name": "UT_GENERATE_AWS_REGION_BEDROCK",
+        "env_var": "AWS_REGION_BEDROCK",
+        "description": "AWS region for Bedrock service",
+        "example": "us-east-2",
+        "sensitive": false,
+        "reason": "AWS region configuration"
+      },
+      {
+        "name": "UT_GENERATE_AWS_ACCESS_KEY_BEDROCK",
+        "env_var": "AWS_ACCESS_KEY_BEDROCK",
+        "description": "AWS access key for Bedrock authentication",
+        "example": "AKIAIOSFODNN7EXAMPLE",
+        "sensitive": true,
+        "reason": "AWS access credentials"
+      },
+      {
+        "name": "UT_GENERATE_AWS_SECRET_KEY_BEDROCK",
+        "env_var": "AWS_SECRET_KEY_BEDROCK",
+        "description": "AWS secret key for Bedrock authentication",
+        "example": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+        "sensitive": true,
+        "reason": "AWS secret credentials"
+      },
+      {
+        "name": "UT_GENERATE_AWS_BEDROCK_MODEL",
+        "env_var": "AWS_BEDROCK_MODEL",
+        "description": "AWS Bedrock model identifier for generating test cases",
+        "example": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "sensitive": false,
+        "reason": "Model configuration, not sensitive"
+      },
+      {
+        "name": "UT_GENERATE_ANTHROPIC_MODEL",
+        "env_var": "ANTHROPIC_MODEL",
+        "description": "Anthropic model name for Claude",
+        "example": "sonnet[1m]",
+        "sensitive": false,
+        "reason": "Model configuration, not sensitive"
+      },
+      {
+        "name": "UT_GENERATE_GITHUB_TOKEN",
+        "env_var": "GITHUB_TOKEN",
+        "description": "GitHub token for accessing repository and creating PRs",
+        "example": "ghp_xxxxxxxxxxxxxxxxxxxxxx",
+        "sensitive": true,
+        "reason": "GitHub personal access token with repository permissions"
+      }
+    ]
+  },
+  "variables": {
+    "description": "Non-sensitive configuration values. Set these in: Repository Settings → Secrets and variables → Actions → Variables",
+    "optional": [
+      {
+        "name": "UT_GENERATE_JIRA_PROJECT_KEY",
+        "env_var": "JIRA_PROJECT_KEY",
+        "description": "JIRA project key identifier",
+        "example": "BB",
+        "default": "BB",
+        "sensitive": false,
+        "reason": "Public project identifier, not sensitive"
+      },
+      {
+        "name": "UT_GENERATE_CONFLUENCE_SPACE_KEY",
+        "env_var": "CONFLUENCE_SPACE_KEY",
+        "description": "Confluence space key identifier",
+        "example": "BB",
+        "default": "BB",
+        "sensitive": false,
+        "reason": "Public space identifier, not sensitive"
+      },
+      {
+        "name": "UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY",
+        "env_var": "CONFLUENCE_UPLOAD_SPACE_KEY",
+        "description": "Confluence space key for uploading generated test cases (optional - if different from fetch space)",
+        "example": "TARGET",
+        "default": "",
+        "sensitive": false,
+        "reason": "Public space identifier, not sensitive"
+      },
+      {
+        "name": "UT_GENERATE_TEST_FRAMEWORK",
+        "env_var": "TEST_FRAMEWORK",
+        "description": "Testing framework to use for generated tests",
+        "example": "mocha",
+        "default": "mocha",
+        "sensitive": false,
+        "reason": "Framework configuration, not sensitive"
+      },
+      {
+        "name": "UT_GENERATE_UPLOAD_TO_CONFLUENCE",
+        "env_var": "UPLOAD_TO_CONFLUENCE",
+        "description": "Whether to upload generated test cases to Confluence (true/false)",
+        "example": "true",
+        "default": "true",
+        "sensitive": false,
+        "reason": "Feature flag, not sensitive"
+      },
+      {
+        "name": "UT_GENERATE_CREATE_PULL_REQUEST",
+        "env_var": "CREATE_PULL_REQUEST",
+        "description": "Whether to create a pull request with generated tests (true/false)",
+        "example": "true",
+        "default": "true",
+        "sensitive": false,
+        "reason": "Feature flag, not sensitive"
+      },
+      {
+        "name": "UT_GENERATE_WORKFLOW_RETENTION_DAYS",
+        "env_var": "WORKFLOW_RETENTION_DAYS",
+        "description": "Number of days to retain workflow artifacts",
+        "example": "7",
+        "default": "7",
+        "sensitive": false,
+        "reason": "Retention policy, not sensitive"
+      },
+      {
+        "name": "UT_GENERATE_CLAUDE_CODE_USE_BEDROCK",
+        "env_var": "CLAUDE_CODE_USE_BEDROCK",
+        "description": "Enable AWS Bedrock for Claude (1=enabled, 0=disabled)",
+        "example": "1",
+        "default": "1",
+        "sensitive": false,
+        "reason": "Feature flag, not sensitive"
+      },
+      {
+        "name": "UT_GENERATE_MAX_FILES_PER_RUN",
+        "env_var": "MAX_FILES_PER_RUN",
+        "description": "Maximum number of files to generate tests for in a single run",
+        "example": "10",
+        "default": "10",
+        "sensitive": false,
+        "reason": "Performance configuration, not sensitive"
+      },
+      {
+        "name": "UT_GENERATE_TARGET_COVERAGE",
+        "env_var": "TARGET_COVERAGE",
+        "description": "Target code coverage percentage for generated tests",
+        "example": "80",
+        "default": "80",
+        "sensitive": false,
+        "reason": "Quality metric configuration, not sensitive"
+      }
+    ]
+  },
+  "environment_specific": {
+    "description": "Values that are automatically provided by GitHub Actions context",
+    "builtin": [
+      {
+        "name": "github.server_url",
+        "description": "GitHub server URL",
+        "example": "https://github.com",
+        "usage": "${{ github.server_url }}"
+      },
+      {
+        "name": "github.repository",
+        "description": "Repository owner/name",
+        "example": "your-org/your-repo",
+        "usage": "${{ github.repository }}"
+      },
+      {
+        "name": "github.head_ref",
+        "description": "Branch name for PR",
+        "example": "feature/BB-15690-test",
+        "usage": "${{ github.head_ref || github.ref_name }}"
+      },
+      {
+        "name": "github.run_id",
+        "description": "Workflow run ID",
+        "example": "123456789",
+        "usage": "${{ github.run_id }}"
+      },
+      {
+        "name": "github.run_number",
+        "description": "Workflow run number",
+        "example": "42",
+        "usage": "${{ github.run_number }}"
+      },
+      {
+        "name": "github.actor",
+        "description": "User who triggered the workflow",
+        "example": "johndoe",
+        "usage": "${{ github.actor }}"
+      },
+      {
+        "name": "github.event.pull_request.number",
+        "description": "Pull request number",
+        "example": "123",
+        "usage": "${{ github.event.pull_request.number }}"
+      }
+    ]
+  },
+  "usage_in_workflow": {
+    "secrets_example": {
+      "jira_url": "${{ secrets.UT_GENERATE_JIRA_URL }}",
+      "jira_email": "${{ secrets.UT_GENERATE_JIRA_EMAIL }}",
+      "jira_api_token": "${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}",
+      "confluence_url": "${{ secrets.UT_GENERATE_CONFLUENCE_URL }}",
+      "confluence_email": "${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}",
+      "confluence_api_token": "${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}",
+      "confluence_upload_url": "${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_URL }}",
+      "confluence_upload_email": "${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL }}",
+      "confluence_upload_api_token": "${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN }}",
+      "aws_region_bedrock": "${{ secrets.UT_GENERATE_AWS_REGION_BEDROCK }}",
+      "aws_access_key_bedrock": "${{ secrets.UT_GENERATE_AWS_ACCESS_KEY_BEDROCK }}",
+      "aws_secret_key_bedrock": "${{ secrets.UT_GENERATE_AWS_SECRET_KEY_BEDROCK }}",
+      "aws_bedrock_model": "${{ secrets.UT_GENERATE_AWS_BEDROCK_MODEL }}",
+      "anthropic_model": "${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}",
+      "github_token": "${{ secrets.UT_GENERATE_GITHUB_TOKEN }}"
+    },
+    "variables_example": {
+      "jira_project_key": "${{ vars.UT_GENERATE_JIRA_PROJECT_KEY || 'BB' }}",
+      "confluence_space_key": "${{ vars.UT_GENERATE_CONFLUENCE_SPACE_KEY || 'BB' }}",
+      "confluence_upload_space_key": "${{ vars.UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY || '' }}",
+      "test_framework": "${{ vars.UT_GENERATE_TEST_FRAMEWORK || 'mocha' }}",
+      "upload_to_confluence": "${{ vars.UT_GENERATE_UPLOAD_TO_CONFLUENCE || 'true' }}",
+      "create_pull_request": "${{ vars.UT_GENERATE_CREATE_PULL_REQUEST || 'true' }}",
+      "claude_code_use_bedrock": "${{ vars.UT_GENERATE_CLAUDE_CODE_USE_BEDROCK || '1' }}",
+      "max_files_per_run": "${{ vars.UT_GENERATE_MAX_FILES_PER_RUN || '10' }}",
+      "target_coverage": "${{ vars.UT_GENERATE_TARGET_COVERAGE || '80' }}"
+    }
+  },
+  "setup_instructions": {
+    "secrets": [
+      "1. Go to your repository on GitHub",
+      "2. Navigate to Settings → Secrets and variables → Actions",
+      "3. Click on 'Secrets' tab",
+      "4. Click 'New repository secret'",
+      "5. Add each secret from the 'required' list above with UT_GENERATE_ prefix",
+      "6. Click 'Add secret' to save"
+    ],
+    "variables": [
+      "1. Go to your repository on GitHub",
+      "2. Navigate to Settings → Secrets and variables → Actions",
+      "3. Click on 'Variables' tab",
+      "4. Click 'New repository variable'",
+      "5. Add variables from the 'optional' list above (if you want to override defaults)",
+      "6. Click 'Add variable' to save"
+    ],
+    "github_token_permissions": [
+      "The UT_GENERATE_GITHUB_TOKEN needs the following permissions:",
+      "- repo (Full control of private repositories)",
+      "- workflow (Update GitHub Action workflows)",
+      "- write:packages (Write packages to GitHub registry)",
+      "- read:org (Read org and team membership)",
+      "These are needed to:",
+      "- Create branches with generated test files",
+      "- Open pull requests",
+      "- Add comments to PRs",
+      "- Update workflow status"
+    ]
+  },
+  "security_best_practices": [
+    "Never commit secrets or API tokens to the repository",
+    "Rotate API tokens regularly (every 90 days recommended)",
+    "Use dedicated service accounts for CI/CD workflows",
+    "Limit API token permissions to minimum required scope",
+    "Use organization-level secrets for shared credentials across repos",
+    "Enable secret scanning on your repository",
+    "Review and audit secret access logs periodically",
+    "Use separate tokens for test generation vs quality checking",
+    "Restrict GitHub token permissions to only necessary scopes"
+  ],
+  "workflow_features": {
+    "description": "Key features of the test generation workflow",
+    "features": [
+      "Automatically generates unit tests based on JIRA requirements",
+      "Fetches context from Confluence documentation",
+      "Uses AI (Claude via AWS Bedrock) to generate comprehensive tests",
+      "Creates pull requests with generated test files",
+      "Uploads generated tests to Confluence for documentation",
+      "Supports multiple testing frameworks (Mocha, Jest, etc.)",
+      "Configurable coverage targets",
+      "Batch processing for multiple files"
+    ]
+  }
+}
