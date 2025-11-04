@@ -58,7 +58,7 @@ on:
       target_branch:
         description: 'Target branch for generated unit test cases (default: main)'
         required: false
-        default: 'main'
+        default: 'dev'
         type: string
 
 concurrency:
@@ -165,13 +165,3 @@ jobs:
           echo ""
           echo "🤖 Generated unit test cases are ready for review!"
           echo "========================================"
-
-      # Optional: Upload generated test cases as artifacts
-      # Uncomment to save generated test files to GitHub Actions artifacts
-      # - name: Upload Generated Test Cases
-      #   if: always()
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: generated-tests-${{ steps.extract_ticket.outputs.ticket_id }}-${{ github.run_number }}
-      #     path: ${{ steps.generate_tests.outputs.analysis_path }}
-      #     retention-days: ${{ vars.UT_GENERATE_WORKFLOW_RETENTION_DAYS || '7' }}

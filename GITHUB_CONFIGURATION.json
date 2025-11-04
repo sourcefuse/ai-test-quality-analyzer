@@ -155,15 +155,6 @@
         "reason": "Public space identifier, not sensitive"
       },
       {
-        "name": "UT_GENERATE_TEST_FRAMEWORK",
-        "env_var": "TEST_FRAMEWORK",
-        "description": "Testing framework to use for generated tests",
-        "example": "mocha",
-        "default": "mocha",
-        "sensitive": false,
-        "reason": "Framework configuration, not sensitive"
-      },
-      {
         "name": "UT_GENERATE_UPLOAD_TO_CONFLUENCE",
         "env_var": "UPLOAD_TO_CONFLUENCE",
         "description": "Whether to upload generated test cases to Confluence (true/false)",
@@ -288,7 +279,6 @@
       "jira_project_key": "${{ vars.UT_GENERATE_JIRA_PROJECT_KEY || 'BB' }}",
       "confluence_space_key": "${{ vars.UT_GENERATE_CONFLUENCE_SPACE_KEY || 'BB' }}",
       "confluence_upload_space_key": "${{ vars.UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY || '' }}",
-      "test_framework": "${{ vars.UT_GENERATE_TEST_FRAMEWORK || 'mocha' }}",
       "upload_to_confluence": "${{ vars.UT_GENERATE_UPLOAD_TO_CONFLUENCE || 'true' }}",
       "create_pull_request": "${{ vars.UT_GENERATE_CREATE_PULL_REQUEST || 'true' }}",
       "claude_code_use_bedrock": "${{ vars.UT_GENERATE_CLAUDE_CODE_USE_BEDROCK || '1' }}",
