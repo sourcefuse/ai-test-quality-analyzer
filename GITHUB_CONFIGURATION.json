@@ -51,6 +51,30 @@
         "reason": "API token with full access to Confluence"
       },
       {
+        "name": "UT_QUALITY_CONFLUENCE_UPLOAD_URL",
+        "env_var": "CONFLUENCE_UPLOAD_URL",
+        "description": "Confluence instance URL for uploading results (optional - if different from fetch URL)",
+        "example": "https://targetcompany.atlassian.net/wiki",
+        "sensitive": true,
+        "reason": "May contain company-specific domain information"
+      },
+      {
+        "name": "UT_QUALITY_CONFLUENCE_UPLOAD_EMAIL",
+        "env_var": "CONFLUENCE_UPLOAD_EMAIL",
+        "description": "Confluence user email for uploading results (optional - if different from fetch email)",
+        "example": "upload-bot@targetcompany.com",
+        "sensitive": true,
+        "reason": "Contains user credentials"
+      },
+      {
+        "name": "UT_QUALITY_CONFLUENCE_UPLOAD_API_TOKEN",
+        "env_var": "CONFLUENCE_UPLOAD_API_TOKEN",
+        "description": "Confluence API token for uploading results (optional - if different from fetch token)",
+        "example": "ATBBxxxxxxxxxxxxxxxxxxxxxx",
+        "sensitive": true,
+        "reason": "API token with full access to Confluence"
+      },
+      {
         "name": "UT_QUALITY_AWS_REGION_BEDROCK",
         "env_var": "AWS_REGION_BEDROCK",
         "description": "AWS region for Bedrock service",
@@ -110,6 +134,15 @@
         "description": "Confluence space key identifier",
         "example": "BB",
         "default": "BB",
+        "sensitive": false,
+        "reason": "Public space identifier, not sensitive"
+      },
+      {
+        "name": "UT_QUALITY_CONFLUENCE_UPLOAD_SPACE_KEY",
+        "env_var": "CONFLUENCE_UPLOAD_SPACE_KEY",
+        "description": "Confluence space key for uploading results (optional - if different from fetch space)",
+        "example": "TARGET",
+        "default": "",
         "sensitive": false,
         "reason": "Public space identifier, not sensitive"
       },
@@ -194,6 +227,9 @@
       "confluence_url": "${{ secrets.UT_QUALITY_CONFLUENCE_URL }}",
       "confluence_email": "${{ secrets.UT_QUALITY_CONFLUENCE_EMAIL }}",
       "confluence_api_token": "${{ secrets.UT_QUALITY_CONFLUENCE_API_TOKEN }}",
+      "confluence_upload_url": "${{ secrets.UT_QUALITY_CONFLUENCE_UPLOAD_URL }}",
+      "confluence_upload_email": "${{ secrets.UT_QUALITY_CONFLUENCE_UPLOAD_EMAIL }}",
+      "confluence_upload_api_token": "${{ secrets.UT_QUALITY_CONFLUENCE_UPLOAD_API_TOKEN }}",
       "aws_region_bedrock": "${{ secrets.UT_QUALITY_AWS_REGION_BEDROCK }}",
       "aws_access_key_bedrock": "${{ secrets.UT_QUALITY_AWS_ACCESS_KEY_BEDROCK }}",
       "aws_secret_key_bedrock": "${{ secrets.UT_QUALITY_AWS_SECRET_KEY_BEDROCK }}",
@@ -203,6 +239,7 @@
     "variables_example": {
       "jira_project_key": "${{ vars.UT_QUALITY_JIRA_PROJECT_KEY || 'BB' }}",
       "confluence_space_key": "${{ vars.UT_QUALITY_CONFLUENCE_SPACE_KEY || 'BB' }}",
+      "confluence_upload_space_key": "${{ vars.UT_QUALITY_CONFLUENCE_UPLOAD_SPACE_KEY || '' }}",
       "minimum_score": "${{ vars.UT_QUALITY_MINIMUM_SCORE || '1.0' }}",
       "upload_to_confluence": "${{ vars.UT_QUALITY_UPLOAD_TO_CONFLUENCE || 'true' }}",
       "claude_code_use_bedrock": "${{ vars.UT_QUALITY_CLAUDE_CODE_USE_BEDROCK || '1' }}"

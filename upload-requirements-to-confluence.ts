@@ -61,14 +61,21 @@ function getAnalysisFolder(): string {
 }
 
 /**
- * Get Confluence configuration
+ * Get Confluence configuration for uploading
+ * Uses upload-specific env vars if provided, otherwise falls back to fetch config
  */
 function getConfluenceConfig(): ConfluenceConfigDto {
+    // Use upload config if provided, otherwise fall back to fetch config
+    const uploadUrl = process.env.CONFLUENCE_UPLOAD_URL;
+    const uploadEmail = process.env.CONFLUENCE_UPLOAD_EMAIL;
+    const uploadApiToken = process.env.CONFLUENCE_UPLOAD_API_TOKEN;
+    const uploadSpaceKey = process.env.CONFLUENCE_UPLOAD_SPACE_KEY;
+
     return {
-        host: process.env.CONFLUENCE_URL || '',
-        email: process.env.CONFLUENCE_EMAIL || '',
-        apiToken: process.env.CONFLUENCE_API_TOKEN || '',
-        spaceKey: process.env.CONFLUENCE_SPACE_KEY,
+        host: uploadUrl || process.env.CONFLUENCE_URL || '',
+        email: uploadEmail || process.env.CONFLUENCE_EMAIL || '',
+        apiToken: uploadApiToken || process.env.CONFLUENCE_API_TOKEN || '',
+        spaceKey: uploadSpaceKey || process.env.CONFLUENCE_SPACE_KEY,
     };
 }
 
@@ -85,6 +92,29 @@ async function main(): Promise<void> {
     try {
         // Get analysis folder from environment variables
         const analysisFolder = getAnalysisFolder();
+
+        // Get Confluence configuration and show which account is being used
+        const confluenceConfig = getConfluenceConfig();
+        
+        // Check if using separate upload account
+        const usingUploadAccount = !!(
+            process.env.CONFLUENCE_UPLOAD_URL || 
+            process.env.CONFLUENCE_UPLOAD_EMAIL || 
+            process.env.CONFLUENCE_UPLOAD_API_TOKEN || 
+            process.env.CONFLUENCE_UPLOAD_SPACE_KEY
+        );
+        
+        if (usingUploadAccount) {
+            console.log('📤 Using separate Confluence account for upload:');
+            console.log(`   URL: ${confluenceConfig.host}`);
+            console.log(`   Email: ${confluenceConfig.email}`);
+            console.log(`   Space: ${confluenceConfig.spaceKey}`);
+        } else {
+            console.log('📤 Using same Confluence account for upload as fetching');
+            console.log(`   URL: ${confluenceConfig.host}`);
+            console.log(`   Email: ${confluenceConfig.email}`);
+            console.log(`   Space: ${confluenceConfig.spaceKey}`);
+        }
         const jiraFileName = process.env.JIRA_FILE_NAME || 'Jira.md';
         const requirementsFileName = process.env.REQUIREMENTS_FILE_NAME || 'Requirements.md';
         const analysisReportFileName = process.env.ANALYSIS_REPORT_FILE_NAME || 'AnalysisReport.md';
@@ -129,8 +159,6 @@ async function main(): Promise<void> {
             console.log(`   ✅ ${analysisReportFileName} read successfully (${(analysisReportContent.length / 1024).toFixed(2)} KB)`);
         }
 
-        // Get Confluence configuration
-        const confluenceConfig = getConfluenceConfig();
         const confluenceService = new ConfluenceService(confluenceConfig);
         confluenceService.validateConfig();
 

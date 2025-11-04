@@ -83,6 +83,30 @@ inputs:
     description: 'Enable AWS Bedrock for Claude (1=enabled, 0=disabled)'
     required: false
     default: '1'
+  base_folder_suffix:
+    description: 'Base folder suffix for organizing analysis results'
+    required: false
+    default: 'Quality-Check-Via-AI'
+  confluence_root_page_suffix:
+    description: 'Confluence root page suffix for organizing reports'
+    required: false
+    default: 'Quality-Check-Via-AI'
+  confluence_upload_url:
+    description: 'Confluence instance URL for uploading results (if different from fetch URL)'
+    required: false
+    default: ''
+  confluence_upload_email:
+    description: 'Confluence user email for uploading results (if different from fetch email)'
+    required: false
+    default: ''
+  confluence_upload_api_token:
+    description: 'Confluence API token for uploading results (if different from fetch token)'
+    required: false
+    default: ''
+  confluence_upload_space_key:
+    description: 'Confluence space key for uploading results (if different from fetch space)'
+    required: false
+    default: ''
 
 outputs:
   test_quality_score:
@@ -146,12 +170,18 @@ runs:
         JIRA_TICKET_ID=${{ inputs.jira_ticket_id }}
         JIRA_PROJECT_KEY=${{ inputs.jira_project_key }}
 
-        # Confluence Configuration
+        # Confluence Configuration (for fetching data)
         CONFLUENCE_URL=${{ inputs.confluence_url }}
         CONFLUENCE_EMAIL=${{ inputs.confluence_email }}
         CONFLUENCE_API_TOKEN=${{ inputs.confluence_api_token }}
         CONFLUENCE_SPACE_KEY=${{ inputs.confluence_space_key }}
         CONFLUENCE_SILENT_MODE=${{ inputs.confluence_silent_mode }}
+
+        # Confluence Upload Configuration (for uploading results)
+        CONFLUENCE_UPLOAD_URL=${{ inputs.confluence_upload_url }}
+        CONFLUENCE_UPLOAD_EMAIL=${{ inputs.confluence_upload_email }}
+        CONFLUENCE_UPLOAD_API_TOKEN=${{ inputs.confluence_upload_api_token }}
+        CONFLUENCE_UPLOAD_SPACE_KEY=${{ inputs.confluence_upload_space_key }}
 
         # AWS Bedrock Configuration
         AWS_REGION_BEDROCK=${{ inputs.aws_region_bedrock }}
@@ -160,6 +190,8 @@ runs:
         AWS_BEDROCK_MODEL=${{ inputs.aws_bedrock_model }}
         ANTHROPIC_MODEL=${{ inputs.anthropic_model }}
         CLAUDE_CODE_USE_BEDROCK=${{ inputs.claude_code_use_bedrock }}
+        BASE_FOLDER_SUFFIX=${{ inputs.base_folder_suffix }}
+        CONFLUENCE_ROOT_PAGE_SUFFIX=${{ inputs.confluence_root_page_suffix }}
 
         # Analysis Configuration
         CURRENT_ANALYSIS_PATH=$(echo $(date +'%Y%m%d-%H-%M-%S')-Via-AI)
