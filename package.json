@@ -3,7 +3,11 @@
   "version": "1.0.0",
   "main": "dist/check-unit-test-cases.js",
   "scripts": {
-    
+    "start": "npx ts-node check-unit-test-cases.ts",
+    "create-requirements": "npx ts-node create-requirements.ts",
+    "upload-requirements": "npx ts-node upload-requirements-to-confluence.ts",
+    "create-requirement-doc": "claude --print --dangerously-skip-permissions < prompts/create-requirement.md",
+    "analyze-test-quality": "claude --print --dangerously-skip-permissions < prompts/analyze-test-quality.md"
   },
   "keywords": [],
   "author": "Vishal Gupta",
