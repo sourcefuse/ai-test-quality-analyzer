@@ -1,0 +1,386 @@
+name: 'Generate Unit Test Cases Via AI'
+description: 'Generate unit test cases using AI by analyzing JIRA requirements, Confluence documentation, and repository code'
+author: 'Vishal Gupta'
+
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  jira_url:
+    description: 'JIRA instance URL'
+    required: true
+  jira_email:
+    description: 'JIRA user email'
+    required: true
+  jira_api_token:
+    description: 'JIRA API token'
+    required: true
+  jira_ticket_id:
+    description: 'JIRA ticket ID for generating unit tests (e.g., BB-15690)'
+    required: true
+  jira_project_key:
+    description: 'JIRA project key'
+    required: true
+  confluence_url:
+    description: 'Confluence instance URL'
+    required: true
+  confluence_email:
+    description: 'Confluence user email'
+    required: true
+  confluence_api_token:
+    description: 'Confluence API token'
+    required: true
+  confluence_space_key:
+    description: 'Confluence space key'
+    required: true
+  confluence_silent_mode:
+    description: 'Suppress logging during Confluence page downloads (true/false)'
+    required: false
+    default: 'true'
+  confluence_upload_url:
+    description: 'Confluence URL for uploading generated test results (optional - if different from fetch URL)'
+    required: false
+  confluence_upload_email:
+    description: 'Confluence email for uploading results (optional - if different from fetch email)'
+    required: false
+  confluence_upload_api_token:
+    description: 'Confluence API token for uploading results (optional - if different from fetch token)'
+    required: false
+  confluence_upload_space_key:
+    description: 'Confluence space key for uploading results (optional - if different from fetch space)'
+    required: false
+  current_analysis_path:
+    description: 'Specific analysis folder to use (optional, auto-generated if not provided)'
+    required: false
+    default: ''
+  repository_url:
+    description: 'Repository URL to clone for generating unit tests'
+    required: true
+  repository_branch:
+    description: 'Branch name to clone'
+    required: false
+    default: 'main'
+  target_branch:
+    description: 'Target branch for creating/committing generated unit test cases'
+    required: false
+    default: 'main'
+  aws_region_bedrock:
+    description: 'AWS region for Bedrock service'
+    required: false
+    default: 'us-east-2'
+  aws_access_key_bedrock:
+    description: 'AWS access key for Bedrock authentication'
+    required: true
+  aws_secret_key_bedrock:
+    description: 'AWS secret key for Bedrock authentication'
+    required: true
+  aws_bedrock_model:
+    description: 'AWS Bedrock model identifier'
+    required: false
+    default: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
+  anthropic_model:
+    description: 'Anthropic model name for Claude'
+    required: false
+    default: 'sonnet[1m]'
+  claude_code_use_bedrock:
+    description: 'Enable AWS Bedrock for Claude (1=enabled, 0=disabled)'
+    required: false
+    default: '1'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        npm install
+        npm install -g @anthropic-ai/claude-code
+
+    - name: Clone repository for test generation
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        echo "📥 Cloning repository for unit test generation..."
+
+        # Use target_branch for test generation (where tests will be created)
+        BRANCH="${{ inputs.target_branch }}"
+        echo "Cloning target branch: $BRANCH"
+
+        mkdir -p repo
+        cd repo
+        git clone --depth 1 --branch "$BRANCH" --single-branch https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git .
+        echo "✅ Repository cloned successfully (branch: $BRANCH)"
+
+    - name: Create .env file
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        cat > .env << EOF
+        # JIRA Configuration
+        JIRA_URL=${{ inputs.jira_url }}
+        JIRA_EMAIL=${{ inputs.jira_email }}
+        JIRA_API_TOKEN=${{ inputs.jira_api_token }}
+        JIRA_TICKET_ID=${{ inputs.jira_ticket_id }}
+        JIRA_PROJECT_KEY=${{ inputs.jira_project_key }}
+
+        # Confluence Configuration
+        CONFLUENCE_URL=${{ inputs.confluence_url }}
+        CONFLUENCE_EMAIL=${{ inputs.confluence_email }}
+        CONFLUENCE_API_TOKEN=${{ inputs.confluence_api_token }}
+        CONFLUENCE_SPACE_KEY=${{ inputs.confluence_space_key }}
+        CONFLUENCE_SILENT_MODE=${{ inputs.confluence_silent_mode }}
+        
+        # Confluence Upload Configuration (optional - for uploading to different instance)
+        CONFLUENCE_UPLOAD_URL=${{ inputs.confluence_upload_url }}
+        CONFLUENCE_UPLOAD_EMAIL=${{ inputs.confluence_upload_email }}
+        CONFLUENCE_UPLOAD_API_TOKEN=${{ inputs.confluence_upload_api_token }}
+        CONFLUENCE_UPLOAD_SPACE_KEY=${{ inputs.confluence_upload_space_key }}
+
+        # AWS Bedrock Configuration
+        AWS_REGION_BEDROCK=${{ inputs.aws_region_bedrock }}
+        AWS_ACCESS_KEY_BEDROCK=${{ inputs.aws_access_key_bedrock }}
+        AWS_SECRET_KEY_BEDROCK=${{ inputs.aws_secret_key_bedrock }}
+        AWS_BEDROCK_MODEL=${{ inputs.aws_bedrock_model }}
+        ANTHROPIC_MODEL=${{ inputs.anthropic_model }}
+        CLAUDE_CODE_USE_BEDROCK=${{ inputs.claude_code_use_bedrock }}
+
+        # Analysis Configuration
+        CURRENT_ANALYSIS_PATH=$(echo $(date +'%Y%m%d-%H-%M-%S')-Via-AI)
+        SAVE_TO_FILE=true
+
+        # Test Generation Configuration
+        TARGET_BRANCH=${{ inputs.target_branch }}
+        BASE_FOLDER_SUFFIX=Generate-Unit-Tests-Via-AI
+        CONFLUENCE_ROOT_PAGE_SUFFIX=Generate-Unit-Tests-Via-AI
+        CONFLUENCE_TICKET_PAGE_SUFFIX=Via-AI
+        EOF
+        echo "✅ Environment configuration created"
+
+    - name: Step 1 - Fetch JIRA and Confluence data
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        echo "🔄 Fetching JIRA ticket and Confluence pages..."
+        npm run start
+        echo "✅ Data fetched successfully"
+
+    - name: Step 2 - Create Requirements document
+      if: inputs.claude_code_use_bedrock == '1'
+      shell: bash
+      env:
+        CLAUDE_CODE_USE_BEDROCK:  "1"
+        AWS_REGION:               ${{ inputs.aws_region_bedrock }}
+        ANTHROPIC_MODEL:          ${{ inputs.anthropic_model }}
+        AWS_ACCESS_KEY_ID:        ${{ inputs.aws_access_key_bedrock }}
+        AWS_SECRET_ACCESS_KEY:    ${{ inputs.aws_secret_key_bedrock }}
+      run: |
+        cd ${{ github.action_path }}
+        echo "📋 Creating requirements document from JIRA and Confluence..."
+        npm run create-requirement-doc
+        echo "✅ Requirements document created"
+
+        echo "🔍 Generating unit test cases..."
+        npm run generate-unit-testcases
+        echo "✅ Unit test generation completed"
+     
+    - name: Step 3 - Upload to Confluence
+      id: upload_confluence
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        echo "📤 Uploading results to Confluence..."
+        OUTPUT=$(npm run upload-requirements 2>&1)
+        echo "$OUTPUT"
+
+        # Extract Confluence URL from output
+        CONFLUENCE_URL="${{ inputs.confluence_url }}/wiki$(echo "$OUTPUT" | grep -oP 'URL: \K.*' | head -1)"
+
+        if [ -n "$CONFLUENCE_URL" ]; then
+          echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
+          echo "✅ Results uploaded to Confluence: $CONFLUENCE_URL"
+        else
+          echo "confluence_url=" >> $GITHUB_OUTPUT
+          echo "✅ Results uploaded to Confluence"
+        fi
+
+    - name: Step 4 - Commit and Push Generated Tests
+      id: commit_tests
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}/repo
+        echo "📝 Committing generated test files..."
+
+        # Configure git
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+        # Create branch name from ticket ID
+        BRANCH_NAME="${{ inputs.jira_ticket_id }}-via-ai"
+        echo "Creating branch: $BRANCH_NAME"
+
+        # Check if we're already on a different branch or need to create new branch
+        CURRENT_BRANCH=$(git branch --show-current)
+        if [ "$CURRENT_BRANCH" != "$BRANCH_NAME" ]; then
+          # Check if branch exists remotely
+          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+            echo "Branch $BRANCH_NAME exists remotely, checking out..."
+            git fetch origin "$BRANCH_NAME"
+            git checkout "$BRANCH_NAME"
+            git pull origin "$BRANCH_NAME"
+          else
+            echo "Creating new branch: $BRANCH_NAME"
+            git checkout -b "$BRANCH_NAME"
+          fi
+        fi
+
+        # Check if there are any changes to commit
+        if [[ -n $(git status --porcelain) ]]; then
+          # Add all test files (*.test.*, *.spec.*)
+          git add '*.test.*' '*.spec.*' 2>/dev/null || true
+          git add '*/__tests__/*' 2>/dev/null || true
+          git add '*/test/*' 2>/dev/null || true
+          git add '*/tests/*' 2>/dev/null || true
+
+          # Check if anything was actually staged
+          if [[ -n $(git diff --cached --name-only) ]]; then
+            echo "📋 Files to be committed:"
+            git diff --cached --name-only
+
+            # Create and commit changes
+            git commit -m "$(cat <<'COMMIT_EOF'
+            test: generate unit tests for ${{ inputs.jira_ticket_id }}
+
+            Generated comprehensive unit test cases using AI based on JIRA requirements and Confluence documentation.
+
+            JIRA Ticket: ${{ inputs.jira_ticket_id }}
+            Target Branch: ${{ inputs.target_branch }}
+
+            🤖 Generated via GitHub Actions
+            COMMIT_EOF
+            )"
+
+            # Push to remote
+            echo "⬆️  Pushing branch to remote..."
+            git push -u origin "$BRANCH_NAME"
+
+            echo "✅ Generated tests committed and pushed to branch: $BRANCH_NAME"
+            echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  No test files were staged for commit"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "⚠️  No changes detected in repository"
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Step 5 - Create Pull Request
+      id: create_pr
+      if: steps.commit_tests.outputs.has_changes == 'true'
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}/repo
+        echo "🔀 Creating Pull Request..."
+
+        BRANCH_NAME="${{ inputs.jira_ticket_id }}-via-ai"
+        TARGET_BRANCH="${{ inputs.target_branch }}"
+
+        # Check if PR already exists
+        EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --base "$TARGET_BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+        if [ -n "$EXISTING_PR" ]; then
+          echo "ℹ️  Pull Request already exists: #$EXISTING_PR"
+          PR_URL=$(gh pr view "$EXISTING_PR" --json url --jq '.url')
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          echo "pr_number=$EXISTING_PR" >> $GITHUB_OUTPUT
+          echo "pr_action=updated" >> $GITHUB_OUTPUT
+        else
+          # Get list of generated test files
+          TEST_FILES=$(git diff "$TARGET_BRANCH"..."$BRANCH_NAME" --name-only --diff-filter=A | grep -E '\.(test|spec)\.(ts|js|tsx|jsx)$' | head -10)
+          TEST_COUNT=$(echo "$TEST_FILES" | grep -c . || echo "0")
+
+          # Create PR body
+          PR_BODY=$(cat <<'PR_EOF'
+          ## 🤖 AI-Generated Unit Tests
+
+          This PR contains unit test cases generated by AI based on JIRA ticket requirements and Confluence documentation.
+
+          ### 📋 JIRA Ticket
+          - **Ticket:** [${{ inputs.jira_ticket_id }}](${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }})
+
+          ### 📊 Summary
+          - **Generated Test Files:** TEST_COUNT_PLACEHOLDER
+          - **Target Branch:** `TARGET_BRANCH_PLACEHOLDER`
+          - **Generated Branch:** `BRANCH_NAME_PLACEHOLDER`
+
+          ### 📝 Generated Test Files
+          ```
+          TEST_FILES_PLACEHOLDER
+          ```
+
+          ### 📚 Documentation
+          - **Confluence Report:** ${{ steps.upload_confluence.outputs.confluence_url }}
+
+          ### ✅ Next Steps
+          1. Review the generated test files
+          2. Verify test coverage for all requirements
+          3. Run tests locally: `npm test`
+          4. Adjust test cases if needed
+          5. Merge when ready
+
+          ### 🔍 Test Quality
+          - Tests follow existing patterns and conventions
+          - Framework-specific syntax detected and applied
+          - Covers happy path, edge cases, and error scenarios
+          - Stays within JIRA ticket scope
+
+          ---
+
+          🤖 **Generated by:** [AI Test Quality Analyzer](https://github.com/sourcefuse/ai-test-quality-analyzer)
+          📅 **Generated on:** TIMESTAMP_PLACEHOLDER
+          PR_EOF
+          )
+          # Replace placeholders
+          PR_BODY="${PR_BODY//TEST_COUNT_PLACEHOLDER/$TEST_COUNT}"
+          PR_BODY="${PR_BODY//TARGET_BRANCH_PLACEHOLDER/$TARGET_BRANCH}"
+          PR_BODY="${PR_BODY//BRANCH_NAME_PLACEHOLDER/$BRANCH_NAME}"
+          PR_BODY="${PR_BODY//TEST_FILES_PLACEHOLDER/$TEST_FILES}"
+          PR_BODY="${PR_BODY//TIMESTAMP_PLACEHOLDER/$(date -u +"%Y-%m-%d %H:%M:%S UTC")}"
+
+          # Create the PR
+          PR_URL=$(gh pr create \
+            --title "test: Generate unit tests for ${{ inputs.jira_ticket_id }}" \
+            --body "$PR_BODY" \
+            --base "$TARGET_BRANCH" \
+            --head "$BRANCH_NAME" \
+            --label "automated" \
+            --label "tests" \
+            --label "ai-generated" 2>&1)
+
+          if [ $? -eq 0 ]; then
+            echo "✅ Pull Request created successfully"
+            echo "$PR_URL"
+            echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+
+            # Extract PR number from URL
+            PR_NUMBER=$(echo "$PR_URL" | grep -oP '/pull/\K\d+')
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "pr_action=created" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Failed to create Pull Request"
+            echo "$PR_URL"
+            exit 1
+          fi
+        fi
+      env:
+        GH_TOKEN: ${{ github.token }}
+
+
