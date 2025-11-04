@@ -165,52 +165,89 @@ runs:
         cat .env
         echo "✅ Environment configuration created"
 
-    - name: Step 1 - Fetch JIRA and Confluence data
-      shell: bash
-      run: |
-        cd ${{ github.action_path }}
-        echo "🔄 Fetching JIRA ticket and Confluence pages..."
-        npm run start
-        echo "✅ Data fetched successfully"
+    # COMMENTED FOR TESTING - Skip slow operations
+    # - name: Step 1 - Fetch JIRA and Confluence data
+    #   shell: bash
+    #   run: |
+    #     cd ${{ github.action_path }}
+    #     echo "🔄 Fetching JIRA ticket and Confluence pages..."
+    #     npm run start
+    #     echo "✅ Data fetched successfully"
 
-    - name: Step 2 - Create Requirements document
-      if: inputs.claude_code_use_bedrock == '1'
-      shell: bash
-      env:
-        CLAUDE_CODE_USE_BEDROCK:  "1"
-        AWS_REGION:               ${{ inputs.aws_region_bedrock }}
-        ANTHROPIC_MODEL:          ${{ inputs.anthropic_model }}
-        AWS_ACCESS_KEY_ID:        ${{ inputs.aws_access_key_bedrock }}
-        AWS_SECRET_ACCESS_KEY:    ${{ inputs.aws_secret_key_bedrock }}
-      run: |
-        cd ${{ github.action_path }}
-        echo "📋 Creating requirements document from JIRA and Confluence..."
-        npm run create-requirement-doc
-        echo "✅ Requirements document created"
+    # - name: Step 2 - Create Requirements document
+    #   if: inputs.claude_code_use_bedrock == '1'
+    #   shell: bash
+    #   env:
+    #     CLAUDE_CODE_USE_BEDROCK:  "1"
+    #     AWS_REGION:               ${{ inputs.aws_region_bedrock }}
+    #     ANTHROPIC_MODEL:          ${{ inputs.anthropic_model }}
+    #     AWS_ACCESS_KEY_ID:        ${{ inputs.aws_access_key_bedrock }}
+    #     AWS_SECRET_ACCESS_KEY:    ${{ inputs.aws_secret_key_bedrock }}
+    #   run: |
+    #     cd ${{ github.action_path }}
+    #     echo "📋 Creating requirements document from JIRA and Confluence..."
+    #     npm run create-requirement-doc
+    #     echo "✅ Requirements document created"
 
-        echo "🔍 Generating unit test cases..."
-        npm run generate-unit-testcases
-        echo "✅ Unit test generation completed"
+    #     echo "🔍 Generating unit test cases..."
+    #     npm run generate-unit-testcases
+    #     echo "✅ Unit test generation completed"
      
-    - name: Step 3 - Upload to Confluence
-      id: upload_confluence
+    # - name: Step 3 - Upload to Confluence
+    #   id: upload_confluence
+    #   shell: bash
+    #   run: |
+    #     cd ${{ github.action_path }}
+    #     echo "📤 Uploading results to Confluence..."
+    #     OUTPUT=$(npm run upload-requirements 2>&1)
+    #     echo "$OUTPUT"
+
+    #     # Extract Confluence URL from output
+    #     CONFLUENCE_URL="${{ inputs.confluence_url }}/wiki$(echo "$OUTPUT" | grep -oP 'URL: \K.*' | head -1)"
+
+    #     if [ -n "$CONFLUENCE_URL" ]; then
+    #       echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
+    #       echo "✅ Results uploaded to Confluence: $CONFLUENCE_URL"
+    #     else
+    #       echo "confluence_url=" >> $GITHUB_OUTPUT
+    #       echo "✅ Results uploaded to Confluence"
+    #     fi
+
+    - name: TEST ONLY - Create dummy test file
       shell: bash
       run: |
-        cd ${{ github.action_path }}
-        echo "📤 Uploading results to Confluence..."
-        OUTPUT=$(npm run upload-requirements 2>&1)
-        echo "$OUTPUT"
-
-        # Extract Confluence URL from output
-        CONFLUENCE_URL="${{ inputs.confluence_url }}/wiki$(echo "$OUTPUT" | grep -oP 'URL: \K.*' | head -1)"
-
-        if [ -n "$CONFLUENCE_URL" ]; then
-          echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
-          echo "✅ Results uploaded to Confluence: $CONFLUENCE_URL"
-        else
-          echo "confluence_url=" >> $GITHUB_OUTPUT
-          echo "✅ Results uploaded to Confluence"
-        fi
+        cd ${{ github.action_path }}/repo
+        echo "🧪 TEST MODE: Creating dummy test file for PR testing..."
+        
+        # Create a simple test file
+        mkdir -p src/tests
+        cat > src/tests/dummy.test.ts << 'EOF'
+        // TEST FILE - Generated for testing PR creation workflow
+        // JIRA Ticket: ${{ inputs.jira_ticket_id }}
+        // Generated at: $(date)
+        
+        describe('Dummy Test Suite', () => {
+          it('should pass basic test', () => {
+            expect(true).toBe(true);
+          });
+          
+          it('should validate string operations', () => {
+            const testString = 'Hello World';
+            expect(testString).toContain('World');
+            expect(testString.length).toBe(11);
+          });
+          
+          it('should test array operations', () => {
+            const testArray = [1, 2, 3, 4, 5];
+            expect(testArray).toHaveLength(5);
+            expect(testArray).toContain(3);
+          });
+        });
+        EOF
+        
+        echo "✅ Dummy test file created at src/tests/dummy.test.ts"
+        echo "📋 File contents:"
+        cat src/tests/dummy.test.ts
 
     - name: Step 4 - Commit and Push Generated Tests
       id: commit_tests
@@ -326,7 +363,7 @@ TEST_FILES_PLACEHOLDER
 ```
 
 ### 📚 Documentation
-- **Confluence Report:** ${{ steps.upload_confluence.outputs.confluence_url }}
+- **Confluence Report:** (Skipped in test mode)
 
 ### ✅ Next Steps
 1. Review the generated test files
