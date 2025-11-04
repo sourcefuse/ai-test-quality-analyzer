@@ -217,74 +217,49 @@ runs:
       shell: bash
       run: |
         cd ${{ github.action_path }}/repo
-        echo "📝 Committing generated test files..."
+        echo "📝 Committing all changes..."
 
         # Configure git
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
         # Create branch name from ticket ID
-        BRANCH_NAME="${{ inputs.jira_ticket_id }}-via-ai"
-        echo "Creating branch: $BRANCH_NAME"
+        BRANCH_NAME="${{ inputs.jira_ticket_id }}-via-ai-$(date +%Y-%m-%d-%H-%M-%S)"
+        echo "Preparing branch: $BRANCH_NAME"
 
-        # Check if we're already on a different branch or need to create new branch
-        CURRENT_BRANCH=$(git branch --show-current)
-        if [ "$CURRENT_BRANCH" != "$BRANCH_NAME" ]; then
-          # Check if branch exists remotely
-          if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
-            echo "Branch $BRANCH_NAME exists remotely, checking out..."
-            git fetch origin "$BRANCH_NAME"
-            git checkout "$BRANCH_NAME"
-            git pull origin "$BRANCH_NAME"
-          else
-            echo "Creating new branch: $BRANCH_NAME"
-            git checkout -b "$BRANCH_NAME"
-          fi
+        # Delete branch if it exists on remote
+        if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+          echo "❌ Branch exists on remote, deleting it..."
+          git push origin --delete "$BRANCH_NAME" || echo "Failed to delete remote branch, continuing..."
         fi
-        touch .txt
-        git status
-        # Check if there are any changes to commit
-        if [[ -n $(git status --porcelain) ]]; then
-          # Add all test files (*.test.*, *.spec.*)
-          git add '*.test.*' '*.spec.*' 2>/dev/null || true
-          git add '*/__tests__/*' 2>/dev/null || true
-          git add '*/test/*' 2>/dev/null || true
-          git add '*/tests/*' 2>/dev/null || true
 
-          # Check if anything was actually staged
-          if [[ -n $(git diff --cached --name-only) ]]; then
-            echo "📋 Files to be committed:"
-            git diff --cached --name-only
+        # Create new branch
+        echo "Creating new branch: $BRANCH_NAME"
+        git checkout -b "$BRANCH_NAME"
+        
+        # Add all changes
+        git add .
+        
+        # Commit all changes
+        git commit -m "test: generate unit tests for ${{ inputs.jira_ticket_id }}
 
-            # Create and commit changes
-            git commit -m "test: generate unit tests for ${{ inputs.jira_ticket_id }}
+        Generated comprehensive unit test cases using AI based on JIRA requirements and Confluence documentation.
 
-            Generated comprehensive unit test cases using AI based on JIRA requirements and Confluence documentation.
+        JIRA Ticket: ${{ inputs.jira_ticket_id }}
+        Target Branch: ${{ inputs.target_branch }}
 
-            JIRA Ticket: ${{ inputs.jira_ticket_id }}
-            Target Branch: ${{ inputs.target_branch }}
+        🤖 Generated via GitHub Actions"
 
-            🤖 Generated via GitHub Actions"
+        # Push to remote
+        echo "⬆️  Pushing branch to remote..."
+        git push -u origin "$BRANCH_NAME"
 
-            # Push to remote
-            echo "⬆️  Pushing branch to remote..."
-            git push -u origin "$BRANCH_NAME"
-
-            echo "✅ Generated tests committed and pushed to branch: $BRANCH_NAME"
-            echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️  No test files were staged for commit"
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          fi
-        else
-          echo "⚠️  No changes detected in repository"
-          echo "has_changes=false" >> $GITHUB_OUTPUT
-        fi
+        echo "✅ All changes committed and pushed to branch: $BRANCH_NAME"
+        echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        echo "has_changes=true" >> $GITHUB_OUTPUT
 
     - name: Step 5 - Create Pull Request
       id: create_pr
-      if: steps.commit_tests.outputs.has_changes == 'true'
       shell: bash
       run: |
         cd ${{ github.action_path }}/repo
@@ -293,89 +268,42 @@ runs:
         BRANCH_NAME="${{ inputs.jira_ticket_id }}-via-ai"
         TARGET_BRANCH="${{ inputs.target_branch }}"
 
-        # Check if PR already exists
+        # Close existing PR if it exists
         EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --base "$TARGET_BRANCH" --json number --jq '.[0].number' 2>/dev/null || echo "")
-
         if [ -n "$EXISTING_PR" ]; then
-          echo "ℹ️  Pull Request already exists: #$EXISTING_PR"
-          PR_URL=$(gh pr view "$EXISTING_PR" --json url --jq '.url')
-          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
-          echo "pr_number=$EXISTING_PR" >> $GITHUB_OUTPUT
-          echo "pr_action=updated" >> $GITHUB_OUTPUT
-        else
-          # Get list of generated test files
-          TEST_FILES=$(git diff "$TARGET_BRANCH"..."$BRANCH_NAME" --name-only --diff-filter=A | grep -E '\.(test|spec)\.(ts|js|tsx|jsx)$' | head -10)
-          TEST_COUNT=$(echo "$TEST_FILES" | grep -c . || echo "0")
-
-          # Create PR body using echo
-          PR_BODY="## 🤖 AI-Generated Unit Tests
-
-          This PR contains unit test cases generated by AI based on JIRA ticket requirements and Confluence documentation.
-
-          ### 📋 JIRA Ticket
-          - **Ticket:** [${{ inputs.jira_ticket_id }}](${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }})
-
-          ### 📊 Summary
-          - **Generated Test Files:** TEST_COUNT_PLACEHOLDER
-          - **Target Branch:** \`TARGET_BRANCH_PLACEHOLDER\`
-          - **Generated Branch:** \`BRANCH_NAME_PLACEHOLDER\`
-
-          ### 📝 Generated Test Files
-          \`\`\`
-          TEST_FILES_PLACEHOLDER
-          \`\`\`
-
-          ### 📚 Documentation
-          - **Confluence Report:** ${{ steps.upload_confluence.outputs.confluence_url }}
-
-          ### ✅ Next Steps
-          1. Review the generated test files
-          2. Verify test coverage for all requirements
-          3. Run tests locally: \`npm test\`
-          4. Adjust test cases if needed
-          5. Merge when ready
-
-          ### 🔍 Generated Tests
-          - Tests follow existing patterns and conventions
-          - Framework-specific syntax detected and applied
-          - Covers happy path, edge cases, and error scenarios
-          - Stays within JIRA ticket scope
-
-          ---
-
-          🤖 **Generated by:** [AI Unit Test Generator](https://github.com/sourcefuse/ai-unit-test-generator)
-          📅 **Generated on:** TIMESTAMP_PLACEHOLDER"
-          # Replace placeholders
-          PR_BODY="${PR_BODY//TEST_COUNT_PLACEHOLDER/$TEST_COUNT}"
-          PR_BODY="${PR_BODY//TARGET_BRANCH_PLACEHOLDER/$TARGET_BRANCH}"
-          PR_BODY="${PR_BODY//BRANCH_NAME_PLACEHOLDER/$BRANCH_NAME}"
-          PR_BODY="${PR_BODY//TEST_FILES_PLACEHOLDER/$TEST_FILES}"
-          PR_BODY="${PR_BODY//TIMESTAMP_PLACEHOLDER/$(date -u +"%Y-%m-%d %H:%M:%S UTC")}"
-
-          # Create the PR
-          PR_URL=$(gh pr create \
-            --title "test: Generate unit tests for ${{ inputs.jira_ticket_id }}" \
-            --body "$PR_BODY" \
-            --base "$TARGET_BRANCH" \
-            --head "$BRANCH_NAME" \
-            --label "automated" \
-            --label "tests" \
-            --label "ai-generated" 2>&1)
-
-          if [ $? -eq 0 ]; then
-            echo "✅ Pull Request created successfully"
-            echo "$PR_URL"
-            echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
-
-            # Extract PR number from URL
-            PR_NUMBER=$(echo "$PR_URL" | grep -oP '/pull/\K\d+')
-            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-            echo "pr_action=created" >> $GITHUB_OUTPUT
-          else
-            echo "❌ Failed to create Pull Request"
-            echo "$PR_URL"
-            exit 1
-          fi
+          echo "❌ Closing existing PR #$EXISTING_PR..."
+          gh pr close "$EXISTING_PR" --comment "Closing old PR to create a fresh one with updated tests" || echo "Failed to close PR, continuing..."
         fi
+
+        # Create PR body
+        PR_BODY="## 🤖 AI-Generated Unit Tests
+
+        This PR contains unit test cases generated by AI based on JIRA ticket requirements and Confluence documentation.
+
+        ### 📋 JIRA Ticket
+        - **Ticket:** [${{ inputs.jira_ticket_id }}](${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }})
+
+        ### 📚 Documentation
+        - **Confluence Report:** ${{ steps.upload_confluence.outputs.confluence_url }}
+
+        ### ✅ Next Steps
+        1. Review the generated test files
+        2. Verify test coverage for all requirements
+        3. Run tests locally
+        4. Adjust test cases if needed
+        5. Merge when ready
+
+        ---
+
+        🤖 **Generated via GitHub Actions on:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+
+        # Create the PR
+        gh pr create \
+          --title "test: Generate unit tests for ${{ inputs.jira_ticket_id }}" \
+          --body "$PR_BODY" \
+          --base "$TARGET_BRANCH" \
+          --head "$BRANCH_NAME"
+
+        echo "✅ Pull Request created successfully"
       env:
         GH_TOKEN: ${{ github.token }}
