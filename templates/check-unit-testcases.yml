@@ -103,7 +103,7 @@ jobs:
 
       - name: Run Unit Test Quality Analysis
         id: quality_check
-        uses: sourcefuse/ai-test-quality-analyzer@main
+        uses: sourcefuse/ai-test-quality-analyzer@QCV1.0
         with:
           jira_url: ${{ secrets.UT_QUALITY_JIRA_URL }}
           jira_email: ${{ secrets.UT_QUALITY_JIRA_EMAIL }}
