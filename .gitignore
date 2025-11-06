@@ -29,9 +29,11 @@ coverage/
 *-Quality-Check-Via-AI/
 repo/
 
-# Exclude all .md files except in prompts folder
+# Exclude all .md files except in prompts folder and root documentation
 *.md
 !prompts/*.md
+!README.md
+!SETUP.md
 
 # Logs
 *.log
