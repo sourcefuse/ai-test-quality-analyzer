@@ -102,7 +102,7 @@ jobs:
 
       - name: Generate Unit Test Cases with AI
         id: generate_tests
-        uses: sourcefuse/ai-test-quality-analyzer@GenerateUnitTestCases
+        uses: sourcefuse/ai-test-quality-analyzer@UT-V1.0
         with:
           jira_url: ${{ secrets.UT_GENERATE_JIRA_URL }}
           jira_email: ${{ secrets.UT_GENERATE_JIRA_EMAIL }}
