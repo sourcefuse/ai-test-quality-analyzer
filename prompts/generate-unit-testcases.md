@@ -70,6 +70,8 @@ The orchestrator will detect the repo type automatically based on package.json d
 - ✅ **Handle all scenarios** - Implemented, unimplemented, or partially implemented features
 - ✅ **Provide implementation guidance** - Tests serve as specification for developers
 - ❌ **DO NOT test unrelated features** outside the JIRA scope
+- ❌ **DO NOT create Big files** rather split it into multiple files.
+
 
 ### Example of Correct Scoping:
 
