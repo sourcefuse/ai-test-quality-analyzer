@@ -178,25 +178,130 @@ runs:
         npm run start
         echo "✅ Data fetched successfully"
 
-    - name: Step 2 - Create Requirements document
-      if: inputs.claude_code_use_bedrock == '1'
+    - name: Step 2 - Create Simple Test Files (Testing Mode)
       shell: bash
-      env:
-        CLAUDE_CODE_USE_BEDROCK:  "1"
-        AWS_REGION:               ${{ inputs.aws_region_bedrock }}
-        ANTHROPIC_MODEL:          ${{ inputs.anthropic_model }}
-        AWS_ACCESS_KEY_ID:        ${{ inputs.aws_access_key_bedrock }}
-        AWS_SECRET_ACCESS_KEY:    ${{ inputs.aws_secret_key_bedrock }}
       run: |
         cd ${{ github.action_path }}
-        echo "📋 Creating requirements document from JIRA and Confluence..."
-        npm run create-requirement-doc
-        echo "✅ Requirements document created"
 
-        echo "🔍 Generating unit test cases..."
-        npm run generate-unit-testcases
-        echo "✅ Unit test generation completed"
-     
+        # Load environment to get analysis path
+        source .env
+
+        echo "📝 Creating simple test files for testing..."
+
+        # Create the analysis folder structure
+        ANALYSIS_FOLDER="${CONFLUENCE_SPACE_KEY}-${BASE_FOLDER_SUFFIX}/${JIRA_TICKET_ID}-${TICKET_FOLDER_SUFFIX}/${CURRENT_ANALYSIS_PATH}"
+        mkdir -p "$ANALYSIS_FOLDER"
+
+        echo "✅ Created folder: $ANALYSIS_FOLDER"
+
+        # Create Jira.md
+        cat > "$ANALYSIS_FOLDER/Jira.md" << 'JIRAEOF'
+# JIRA Ticket: ${{ inputs.jira_ticket_id }}
+
+## Summary
+This is a test ticket for verifying Confluence upload functionality.
+
+## Description
+Testing the GitHub Action workflow to ensure:
+- Files are created correctly
+- Confluence upload works
+- Pull Request is created
+- All environment variables are set properly
+
+**Status**: Testing
+**Priority**: High
+**Assignee**: GitHub Actions Bot
+JIRAEOF
+
+        # Create Requirements.md
+        cat > "$ANALYSIS_FOLDER/Requirements.md" << 'REQEOF'
+# Requirements Analysis
+
+## Overview
+This document contains the requirements analysis for testing purposes.
+
+## Functional Requirements
+1. **Test File Creation**: System must create test files in correct folder structure
+2. **Confluence Upload**: Files must be uploaded to Confluence under correct hierarchy
+3. **Pull Request**: A PR must be created with the test files
+
+## Technical Requirements
+- GitHub Actions workflow must execute successfully
+- Environment variables must be properly configured
+- Folder structure: {SPACE}-Generate-Unit-Tests-Via-AI/{TICKET}-Via-AI/{TIMESTAMP}-Via-AI
+
+## Success Criteria
+✓ All files created in correct location
+✓ Confluence page created under BB-Generate-Unit-Tests-Via-AI
+✓ Pull Request created and linked
+✓ No errors during execution
+REQEOF
+
+        # Create GeneratedTestsReport.md
+        cat > "$ANALYSIS_FOLDER/GeneratedTestsReport.md" << 'TESTEOF'
+# Generated Unit Test Cases (Test Mode)
+
+## Test Suite Overview
+**Generated**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+**Ticket**: ${{ inputs.jira_ticket_id }}
+**Mode**: Testing (No AI generation)
+
+## Sample Test Cases
+
+### Test Case 1: Basic Functionality Test
+```typescript
+describe('Sample Test Suite', () => {
+  it('should verify test file creation', () => {
+    expect(true).toBe(true);
+  });
+
+  it('should verify Confluence upload', () => {
+    const uploaded = checkConfluenceUpload();
+    expect(uploaded).toBe(true);
+  });
+});
+```
+
+### Test Case 2: Integration Test
+```typescript
+describe('Integration Tests', () => {
+  it('should create correct folder structure', () => {
+    const structure = getFolderStructure();
+    expect(structure).toContain('Generate-Unit-Tests-Via-AI');
+    expect(structure).toContain('Via-AI');
+  });
+});
+```
+
+### Test Case 3: Environment Variables Test
+```typescript
+describe('Environment Configuration', () => {
+  it('should have all required env variables', () => {
+    expect(process.env.TICKET_FOLDER_SUFFIX).toBe('Via-AI');
+    expect(process.env.BASE_FOLDER_SUFFIX).toBe('Generate-Unit-Tests-Via-AI');
+  });
+});
+```
+
+## Test Coverage Summary
+- **Total Test Cases**: 3
+- **Test Suites**: 3
+- **Coverage**: 100% (Test Mode)
+
+## Notes
+This is a test report generated without AI to verify the upload process works correctly.
+All test cases are samples for demonstration purposes.
+TESTEOF
+
+        echo "✅ Test files created successfully"
+        echo "📁 Files created in: $ANALYSIS_FOLDER"
+        ls -la "$ANALYSIS_FOLDER"
+
+        # Copy test files to repo for commit
+        echo "📋 Copying test files to repository..."
+        cp -r "$ANALYSIS_FOLDER"/* repo/
+        echo "✅ Test files copied to repo for commit"
+
     - name: Step 3 - Upload to Confluence
       id: upload_confluence
       shell: bash
