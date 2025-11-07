@@ -383,8 +383,14 @@ export class ConfluenceService {
     } catch (error: any) {
       console.error('❌ Error creating Confluence page:', error);
 
-      // If page already exists, try to get its ID
-      if (error.message && error.message.includes('already exists')) {
+      // Check if page already exists (handle different error formats from Confluence API)
+      const errorMessage = error.message || error.toString() || '';
+      const isPageExists =
+        errorMessage.includes('already exists') ||
+        errorMessage.includes('A page with this title already exists') ||
+        errorMessage.includes('BadRequestException') && errorMessage.includes('title');
+
+      if (isPageExists) {
         console.log(`   Page "${request.title}" already exists, fetching ID...`);
         const existingPageId = await this.getPageIdByTitle(request.spaceKey, request.title, request.parentId);
         if (existingPageId) {
@@ -394,8 +400,18 @@ export class ConfluenceService {
             pageTitle: request.title,
           };
         } else if (request.parentId) {
-          console.log(`   ⚠️  Page "${request.title}" exists but not under parent ${request.parentId}, will create new page`);
-          throw error; // Re-throw to allow caller to handle
+          console.log(`   ⚠️  Page "${request.title}" exists but not under parent ${request.parentId}`);
+          console.log(`   ⚠️  Will look for page without parent filter...`);
+          // Try without parent filter as fallback
+          const anyPageId = await this.getPageIdByTitle(request.spaceKey, request.title);
+          if (anyPageId) {
+            console.log(`   ⚠️  Found page with ID ${anyPageId} but under different parent`);
+            console.log(`   ⚠️  Using existing page anyway to avoid duplicate error`);
+            return {
+              pageId: anyPageId,
+              pageTitle: request.title,
+            };
+          }
         }
       }
 

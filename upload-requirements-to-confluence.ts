@@ -206,6 +206,8 @@ async function main(): Promise<void> {
         // Step 3: Create/Update analysis page (using CURRENT_ANALYSIS_PATH as the page title with content)
         const analysisPageTitle = timestampFolderName;
         console.log(`\n📄 Step 3/3: Creating/Updating analysis page: ${analysisPageTitle}`);
+        console.log(`   Title: "${analysisPageTitle}"`);
+        console.log(`   Parent: ${ticketPageTitle} (ID: ${ticketPageResponse.pageId})`);
 
         // No scoring for test generation
 
