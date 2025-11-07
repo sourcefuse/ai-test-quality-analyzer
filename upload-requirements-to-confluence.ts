@@ -183,8 +183,15 @@ async function main(): Promise<void> {
         const confluenceRootSuffix = process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Generate-Unit-Tests-Via-AI';
         const confluenceTicketSuffix = process.env.CONFLUENCE_TICKET_PAGE_SUFFIX || 'Via-AI';
 
+        console.log('\n📋 Environment Variables Check:');
+        console.log(`   CONFLUENCE_ROOT_PAGE_SUFFIX: ${confluenceRootSuffix}`);
+        console.log(`   CONFLUENCE_TICKET_PAGE_SUFFIX: ${confluenceTicketSuffix}`);
+        console.log(`   BASE_FOLDER_SUFFIX: ${process.env.BASE_FOLDER_SUFFIX}`);
+        console.log(`   TICKET_FOLDER_SUFFIX: ${process.env.TICKET_FOLDER_SUFFIX}`);
+
         const rootPageTitle = `${spaceKey}-${confluenceRootSuffix}`;
         console.log(`\n📄 Step 1/3: Creating/Getting root page: ${rootPageTitle}`);
+        console.log(`   Will be created at ROOT level (no parent)`);
         const rootPageResponse = await confluenceService.createPage({
             title: rootPageTitle,
             content: `<p>This page contains AI-generated unit test reports for ${spaceKey} space.</p>`,

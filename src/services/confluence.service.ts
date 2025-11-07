@@ -392,6 +392,8 @@ export class ConfluenceService {
 
       if (isPageExists) {
         console.log(`   Page "${request.title}" already exists, checking parent hierarchy...`);
+
+        // First try: Check if page exists under correct parent
         const existingPageId = await this.getPageIdByTitle(request.spaceKey, request.title, request.parentId);
         if (existingPageId) {
           console.log(`   ✅ Found existing page under correct parent: ${existingPageId}`);
@@ -399,13 +401,42 @@ export class ConfluenceService {
             pageId: existingPageId,
             pageTitle: request.title,
           };
-        } else {
-          // Page exists but not under correct parent - this is an error condition
-          console.error(`   ❌ Page "${request.title}" exists but NOT under the correct parent hierarchy`);
-          console.error(`   ❌ Expected parent: ${request.parentId || 'root level'}`);
-          console.error(`   ❌ Please manually delete the misplaced page or fix the hierarchy in Confluence`);
-          throw new Error(`Page "${request.title}" exists in wrong hierarchy. Expected parent: ${request.parentId || 'root level'}`);
         }
+
+        // Second try: Check if page exists anywhere (for root-level pages where parentId is undefined)
+        if (!request.parentId) {
+          console.log(`   ℹ️  This is a root-level page, checking if it exists anywhere...`);
+          const anyPageId = await this.getPageIdByTitle(request.spaceKey, request.title);
+          if (anyPageId) {
+            console.log(`   ✅ Found existing root-level page: ${anyPageId}`);
+            return {
+              pageId: anyPageId,
+              pageTitle: request.title,
+            };
+          }
+        }
+
+        // Page exists but not found - provide helpful error
+        console.error(`   ❌ Page "${request.title}" exists but could not be located`);
+        console.error(`   ❌ Expected: ${request.parentId ? `under parent ${request.parentId}` : 'at root level'}`);
+        console.error(`   ❌ This usually means:`);
+        console.error(`      1. The page exists under a different parent`);
+        console.error(`      2. You don't have permission to access it`);
+        console.error(`      3. The space key or parent ID is incorrect`);
+        console.error(`   ℹ️  Attempting to continue anyway...`);
+
+        // Try one more time without parent filter as last resort
+        const fallbackPageId = await this.getPageIdByTitle(request.spaceKey, request.title);
+        if (fallbackPageId) {
+          console.warn(`   ⚠️  WARNING: Using page ${fallbackPageId} despite hierarchy mismatch`);
+          console.warn(`   ⚠️  This may cause pages to appear in wrong locations`);
+          return {
+            pageId: fallbackPageId,
+            pageTitle: request.title,
+          };
+        }
+
+        throw new Error(`Page "${request.title}" exists but cannot be accessed. Check permissions and hierarchy.`);
       }
 
       throw this.handleError(error);
