@@ -163,6 +163,7 @@ runs:
         # Test Generation Configuration
         TARGET_BRANCH=${{ inputs.target_branch }}
         BASE_FOLDER_SUFFIX=Generate-Unit-Tests-Via-AI
+        TICKET_FOLDER_SUFFIX=Via-AI
         CONFLUENCE_ROOT_PAGE_SUFFIX=Generate-Unit-Tests-Via-AI
         CONFLUENCE_TICKET_PAGE_SUFFIX=Via-AI
         EOF
