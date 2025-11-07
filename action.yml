@@ -178,40 +178,24 @@ runs:
         npm run start
         echo "✅ Data fetched successfully"
 
-    - name: Step 2 - Create Simple Test Files (Testing Mode)
+    - name: Step 2 - Create Requirements document and Generate Unit Tests
+      if: inputs.claude_code_use_bedrock == '1'
       shell: bash
+      env:
+        CLAUDE_CODE_USE_BEDROCK: "1"
+        AWS_REGION: ${{ inputs.aws_region_bedrock }}
+        ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_bedrock }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_key_bedrock }}
       run: |
         cd ${{ github.action_path }}
+        echo "📋 Creating requirements document from JIRA and Confluence..."
+        npm run create-requirement-doc
+        echo "✅ Requirements document created"
 
-        # Load environment to get analysis path
-        source .env
-
-        echo "📝 Creating simple test files for testing..."
-
-        # Create the analysis folder structure
-        ANALYSIS_FOLDER="${CONFLUENCE_SPACE_KEY}-${BASE_FOLDER_SUFFIX}/${JIRA_TICKET_ID}-${TICKET_FOLDER_SUFFIX}/${CURRENT_ANALYSIS_PATH}"
-        mkdir -p "$ANALYSIS_FOLDER"
-
-        echo "✅ Created folder: $ANALYSIS_FOLDER"
-
-        # Create simple test files
-        echo "Creating Jira.md..."
-        printf "# JIRA Ticket Test\n\nTicket ID: %s\n\nThis is a test file for Confluence upload verification.\n" "${JIRA_TICKET_ID}" > "$ANALYSIS_FOLDER/Jira.md"
-
-        echo "Creating Requirements.md..."
-        printf "# Requirements Analysis\n\nTest requirements for verification.\n" > "$ANALYSIS_FOLDER/Requirements.md"
-
-        echo "Creating GeneratedTestsReport.md..."
-        printf "# Generated Unit Test Cases\n\nTest Mode - No AI generation\nVerifying Confluence upload works correctly.\n" > "$ANALYSIS_FOLDER/GeneratedTestsReport.md"
-
-        echo "✅ Test files created successfully"
-        echo "📁 Files created in: $ANALYSIS_FOLDER"
-        ls -la "$ANALYSIS_FOLDER"
-
-        # Copy test files to repo for commit
-        echo "📋 Copying test files to repository..."
-        cp -r "$ANALYSIS_FOLDER"/* repo/
-        echo "✅ Test files copied to repo for commit"
+        echo "🔍 Generating unit test cases..."
+        npm run generate-unit-testcases
+        echo "✅ Unit test generation completed"
 
     - name: Step 3 - Upload to Confluence
       id: upload_confluence
