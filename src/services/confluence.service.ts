@@ -386,15 +386,15 @@ export class ConfluenceService {
       // If page already exists, try to get its ID
       if (error.message && error.message.includes('already exists')) {
         console.log(`   Page "${request.title}" already exists, fetching ID...`);
-        const existingPageId = await this.getPageIdByTitle(request.spaceKey, request.title, parentId);
+        const existingPageId = await this.getPageIdByTitle(request.spaceKey, request.title, request.parentId);
         if (existingPageId) {
           console.log(`   ✅ Using existing page under correct parent: ${existingPageId}`);
           return {
             pageId: existingPageId,
             pageTitle: request.title,
           };
-        } else if (parentId) {
-          console.log(`   ⚠️  Page "${request.title}" exists but not under parent ${parentId}, will create new page`);
+        } else if (request.parentId) {
+          console.log(`   ⚠️  Page "${request.title}" exists but not under parent ${request.parentId}, will create new page`);
           throw error; // Re-throw to allow caller to handle
         }
       }
