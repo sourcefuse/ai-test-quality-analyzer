@@ -40,6 +40,13 @@ function getAnalysisFolder(): string {
     const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Generate-Unit-Tests-Via-AI';
     const ticketFolderSuffix = process.env.TICKET_FOLDER_SUFFIX || 'Via-AI';
 
+    console.log('\n📋 Environment Variables:');
+    console.log(`   CONFLUENCE_SPACE_KEY: ${spaceKey}`);
+    console.log(`   JIRA_TICKET_ID: ${ticketId}`);
+    console.log(`   CURRENT_ANALYSIS_PATH: ${currentAnalysisPath}`);
+    console.log(`   BASE_FOLDER_SUFFIX: ${baseFolderSuffix}`);
+    console.log(`   TICKET_FOLDER_SUFFIX: ${ticketFolderSuffix}`);
+
     if (!ticketId) {
         throw new Error('JIRA_TICKET_ID environment variable is required');
     }
@@ -51,8 +58,28 @@ function getAnalysisFolder(): string {
     // Construct the full path: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}
     const analysisFolder = `./${spaceKey}-${baseFolderSuffix}/${ticketId}-${ticketFolderSuffix}/${currentAnalysisPath}`;
 
+    console.log(`\n📁 Looking for analysis folder: ${analysisFolder}`);
+    console.log(`   Current working directory: ${process.cwd()}`);
+
+    // List what's actually in the current directory
+    console.log('\n📂 Contents of current directory:');
+    try {
+        const files = fs.readdirSync('.');
+        files.forEach(file => {
+            const stats = fs.statSync(file);
+            console.log(`   ${stats.isDirectory() ? '📁' : '📄'} ${file}`);
+        });
+    } catch (err) {
+        console.log(`   Error reading directory: ${err}`);
+    }
+
     // Verify the folder exists
     if (!fs.existsSync(analysisFolder)) {
+        console.error(`\n❌ Analysis folder not found: ${analysisFolder}`);
+        console.error(`\n💡 Troubleshooting:`);
+        console.error(`   1. Check if Step 1 (Fetch JIRA and Confluence data) completed successfully`);
+        console.error(`   2. Verify CURRENT_ANALYSIS_PATH is set correctly in .env`);
+        console.error(`   3. Ensure the folder structure matches: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}`);
         throw new Error(`Analysis folder not found: ${analysisFolder}`);
     }
 
