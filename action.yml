@@ -262,4 +262,78 @@ runs:
         echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
         echo "has_changes=true" >> $GITHUB_OUTPUT
 
-    
+    - name: Step 5 - Create Pull Request
+      id: create_pr
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github_token || github.token }}
+      run: |
+        cd ${{ github.action_path }}/repo
+        echo "🔀 Creating Pull Request..."
+
+        BRANCH_NAME="${{ steps.commit_tests.outputs.branch_name }}"
+        TARGET_BRANCH="${{ inputs.target_branch }}"
+        JIRA_TICKET="${{ inputs.jira_ticket_id }}"
+        CONFLUENCE_URL="${{ steps.upload_confluence.outputs.confluence_url }}"
+
+        # Create PR body
+        PR_BODY="## 🤖 AI-Generated Unit Tests
+
+        This PR contains comprehensive unit test cases generated using AI based on JIRA requirements and Confluence documentation.
+
+        ### 📋 Details
+        - **JIRA Ticket**: [$JIRA_TICKET](${{ inputs.jira_url }}/browse/$JIRA_TICKET)
+        - **Target Branch**: \`$TARGET_BRANCH\`
+        - **Confluence Documentation**: [View Requirements]($CONFLUENCE_URL)
+
+        ### 🎯 What's Included
+        - Unit test cases for all specified requirements
+        - Test coverage for edge cases
+        - Comprehensive test documentation
+
+        ### ✅ Checklist
+        - [ ] Review generated test cases
+        - [ ] Verify test coverage
+        - [ ] Run tests locally
+        - [ ] Check code quality
+
+        ---
+        🤖 *Generated via GitHub Actions*"
+
+        # Create PR using GitHub CLI
+        PR_URL=$(gh pr create \
+          --base "$TARGET_BRANCH" \
+          --head "$BRANCH_NAME" \
+          --title "test($JIRA_TICKET): generate unit tests via AI" \
+          --body "$PR_BODY" \
+          --label "automated" \
+          --label "unit-tests" \
+          --label "ai-generated")
+
+        echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+        echo "✅ Pull Request created: $PR_URL"
+
+    - name: Step 6 - Generate Final Report
+      shell: bash
+      run: |
+        echo "=================================================="
+        echo "         🎉 UNIT TEST GENERATION COMPLETE"
+        echo "=================================================="
+        echo ""
+        echo "📋 JIRA Ticket: ${{ inputs.jira_ticket_id }}"
+        echo "🔗 JIRA Link: ${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }}"
+        echo ""
+        echo "📄 Confluence Documentation:"
+        echo "   ${{ steps.upload_confluence.outputs.confluence_url }}"
+        echo ""
+        echo "🌿 Generated Branch:"
+        echo "   ${{ steps.commit_tests.outputs.branch_name }}"
+        echo "   https://github.com/${{ github.repository }}/tree/${{ steps.commit_tests.outputs.branch_name }}"
+        echo ""
+        echo "🔀 Pull Request:"
+        echo "   ${{ steps.create_pr.outputs.pr_url }}"
+        echo ""
+        echo "=================================================="
+        echo "         ✅ All tasks completed successfully!"
+        echo "=================================================="
+

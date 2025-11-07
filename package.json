@@ -1,6 +1,6 @@
 {
   "name": "generate-unit-tests",
-  "version": "1.0.0",
+  "version": "UT-V1.0",
   "main": "dist/fetch-and-analyze.js",
   "scripts": {
     "start": "ts-node fetch-and-analyze.ts",
