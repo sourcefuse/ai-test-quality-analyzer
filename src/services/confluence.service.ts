@@ -290,11 +290,12 @@ export class ConfluenceService {
    *
    * @param spaceKey - Space key
    * @param title - Page title
+   * @param parentId - Optional parent page ID to search under
    * @returns Promise resolving to page ID, or empty string if not found
    */
-  async getPageIdByTitle(spaceKey: string, title: string): Promise<string> {
+  async getPageIdByTitle(spaceKey: string, title: string, parentId?: string): Promise<string> {
     try {
-      console.log(`🔍 Searching for page: "${title}" in space ${spaceKey}`);
+      console.log(`🔍 Searching for page: "${title}" in space ${spaceKey}${parentId ? ` under parent ${parentId}` : ''}`);
 
       const response: any = await this.client.content.getContent({
         spaceKey,
@@ -303,9 +304,27 @@ export class ConfluenceService {
       });
 
       if (response.results && response.results.length > 0) {
-        const pageId = response.results[0].id;
-        console.log(`✅ Found page ID: ${pageId}`);
-        return pageId;
+        // If parentId is specified, filter results to only include pages with that parent
+        if (parentId) {
+          const matchingPage = response.results.find((page: any) => {
+            const ancestors = page.ancestors || [];
+            // Check if any ancestor matches the parentId
+            return ancestors.some((ancestor: any) => ancestor.id === parentId);
+          });
+
+          if (matchingPage) {
+            console.log(`✅ Found page ID: ${matchingPage.id} under parent ${parentId}`);
+            return matchingPage.id;
+          } else {
+            console.log(`⚠️  Page "${title}" found but not under parent ${parentId}`);
+            return '';
+          }
+        } else {
+          // No parent specified, return first match
+          const pageId = response.results[0].id;
+          console.log(`✅ Found page ID: ${pageId}`);
+          return pageId;
+        }
       }
 
       console.log(`⚠️  Page not found: "${title}"`);
@@ -367,12 +386,16 @@ export class ConfluenceService {
       // If page already exists, try to get its ID
       if (error.message && error.message.includes('already exists')) {
         console.log(`   Page "${request.title}" already exists, fetching ID...`);
-        const existingPageId = await this.getPageIdByTitle(request.spaceKey, request.title);
+        const existingPageId = await this.getPageIdByTitle(request.spaceKey, request.title, parentId);
         if (existingPageId) {
+          console.log(`   ✅ Using existing page under correct parent: ${existingPageId}`);
           return {
             pageId: existingPageId,
             pageTitle: request.title,
           };
+        } else if (parentId) {
+          console.log(`   ⚠️  Page "${request.title}" exists but not under parent ${parentId}, will create new page`);
+          throw error; // Re-throw to allow caller to handle
         }
       }
 
