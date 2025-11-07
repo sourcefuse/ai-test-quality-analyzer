@@ -179,19 +179,12 @@ async function main(): Promise<void> {
         // Test generation completed
         console.log(`   ✅ Unit test generation completed successfully`);
 
-        // Step 1: Create/Get root page
+        // Step 1: Create/Get root page at root level
         const confluenceRootSuffix = process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Generate-Unit-Tests-Via-AI';
         const confluenceTicketSuffix = process.env.CONFLUENCE_TICKET_PAGE_SUFFIX || 'Via-AI';
 
-        console.log('\n📋 Environment Variables Check:');
-        console.log(`   CONFLUENCE_ROOT_PAGE_SUFFIX: ${confluenceRootSuffix}`);
-        console.log(`   CONFLUENCE_TICKET_PAGE_SUFFIX: ${confluenceTicketSuffix}`);
-        console.log(`   BASE_FOLDER_SUFFIX: ${process.env.BASE_FOLDER_SUFFIX}`);
-        console.log(`   TICKET_FOLDER_SUFFIX: ${process.env.TICKET_FOLDER_SUFFIX}`);
-
         const rootPageTitle = `${spaceKey}-${confluenceRootSuffix}`;
-        console.log(`\n📄 Step 1/3: Creating/Getting root page: ${rootPageTitle}`);
-        console.log(`   Will be created at ROOT level (no parent)`);
+        console.log(`\n📄 Step 1/3: Creating root page: ${rootPageTitle}`);
         const rootPageResponse = await confluenceService.createPage({
             title: rootPageTitle,
             content: `<p>This page contains AI-generated unit test reports for ${spaceKey} space.</p>`,
@@ -199,9 +192,9 @@ async function main(): Promise<void> {
         });
         console.log(`   ✅ Root page ID: ${rootPageResponse.pageId}`);
 
-        // Step 2: Create/Get ticket page
+        // Step 2: Create ticket page under root page
         const ticketPageTitle = `${ticketKey}-${confluenceTicketSuffix}`;
-        console.log(`\n📄 Step 2/3: Creating/Getting ticket page: ${ticketPageTitle}`);
+        console.log(`\n📄 Step 2/3: Creating ticket page: ${ticketPageTitle}`);
         const ticketPageResponse = await confluenceService.createPage({
             title: ticketPageTitle,
             content: `<p>Generated unit test reports for ticket ${ticketKey}.</p>`,
@@ -210,11 +203,9 @@ async function main(): Promise<void> {
         });
         console.log(`   ✅ Ticket page ID: ${ticketPageResponse.pageId}`);
 
-        // Step 3: Create/Update analysis page (using CURRENT_ANALYSIS_PATH as the page title with content)
+        // Step 3: Create analysis page under ticket page (timestamp ensures uniqueness)
         const analysisPageTitle = timestampFolderName;
-        console.log(`\n📄 Step 3/3: Creating/Updating analysis page: ${analysisPageTitle}`);
-        console.log(`   Title: "${analysisPageTitle}"`);
-        console.log(`   Parent: ${ticketPageTitle} (ID: ${ticketPageResponse.pageId})`);
+        console.log(`\n📄 Step 3/3: Creating analysis page: ${analysisPageTitle}`);
 
         // No scoring for test generation
 

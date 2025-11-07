@@ -345,7 +345,7 @@ export class ConfluenceService {
     try {
       const {title, content, spaceKey, parentId, type} = request;
 
-      console.log(`📝 Creating Confluence page: "${title}" in space ${spaceKey}`);
+      console.log(`📝 Creating Confluence page: "${title}" in space ${spaceKey}${parentId ? ` under parent ${parentId}` : ' at root level'}`);
 
       // Clean content
       let cleanedContent = content
@@ -391,52 +391,21 @@ export class ConfluenceService {
         errorMessage.includes('BadRequestException') && errorMessage.includes('title');
 
       if (isPageExists) {
-        console.log(`   Page "${request.title}" already exists, checking parent hierarchy...`);
+        console.log(`   ℹ️  Page "${request.title}" already exists, fetching existing page ID...`);
 
-        // First try: Check if page exists under correct parent
+        // Search for existing page (with or without parent filter based on request)
         const existingPageId = await this.getPageIdByTitle(request.spaceKey, request.title, request.parentId);
+
         if (existingPageId) {
-          console.log(`   ✅ Found existing page under correct parent: ${existingPageId}`);
+          console.log(`   ✅ Using existing page ID: ${existingPageId}`);
           return {
             pageId: existingPageId,
             pageTitle: request.title,
           };
         }
 
-        // Second try: Check if page exists anywhere (for root-level pages where parentId is undefined)
-        if (!request.parentId) {
-          console.log(`   ℹ️  This is a root-level page, checking if it exists anywhere...`);
-          const anyPageId = await this.getPageIdByTitle(request.spaceKey, request.title);
-          if (anyPageId) {
-            console.log(`   ✅ Found existing root-level page: ${anyPageId}`);
-            return {
-              pageId: anyPageId,
-              pageTitle: request.title,
-            };
-          }
-        }
-
-        // Page exists but not found - provide helpful error
-        console.error(`   ❌ Page "${request.title}" exists but could not be located`);
-        console.error(`   ❌ Expected: ${request.parentId ? `under parent ${request.parentId}` : 'at root level'}`);
-        console.error(`   ❌ This usually means:`);
-        console.error(`      1. The page exists under a different parent`);
-        console.error(`      2. You don't have permission to access it`);
-        console.error(`      3. The space key or parent ID is incorrect`);
-        console.error(`   ℹ️  Attempting to continue anyway...`);
-
-        // Try one more time without parent filter as last resort
-        const fallbackPageId = await this.getPageIdByTitle(request.spaceKey, request.title);
-        if (fallbackPageId) {
-          console.warn(`   ⚠️  WARNING: Using page ${fallbackPageId} despite hierarchy mismatch`);
-          console.warn(`   ⚠️  This may cause pages to appear in wrong locations`);
-          return {
-            pageId: fallbackPageId,
-            pageTitle: request.title,
-          };
-        }
-
-        throw new Error(`Page "${request.title}" exists but cannot be accessed. Check permissions and hierarchy.`);
+        // If page exists but we can't find it, something is wrong
+        throw new Error(`Page "${request.title}" exists but cannot be found. Check permissions or space key.`);
       }
 
       throw this.handleError(error);
