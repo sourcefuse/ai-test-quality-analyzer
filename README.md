@@ -1,7 +1,7 @@
 # AI Test Quality Analyzer
 
 [![GitHub Action](https://img.shields.io/badge/GitHub-Action-blue)](https://github.com/marketplace/actions/check-unit-test-cases-quality)
-[![Version](https://img.shields.io/badge/version-QCV1.0-green)](https://github.com/sourcefuse/ai-test-quality-analyzer/releases)
+[![Version](https://img.shields.io/badge/version-QC--V1.0-green)](https://github.com/sourcefuse/ai-test-quality-analyzer/releases)
 [![License](https://img.shields.io/badge/license-ISC-brightgreen)](LICENSE)
 
 An intelligent GitHub Action that automatically analyzes the quality of unit test cases in your codebase by comparing them against JIRA requirements and Confluence documentation using AI-powered analysis.
@@ -78,7 +78,7 @@ jobs:
           echo "ticket_id=$TICKET_ID" >> $GITHUB_OUTPUT
 
       - name: Run Unit Test Quality Analysis
-        uses: sourcefuse/ai-test-quality-analyzer@QCV1.0
+        uses: sourcefuse/ai-test-quality-analyzer@QC-V1.0
         with:
           jira_url: ${{ secrets.UT_QUALITY_JIRA_URL }}
           jira_email: ${{ secrets.UT_QUALITY_JIRA_EMAIL }}
@@ -195,7 +195,7 @@ The script will:
 
 ```yaml
 - name: Run Unit Test Quality Analysis
-  uses: sourcefuse/ai-test-quality-analyzer@QCV1.0
+  uses: sourcefuse/ai-test-quality-analyzer@QC-V1.0
   with:
     minimum_score: '7.0'  # Require high quality
     

@@ -117,7 +117,7 @@ jobs:
       - name: Run Unit Test Quality Analysis
         id: quality_check
         if: steps.extract_ticket.outputs.ticket_id != 'UNKNOWN'
-        uses: sourcefuse/ai-test-quality-analyzer@QCV1.0
+        uses: sourcefuse/ai-test-quality-analyzer@QC-V1.0
         with:
           jira_url: ${{ secrets.UT_QUALITY_JIRA_URL }}
           jira_email: ${{ secrets.UT_QUALITY_JIRA_EMAIL }}

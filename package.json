@@ -1,6 +1,6 @@
 {
   "name": "checkunittestcases",
-  "version": "QCV1.0",
+  "version": "QC-V1.0",
   "main": "dist/fetch-and-analyze.js",
   "scripts": {
     "start": "npx ts-node fetch-and-analyze.ts",
