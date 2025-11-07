@@ -391,27 +391,20 @@ export class ConfluenceService {
         errorMessage.includes('BadRequestException') && errorMessage.includes('title');
 
       if (isPageExists) {
-        console.log(`   Page "${request.title}" already exists, fetching ID...`);
+        console.log(`   Page "${request.title}" already exists, checking parent hierarchy...`);
         const existingPageId = await this.getPageIdByTitle(request.spaceKey, request.title, request.parentId);
         if (existingPageId) {
-          console.log(`   ✅ Using existing page under correct parent: ${existingPageId}`);
+          console.log(`   ✅ Found existing page under correct parent: ${existingPageId}`);
           return {
             pageId: existingPageId,
             pageTitle: request.title,
           };
-        } else if (request.parentId) {
-          console.log(`   ⚠️  Page "${request.title}" exists but not under parent ${request.parentId}`);
-          console.log(`   ⚠️  Will look for page without parent filter...`);
-          // Try without parent filter as fallback
-          const anyPageId = await this.getPageIdByTitle(request.spaceKey, request.title);
-          if (anyPageId) {
-            console.log(`   ⚠️  Found page with ID ${anyPageId} but under different parent`);
-            console.log(`   ⚠️  Using existing page anyway to avoid duplicate error`);
-            return {
-              pageId: anyPageId,
-              pageTitle: request.title,
-            };
-          }
+        } else {
+          // Page exists but not under correct parent - this is an error condition
+          console.error(`   ❌ Page "${request.title}" exists but NOT under the correct parent hierarchy`);
+          console.error(`   ❌ Expected parent: ${request.parentId || 'root level'}`);
+          console.error(`   ❌ Please manually delete the misplaced page or fix the hierarchy in Confluence`);
+          throw new Error(`Page "${request.title}" exists in wrong hierarchy. Expected parent: ${request.parentId || 'root level'}`);
         }
       }
 
