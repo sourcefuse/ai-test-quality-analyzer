@@ -43,3 +43,6 @@ tmp/
 temp/
 *.tmp
 test-*
+
+# Local testing script
+start.sh
