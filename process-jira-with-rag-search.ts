@@ -5,6 +5,7 @@
 
 import * as dotenv from 'dotenv';
 import * as dotenvExt from 'dotenv-extended';
+import * as fs from 'fs';
 import {
   JiraService,
   ConfluenceService,
@@ -41,7 +42,44 @@ async function main() {
       process.exit(1);
     }
 
-    console.log('🚀 Starting JIRA Ticket Processing...\n');
+    console.log('🚀 Starting JIRA Ticket Processing with RAG...\n');
+
+    // Get folder naming configuration
+    const spaceKey = getRequiredEnv('CONFLUENCE_SPACE_KEY', 'Confluence space key');
+    const baseFolderSuffix = getOptionalEnv('BASE_FOLDER_SUFFIX', 'Generate-Unit-Tests-Via-AI');
+    const ticketFolderSuffix = getOptionalEnv('TICKET_FOLDER_SUFFIX', 'Via-AI');
+
+    // Construct output directory to match fetch-and-analyze.ts structure
+    const baseDir = `./${spaceKey}-${baseFolderSuffix}`;
+    const ticketDir = `${baseDir}/${ticketKey}-${ticketFolderSuffix}`;
+
+    // Use CURRENT_ANALYSIS_PATH if set, otherwise use the latest folder
+    const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
+    let outputDir = '';
+
+    if (currentAnalysisPath) {
+      outputDir = `${ticketDir}/${currentAnalysisPath}`;
+    } else {
+      // Find the latest timestamp folder
+      if (fs.existsSync(ticketDir)) {
+        const timestampFolderSuffix = getOptionalEnv('TIMESTAMP_FOLDER_SUFFIX', 'Via-AI');
+        const timestampPattern = new RegExp(`^\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-${timestampFolderSuffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+        const folders = fs.readdirSync(ticketDir).filter((f: string) => timestampPattern.test(f));
+
+        if (folders.length > 0) {
+          folders.sort().reverse();
+          outputDir = `${ticketDir}/${folders[0]}`;
+          console.log(`ℹ️  Using existing analysis folder: ${folders[0]}`);
+        }
+      }
+
+      if (!outputDir) {
+        console.error('❌ No analysis folder found. Please run fetch-and-analyze.ts first.');
+        process.exit(1);
+      }
+    }
+
+    console.log(`📂 Output directory: ${outputDir}\n`);
 
     // 1. Initialize JIRA Service
     const jiraConfig: JiraConfigDto = {
@@ -99,11 +137,27 @@ async function main() {
     console.log(`🎫 Processing JIRA ticket: ${ticketKey}`);
     const result = await processor.processTicket(ticketKey, topK);
 
-    // 7. Save results to file
-    const outputDir = getOptionalEnv('OUTPUT_DIR', './output');
-    const filePath = await processor.saveToFile(result, outputDir);
+    // 7. Save results to Requirements-Rag.md file
+    const requirementsFileName = getOptionalEnv('REQUIREMENTS_RAG_FILE_NAME', 'Requirements-Rag.md');
+    const filePath = `${outputDir}/${requirementsFileName}`;
 
-    console.log('\n✅ Processing Complete!');
+    // Format and save content using the processor's saveToFile method
+    // But save to our custom location
+    const tempDir = './temp_rag_output';
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, {recursive: true});
+    }
+    const tempPath = await processor.saveToFile(result, tempDir);
+    const content = fs.readFileSync(tempPath, 'utf-8');
+    fs.writeFileSync(filePath, content, 'utf-8');
+
+    // Cleanup temp files
+    fs.unlinkSync(tempPath);
+    fs.rmdirSync(tempDir, {recursive: true});
+
+    console.log(`\n💾 RAG search results saved to: ${filePath}`);
+
+    console.log('\n✅ RAG Processing Complete!');
     console.log(`   Ticket: ${result.ticketKey}`);
     console.log(`   Title: ${result.ticketTitle}`);
     console.log(`   Related Documents: ${result.relatedDocuments.length}`);
