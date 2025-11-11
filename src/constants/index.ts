@@ -5,6 +5,5 @@
 
 export * from './jira.constants';
 export * from './confluence.constants';
-export * from './vector-store.constants';
 export * from './openrouter-ai.constants';
 export * from './bedrock-ai.constants';

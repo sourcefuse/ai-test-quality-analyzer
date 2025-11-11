@@ -20,6 +20,279 @@ The **AI Test Quality Analyzer** is a GitHub Action plugin that automatically ch
 4. Generates quality score and detailed report
 5. Posts results as PR comment and optionally uploads to Confluence
 
+### Workflow Diagram
+![alt text](image.png)
+
+
+
+### Architecture Overview
+
+![alt text](image-1.png)
+
+---
+
+## Presentation Diagrams
+
+### 1. End-to-End Process Flow (Detailed)
+![alt text](image-2.png)
+
+### 2. Quality Scoring Breakdown
+
+```mermaid
+graph TB
+    subgraph Input["📥 INPUT DATA"]
+        T1[Test Files<br/>*.test.ts, *.spec.ts]
+        T2[JIRA Requirements<br/>User Stories & ACs]
+        T3[Confluence Docs<br/>Technical Specs]
+    end
+
+    subgraph Analysis["🤖 AI ANALYSIS ENGINE"]
+        direction TB
+        A1[Coverage Analysis<br/>25%]
+        A2[Assertion Quality<br/>25%]
+        A3[Best Practices<br/>25%]
+        A4[Documentation<br/>25%]
+    end
+
+    subgraph Scoring["📊 SCORING METRICS"]
+        direction TB
+        S1["Coverage Score<br/>0-2.5 points"]
+        S2["Assertions Score<br/>0-2.5 points"]
+        S3["Practices Score<br/>0-2.5 points"]
+        S4["Docs Score<br/>0-2.5 points"]
+    end
+
+    subgraph Result["✅ FINAL RESULT"]
+        Total["Total Score<br/>0-10 Scale"]
+        Pass{"Pass?<br/>Score ≥ Threshold"}
+        Success["✅ Approve"]
+        Fail["❌ Needs Work"]
+    end
+
+    T1 --> Analysis
+    T2 --> Analysis
+    T3 --> Analysis
+
+    A1 --> S1
+    A2 --> S2
+    A3 --> S3
+    A4 --> S4
+
+    S1 --> Total
+    S2 --> Total
+    S3 --> Total
+    S4 --> Total
+
+    Total --> Pass
+    Pass -->|Yes| Success
+    Pass -->|No| Fail
+
+    style Input fill:#e3f2fd
+    style Analysis fill:#fff3e0
+    style Scoring fill:#f3e5f5
+    style Result fill:#e8f5e9
+    style Success fill:#c8e6c9
+    style Fail fill:#ffcdd2
+```
+
+### 3. System Integration Architecture
+
+```mermaid
+graph TD
+    subgraph Developer["👨‍💻 DEVELOPER WORKFLOW"]
+        D1[Write Unit Tests]
+        D2[Create Pull Request]
+        D3[Review Feedback]
+        D4[Improve Tests]
+    end
+
+    subgraph GitHub["🔷 GITHUB PLATFORM"]
+        G1[GitHub Actions<br/>Workflow Runner]
+        G2[PR Environment]
+        G3[Comments API]
+    end
+
+    subgraph External["🌐 EXTERNAL SERVICES"]
+        E1["📋 JIRA<br/>Requirement Tracking"]
+        E2["📚 Confluence<br/>Documentation"]
+        E3["🧠 AWS Bedrock<br/>Claude AI Model"]
+    end
+
+    subgraph Plugin["⚙️ AI TEST ANALYZER PLUGIN"]
+        P1[Ticket Extractor]
+        P2[Data Collector]
+        P3[AI Analyzer]
+        P4[Report Generator]
+        P5[Quality Scorer]
+    end
+
+    subgraph Output["📤 OUTPUT & REPORTS"]
+        O1[PR Comment<br/>Summary]
+        O2[Confluence Page<br/>Detailed Report]
+        O3[GitHub Summary<br/>Workflow Log]
+    end
+
+    D1 --> D2
+    D2 --> G2
+    G2 --> G1
+
+    G1 --> P1
+    P1 -->|Extract BB-1234| P2
+
+    P2 -->|Fetch| E1
+    P2 -->|Fetch| E2
+    P2 --> P3
+
+    P3 -->|AI Request| E3
+    E3 -->|Analysis Results| P5
+
+    P5 --> P4
+    P4 --> O1
+    P4 --> O2
+    P4 --> O3
+
+    O1 --> G3
+    G3 --> D3
+
+    D3 --> D4
+    D4 -.->|Iterate| D1
+
+    style Developer fill:#e1f5fe
+    style GitHub fill:#f3e5f5
+    style External fill:#fff9c4
+    style Plugin fill:#e8f5e9
+    style Output fill:#fce4ec
+```
+
+### 4. Data Flow Diagram
+
+![alt text](image-3.png)
+
+
+### 5. Quality Analysis Components
+
+```mermaid
+mindmap
+  root((AI Test Quality<br/>Analyzer))
+    Input Sources
+      GitHub Repository
+        Test Files
+        Source Code
+        PR Metadata
+      JIRA Integration
+        Ticket Requirements
+        Acceptance Criteria
+        User Stories
+      Confluence
+        Technical Specs
+        API Documentation
+        Design Docs
+    AI Analysis
+      Code Coverage
+        Unit Test Coverage
+        Integration Tests
+        Edge Cases
+      Assertion Quality
+        Meaningful Asserts
+        Error Handling
+        Mock Usage
+      Best Practices
+        Naming Conventions
+        Test Structure
+        Maintainability
+      Documentation
+        Test Descriptions
+        Comments
+        Examples
+    Quality Metrics
+      Quantitative
+        Coverage %
+        Test Count
+        Assertion Count
+      Qualitative
+        Code Quality
+        Readability
+        Completeness
+      Scoring
+        Weighted Score
+        Pass/Fail Threshold
+        Trend Analysis
+    Report Delivery
+      GitHub PR
+        Inline Comments
+        Summary Report
+        Pass/Fail Status
+      Confluence Upload
+        Detailed Report
+        Historical Data
+        Recommendations
+      Notifications
+        PR Review
+        Email Alert
+        Slack Integration
+```
+
+### 6. Deployment & Integration Points
+
+```mermaid
+graph TB
+    subgraph Setup["🔧 SETUP PHASE"]
+        Setup1[Configure GitHub Secrets]
+        Setup2[Set Environment Variables]
+        Setup3[Install Workflow File]
+        Setup4[Configure Triggers]
+    end
+
+    subgraph Runtime["▶️ RUNTIME PHASE"]
+        Run1[PR Event Triggered]
+        Run2[Action Starts]
+        Run3[Authenticate Services]
+        Run4[Execute Analysis]
+        Run5[Generate Reports]
+    end
+
+    subgraph Integration["🔗 INTEGRATION POINTS"]
+        Int1["GitHub Actions API<br/>Workflow Execution"]
+        Int2["JIRA REST API<br/>v3.0"]
+        Int3["Confluence REST API<br/>v2.0"]
+        Int4["AWS Bedrock API<br/>Claude Models"]
+        Int5["GitHub GraphQL API<br/>Comments & Status"]
+    end
+
+    subgraph Security["🔒 SECURITY LAYER"]
+        Sec1[GitHub Secrets Manager]
+        Sec2[API Token Validation]
+        Sec3[Rate Limiting]
+        Sec4[Audit Logging]
+    end
+
+    Setup1 --> Setup2 --> Setup3 --> Setup4
+    Setup4 --> Run1
+
+    Run1 --> Run2
+    Run2 --> Run3
+    Run3 --> Run4
+    Run4 --> Run5
+
+    Run3 --> Int1
+    Run4 --> Int2
+    Run4 --> Int3
+    Run4 --> Int4
+    Run5 --> Int5
+
+    Int1 --> Sec1
+    Int2 --> Sec2
+    Int3 --> Sec2
+    Int4 --> Sec2
+    Sec2 --> Sec3
+    Sec3 --> Sec4
+
+    style Setup fill:#e1bee7
+    style Runtime fill:#c5e1a5
+    style Integration fill:#ffecb3
+    style Security fill:#ffccbc
+```
+
 ---
 
 ## Prerequisites

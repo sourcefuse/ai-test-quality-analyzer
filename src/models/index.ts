@@ -5,4 +5,3 @@
 
 export * from './jira-issue.model';
 export * from './confluence-page.model';
-export * from './vector-document.model';

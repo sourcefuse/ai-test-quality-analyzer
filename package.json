@@ -1,13 +1,13 @@
 {
   "name": "checkunittestcases",
-  "version": "QC-V1.0",
+  "version": "1.0.0",
   "main": "dist/fetch-and-analyze.js",
   "scripts": {
     "start": "npx ts-node fetch-and-analyze.ts",
-    "create-requirements": "npx ts-node create-requirements.ts",
     "upload-requirements": "npx ts-node upload-requirements-to-confluence.ts",
     "create-requirement-doc": "claude --print --dangerously-skip-permissions < prompts/create-requirement.md",
-    "analyze-test-quality": "claude --print --dangerously-skip-permissions < prompts/analyze-test-quality.md"
+    "analyze-test-quality": "claude --print --dangerously-skip-permissions < prompts/analyze-test-quality.md",
+    "process:jira": "npx ts-node process-jira-with-rag-search.ts"
   },
   "keywords": [],
   "author": "Vishal Gupta",
@@ -22,10 +22,13 @@
     "@anthropic-ai/bedrock-sdk": "^0.25.0",
     "@anthropic-ai/sdk": "^0.68.0",
     "@aws-sdk/client-bedrock-runtime": "^3.919.0",
-    "@qdrant/qdrant-js": "^1.15.1",
+    "@types/pg": "^8.15.6",
     "axios": "^1.13.1",
+    "cheerio": "^1.1.2",
     "confluence.js": "^2.1.0",
     "dotenv": "^17.2.3",
-    "dotenv-extended": "^2.9.0"
+    "dotenv-extended": "^2.9.0",
+    "openai": "^6.8.1",
+    "pg": "^8.16.3"
   }
 }

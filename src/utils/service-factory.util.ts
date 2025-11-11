@@ -6,14 +6,24 @@
 import {
   BedrockConfigDto,
   OpenRouterConfigDto,
-  VectorStoreConfigDto,
 } from '../dtos';
 import {
   BedrockAIService,
   OpenRouterAIService,
-  VectorStoreService,
+  PostgresVectorService,
 } from '../services';
-import {AIService} from '../services/requirement-analyzer.service';
+import {
+  getRequiredEnv,
+  getRequiredEnvAsNumber,
+  getOptionalEnv,
+  getOptionalEnvAsNumber,
+} from './env-validator.util';
+
+/**
+ * AI Service Type
+ * Union type of supported AI service implementations
+ */
+export type AIService = BedrockAIService | OpenRouterAIService;
 
 /**
  * Create Bedrock AI Service from environment variables
@@ -22,23 +32,31 @@ import {AIService} from '../services/requirement-analyzer.service';
  * 2. Explicit Keys: Set AWS_ACCESS_KEY_BEDROCK and AWS_SECRET_KEY_BEDROCK
  */
 export function createBedrockAIService(): BedrockAIService {
+  // At least one authentication method must be provided
+  const awsProfile = process.env.AWS_PROFILE;
+  const accessKeyId = process.env.AWS_ACCESS_KEY_BEDROCK;
+  const secretAccessKey = process.env.AWS_SECRET_KEY_BEDROCK;
+
+  if (!awsProfile && (!accessKeyId || !secretAccessKey)) {
+    throw new Error(
+      'AWS Bedrock authentication required: Either set AWS_PROFILE or both AWS_ACCESS_KEY_BEDROCK and AWS_SECRET_KEY_BEDROCK'
+    );
+  }
+
   const config: BedrockConfigDto = {
-    // Use AWS profile if set, otherwise use explicit keys
-    awsProfile: process.env.AWS_PROFILE,
-    accessKeyId: process.env.AWS_ACCESS_KEY_BEDROCK,
-    secretAccessKey: process.env.AWS_SECRET_KEY_BEDROCK,
-    region: process.env.AWS_REGION_BEDROCK || process.env.AWS_REGION || 'us-east-2',
-    model:
-      process.env.AWS_BEDROCK_MODEL ||
-      process.env.ANTHROPIC_MODEL ||
-      'anthropic.claude-3-5-sonnet-20241022-v2:0',
-    embeddingModel:
-      process.env.AWS_BEDROCK_EMBEDDING_MODEL ||
-      'amazon.titan-embed-text-v2:0',
-    subagentModel:
-      process.env.CLAUDE_CODE_SUBAGENT_MODEL ||
-      process.env.ANTHROPIC_MODEL ||
-      'anthropic.claude-3-5-sonnet-20241022-v2:0',
+    awsProfile,
+    accessKeyId,
+    secretAccessKey,
+    region: getRequiredEnv('AWS_REGION', 'AWS region for Bedrock'),
+    model: getRequiredEnv('AWS_BEDROCK_MODEL', 'AWS Bedrock model name'),
+    embeddingModel: getRequiredEnv(
+      'AWS_BEDROCK_EMBEDDING_MODEL',
+      'AWS Bedrock embedding model'
+    ),
+    subagentModel: getOptionalEnv(
+      'CLAUDE_CODE_SUBAGENT_MODEL',
+      getRequiredEnv('AWS_BEDROCK_MODEL', 'AWS Bedrock model name')
+    ),
   };
 
   return new BedrockAIService(config);
@@ -49,11 +67,12 @@ export function createBedrockAIService(): BedrockAIService {
  */
 export function createOpenRouterAIService(): OpenRouterAIService {
   const config: OpenRouterConfigDto = {
-    apiKey: process.env.OPEN_ROUTER_API_KEY || '',
-    apiUrl:
-      process.env.OPEN_ROUTER_API_URL || 'https://openrouter.ai/api/v1',
-    model:
-      process.env.OPEN_ROUTER_MODEL || 'google/gemini-2.0-flash-exp:free',
+    apiKey: getRequiredEnv('OPEN_ROUTER_API_KEY', 'OpenRouter API key'),
+    apiUrl: getOptionalEnv(
+      'OPEN_ROUTER_API_URL',
+      'https://openrouter.ai/api/v1'
+    ),
+    model: getRequiredEnv('OPEN_ROUTER_MODEL', 'OpenRouter model name'),
   };
 
   const service = new OpenRouterAIService(config);
@@ -78,23 +97,16 @@ export function createAIService(): AIService {
 }
 
 /**
- * Create Vector Store Service from environment variables
+ * Create PostgreSQL Vector Store Service from environment variables
  */
-export function createVectorStoreService(): VectorStoreService {
-  // Determine vector size based on which AI service is being used
-  const useBedrock = process.env.CLAUDE_CODE_USE_BEDROCK === '1';
-  const vectorSize = useBedrock
-    ? 1024  // AWS Bedrock Titan Embeddings v2
-    : 1536; // OpenRouter (OpenAI text-embedding-3-small)
-
-  const config: VectorStoreConfigDto = {
-    type: process.env.VECTOR_STORE_TYPE || 'QDRANT',
-    url: process.env.VECTOR_STORE_URL || 'http://127.0.0.1:6333',
-    collectionName: process.env.VECTOR_STORE_COLLECTION_NAME || 'confluence_documents',
-    vectorSize: process.env.VECTOR_STORE_VECTOR_SIZE
-      ? parseInt(process.env.VECTOR_STORE_VECTOR_SIZE)
-      : vectorSize,
+export function createVectorStoreService(): PostgresVectorService {
+  const config = {
+    host: getRequiredEnv('DATABASE_HOST', 'PostgreSQL host'),
+    port: getRequiredEnvAsNumber('DATABASE_PORT', 'PostgreSQL port'),
+    database: getRequiredEnv('DATABASE_NAME', 'PostgreSQL database name'),
+    user: getRequiredEnv('DATABASE_USER', 'PostgreSQL user'),
+    password: getRequiredEnv('DATABASE_PASSWORD', 'PostgreSQL password'),
   };
 
-  return new VectorStoreService(config);
+  return new PostgresVectorService(config);
 }
