@@ -65,6 +65,12 @@ export class EmbeddingService {
    */
   async generateEmbedding(text: string): Promise<number[]> {
     try {
+      // Skip empty or very short text
+      if (!text || text.trim().length < 10) {
+        console.warn('⚠️  Skipping embedding generation for empty or very short text');
+        return [];
+      }
+
       const response = await this.client.embeddings.create({
         model: this.model,
         input: text,
@@ -73,7 +79,8 @@ export class EmbeddingService {
       return response.data[0].embedding;
     } catch (error) {
       console.error('❌ Error generating embedding:', error);
-      throw error;
+      // Return empty array instead of throwing to allow processing to continue
+      return [];
     }
   }
 

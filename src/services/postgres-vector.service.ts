@@ -210,6 +210,12 @@ export class PostgresVectorService {
 
     // Insert new chunks with 1-day expiry
     for (const chunk of chunks) {
+      // Skip chunks with empty or invalid embeddings
+      if (!chunk.embedding || chunk.embedding.length === 0) {
+        console.warn(`Skipping chunk with empty embedding for document ${documentId}`);
+        continue;
+      }
+
       const embeddingString = `[${chunk.embedding.join(',')}]`;
 
       await this.pool.query(
