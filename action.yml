@@ -49,6 +49,10 @@ inputs:
     description: 'Branch name to clone'
     required: false
     default: 'main'
+  target_branch:
+    description: 'Target branch for generated unit test cases (default: main)'
+    required: false
+    default: 'main'
   save_to_file:
     description: 'Save analysis results to files (true/false)'
     required: false
@@ -107,6 +111,18 @@ inputs:
     description: 'Confluence space key for uploading results (if different from fetch space)'
     required: false
     default: ''
+  docker_username:
+    description: 'Docker registry username for authentication (optional - required for Presidio PII detection)'
+    required: false
+    default: ''
+  docker_password:
+    description: 'Docker registry password/token for authentication (optional - required for Presidio PII detection)'
+    required: false
+    default: ''
+  openai_api_key:
+    description: 'OpenAI API key for embeddings (required if USE_POSTGRES_VECTOR_DB is enabled)'
+    required: false
+    default: ''
 
 outputs:
   test_quality_score:
@@ -143,6 +159,35 @@ runs:
         npm install
         npm install -g @anthropic-ai/claude-code
 
+    - name: Docker login and start Presidio services
+      if: inputs.docker_username != '' && inputs.docker_password != ''
+      shell: bash
+      run: |
+        echo "🐳 Logging in to Docker registry..."
+        echo "${{ inputs.docker_password }}" | docker login -u "${{ inputs.docker_username }}" --password-stdin docker.io
+
+        echo "📥 Pulling Presidio Docker images..."
+        docker pull mcr.microsoft.com/presidio-analyzer:latest
+        docker pull mcr.microsoft.com/presidio-anonymizer:latest
+
+        echo "🚀 Starting Presidio services..."
+        docker run -d -p 5001:3000 --name presidio-anonymizer mcr.microsoft.com/presidio-anonymizer:latest
+        docker run -d -p 5002:3000 --name presidio-analyzer mcr.microsoft.com/presidio-analyzer:latest
+
+        echo "⏳ Waiting for services to be ready..."
+        sleep 10
+
+        echo "✅ Presidio services started successfully"
+        docker ps | grep presidio
+
+    - name: Skip Presidio setup notification
+      if: inputs.docker_username == '' || inputs.docker_password == ''
+      shell: bash
+      run: |
+        echo "⚠️  Skipping Docker login and Presidio setup"
+        echo "   Docker credentials not provided - PII detection will be disabled"
+        echo "   To enable Presidio services, provide docker_username and docker_password inputs"
+
     - name: Clone repository for analysis
       shell: bash
       run: |
@@ -163,12 +208,18 @@ runs:
       run: |
         cd ${{ github.action_path }}
         cat > .env << EOF
+        # Application Configuration
+        NODE_ENV=production
+
         # JIRA Configuration
         JIRA_URL=${{ inputs.jira_url }}
         JIRA_EMAIL=${{ inputs.jira_email }}
         JIRA_API_TOKEN=${{ inputs.jira_api_token }}
         JIRA_TICKET_ID=${{ inputs.jira_ticket_id }}
         JIRA_PROJECT_KEY=${{ inputs.jira_project_key }}
+        JIRA_FETCH_FIELDS=summary,description,customfield_10000
+        JIRA_MAX_RESULT=100
+        JIRA_FILE_NAME=Jira.md
 
         # Confluence Configuration (for fetching data)
         CONFLUENCE_URL=${{ inputs.confluence_url }}
@@ -176,6 +227,10 @@ runs:
         CONFLUENCE_API_TOKEN=${{ inputs.confluence_api_token }}
         CONFLUENCE_SPACE_KEY=${{ inputs.confluence_space_key }}
         CONFLUENCE_SILENT_MODE=${{ inputs.confluence_silent_mode }}
+        CONFLUENCE_MAX_PAGES=
+        CONFLUENCE_PAGE_LIMIT=50
+        CONFLUENCE_FILE_NAME=Confluence.md
+        CONFLUENCE_RAG_FILE_NAME=Confluence-Rag.md
 
         # Confluence Upload Configuration (for uploading results)
         CONFLUENCE_UPLOAD_URL=${{ inputs.confluence_upload_url }}
@@ -183,19 +238,51 @@ runs:
         CONFLUENCE_UPLOAD_API_TOKEN=${{ inputs.confluence_upload_api_token }}
         CONFLUENCE_UPLOAD_SPACE_KEY=${{ inputs.confluence_upload_space_key }}
 
-        # AWS Bedrock Configuration
-        AWS_REGION_BEDROCK=${{ inputs.aws_region_bedrock }}
-        AWS_ACCESS_KEY_BEDROCK=${{ inputs.aws_access_key_bedrock }}
-        AWS_SECRET_KEY_BEDROCK=${{ inputs.aws_secret_key_bedrock }}
-        AWS_BEDROCK_MODEL=${{ inputs.aws_bedrock_model }}
-        ANTHROPIC_MODEL=${{ inputs.anthropic_model }}
-        CLAUDE_CODE_USE_BEDROCK=${{ inputs.claude_code_use_bedrock }}
-        BASE_FOLDER_SUFFIX=${{ inputs.base_folder_suffix }}
-        CONFLUENCE_ROOT_PAGE_SUFFIX=${{ inputs.confluence_root_page_suffix }}
+        # Docker Configuration
+        DOCKER_USERNAME=${{ inputs.docker_username }}
+        DOCKER_PASSWORD=${{ inputs.docker_password }}
+
+        # Presidio Configuration (PII Detection)
+        PRESIDIO_ANALYZE_URL=http://localhost:5002/analyze
+        PRESIDIO_ANONYMIZE_URL=http://localhost:5001/anonymize
+
+        # Data Sanitization Configuration
+        SANITIZE_PG_DATA=false
 
         # Analysis Configuration
         CURRENT_ANALYSIS_PATH=$(echo $(date +'%Y%m%d-%H-%M-%S')-Via-AI)
         SAVE_TO_FILE=${{ inputs.save_to_file }}
+
+        # File Names Configuration
+        REQUIREMENTS_FILE_NAME=Requirements.md
+        ANALYSIS_REPORT_FILE_NAME=AnalysisReport.md
+
+        # Folder Naming Configuration
+        BASE_FOLDER_SUFFIX=${{ inputs.base_folder_suffix }}
+        TICKET_FOLDER_SUFFIX=Via-AI
+        TIMESTAMP_FOLDER_SUFFIX=Via-AI
+
+        # Confluence Page Names Configuration
+        CONFLUENCE_ROOT_PAGE_SUFFIX=${{ inputs.confluence_root_page_suffix }}
+        CONFLUENCE_TICKET_PAGE_SUFFIX=Via-AI
+
+        # RAG System Configuration (PostgreSQL + pgvector)
+        USE_POSTGRES_VECTOR_DB=false
+        DATABASE_HOST=localhost
+        DATABASE_PORT=5432
+        DATABASE_NAME=
+        DATABASE_USER=
+        DATABASE_PASSWORD=
+
+        # OpenAI Embeddings Configuration
+        EMBEDDING_PROVIDER=openai
+        OPENAI_API_KEY=${{ inputs.openai_api_key }}
+
+        # Performance Configuration
+        EMBEDDING_CONCURRENCY=50
+        INDEXER_BATCH_SIZE=50
+        CHUNK_SIZE=1000
+        CHUNK_OVERLAP=200
         EOF
         echo "✅ Environment configuration created"
 
@@ -222,9 +309,9 @@ runs:
         npm run create-requirement-doc
         echo "✅ Requirements document created"
 
-        echo "🔍 Analyzing unit test quality..."
-        npm run analyze-test-quality
-        echo "✅ Test quality analysis completed"
+        echo "🔍 Generating unit test cases..."
+        npm run generate-unit-testcases
+        echo "✅ Unit test cases generated successfully"
 
     - name: Extract analysis paths
       id: extract_paths

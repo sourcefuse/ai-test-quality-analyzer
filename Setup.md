@@ -1,463 +1,618 @@
-# Setup Guide: Generate Unit Test Cases Via AI
+# Setup Guide - AI Test Quality Analyzer
 
-This guide will help you set up the **Generate Unit Test Cases Via AI** GitHub Action in your repository.
+## Introduction
 
-## 📋 Table of Contents
+The **AI Test Quality Analyzer** is a GitHub Action plugin that automatically checks the quality of unit test cases in your codebase. It analyzes your test files against JIRA requirements and Confluence documentation to provide comprehensive quality metrics and recommendations.
 
-- [Overview](#overview)
-- [Prerequisites](#prerequisites)
-- [Step 1: Configure GitHub Secrets](#step-1-configure-github-secrets)
-- [Step 2: Configure GitHub Variables](#step-2-configure-github-variables)
-- [Step 3: Install Workflow File](#step-3-install-workflow-file)
-- [Step 4: Verify Setup](#step-4-verify-setup)
-- [Usage](#usage)
-- [Troubleshooting](#troubleshooting)
-- [Advanced Configuration](#advanced-configuration)
+### Key Features
+- 🎯 Automated test quality scoring (0-10 scale)
+- 📊 Detailed analysis of test coverage and quality
+- 🔗 Integration with JIRA for requirement tracking
+- 📝 Confluence integration for documentation
+- 🤖 AI-powered analysis using AWS Bedrock and Claude
+- 💬 Automatic PR comments with quality reports
+- 📈 Comprehensive test quality metrics
 
----
+### How It Works
+1. Extracts JIRA ticket ID from PR branch or title
+2. Fetches requirements from JIRA and related Confluence documentation
+3. Analyzes repository test files against requirements
+4. Generates quality score and detailed report
+5. Posts results as PR comment and optionally uploads to Confluence
 
-## 🎯 Overview
+### Workflow Diagram
+![alt text](image.png)
 
-This GitHub Action automatically generates unit test cases using AI by:
-1. Reading JIRA tickets for requirements
-2. Fetching related Confluence documentation
-3. Analyzing your repository code
-4. Generating comprehensive unit test cases
-5. Uploading results to Confluence
-6. Creating a Pull Request with the generated tests
 
----
 
-## ✅ Prerequisites
+### Architecture Overview
 
-Before setting up, ensure you have:
-
-- [ ] **JIRA Account** with API access
-- [ ] **Confluence Account** with API access
-- [ ] **AWS Account** with Bedrock access (for Claude AI)
-- [ ] **GitHub Repository** with admin access
-- [ ] **API Tokens** ready:
-  - JIRA API Token
-  - Confluence API Token
-  - AWS Access Keys for Bedrock
+![alt text](image-1.png)
 
 ---
 
-## 🔐 Step 1: Configure GitHub Secrets
+## Presentation Diagrams
 
-Navigate to your repository's **Settings → Secrets and variables → Actions → New repository secret**.
+### 1. End-to-End Process Flow (Detailed)
+![alt text](image-2.png)
 
-### Required Secrets
+### 2. Quality Scoring Breakdown
 
-Add the following secrets:
+```mermaid
+graph TB
+    subgraph Input["📥 INPUT DATA"]
+        T1[Test Files<br/>*.test.ts, *.spec.ts]
+        T2[JIRA Requirements<br/>User Stories & ACs]
+        T3[Confluence Docs<br/>Technical Specs]
+    end
 
-#### JIRA Configuration
+    subgraph Analysis["🤖 AI ANALYSIS ENGINE"]
+        direction TB
+        A1[Coverage Analysis<br/>25%]
+        A2[Assertion Quality<br/>25%]
+        A3[Best Practices<br/>25%]
+        A4[Documentation<br/>25%]
+    end
 
-| Secret Name | Description | Example Value |
-|------------|-------------|---------------|
-| `UT_GENERATE_JIRA_URL` | Your JIRA instance URL | `https://yourcompany.atlassian.net` |
-| `UT_GENERATE_JIRA_EMAIL` | JIRA account email | `your.email@company.com` |
-| `UT_GENERATE_JIRA_API_TOKEN` | JIRA API token | `ATATT3xFfGF0...` |
+    subgraph Scoring["📊 SCORING METRICS"]
+        direction TB
+        S1["Coverage Score<br/>0-2.5 points"]
+        S2["Assertions Score<br/>0-2.5 points"]
+        S3["Practices Score<br/>0-2.5 points"]
+        S4["Docs Score<br/>0-2.5 points"]
+    end
 
-**How to get JIRA API Token:**
-1. Go to https://id.atlassian.com/manage-profile/security/api-tokens
-2. Click "Create API token"
-3. Copy the token and save it as `UT_GENERATE_JIRA_API_TOKEN`
+    subgraph Result["✅ FINAL RESULT"]
+        Total["Total Score<br/>0-10 Scale"]
+        Pass{"Pass?<br/>Score ≥ Threshold"}
+        Success["✅ Approve"]
+        Fail["❌ Needs Work"]
+    end
 
-#### Confluence Configuration
+    T1 --> Analysis
+    T2 --> Analysis
+    T3 --> Analysis
 
-| Secret Name | Description | Example Value |
-|------------|-------------|---------------|
-| `UT_GENERATE_CONFLUENCE_URL` | Confluence instance URL | `https://yourcompany.atlassian.net` |
-| `UT_GENERATE_CONFLUENCE_EMAIL` | Confluence account email | `your.email@company.com` |
-| `UT_GENERATE_CONFLUENCE_API_TOKEN` | Confluence API token | `ATATT3xFfGF0...` |
+    A1 --> S1
+    A2 --> S2
+    A3 --> S3
+    A4 --> S4
 
-**How to get Confluence API Token:**
-1. Go to https://id.atlassian.com/manage-profile/security/api-tokens
-2. Click "Create API token"
-3. Copy the token and save it as `UT_GENERATE_CONFLUENCE_API_TOKEN`
+    S1 --> Total
+    S2 --> Total
+    S3 --> Total
+    S4 --> Total
 
-**Note:** You can use the same API token for both JIRA and Confluence if they're in the same Atlassian instance.
+    Total --> Pass
+    Pass -->|Yes| Success
+    Pass -->|No| Fail
 
-#### AWS Bedrock Configuration
+    style Input fill:#e3f2fd
+    style Analysis fill:#fff3e0
+    style Scoring fill:#f3e5f5
+    style Result fill:#e8f5e9
+    style Success fill:#c8e6c9
+    style Fail fill:#ffcdd2
+```
 
-| Secret Name | Description | Example Value |
-|------------|-------------|---------------|
-| `UT_GENERATE_AWS_ACCESS_KEY_BEDROCK` | AWS Access Key ID | `AKIAIOSFODNN7EXAMPLE` |
-| `UT_GENERATE_AWS_SECRET_KEY_BEDROCK` | AWS Secret Access Key | `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY` |
+### 3. System Integration Architecture
 
-**How to get AWS Bedrock Credentials:**
-1. Log in to AWS Console
-2. Go to IAM → Users → Your User → Security credentials
-3. Create access key for AWS Bedrock
-4. Ensure the user has `bedrock:InvokeModel` permissions
+```mermaid
+graph TD
+    subgraph Developer["👨‍💻 DEVELOPER WORKFLOW"]
+        D1[Write Unit Tests]
+        D2[Create Pull Request]
+        D3[Review Feedback]
+        D4[Improve Tests]
+    end
 
-#### Optional Secrets (for separate Confluence upload instance)
+    subgraph GitHub["🔷 GITHUB PLATFORM"]
+        G1[GitHub Actions<br/>Workflow Runner]
+        G2[PR Environment]
+        G3[Comments API]
+    end
 
-| Secret Name | Description | Required |
-|------------|-------------|----------|
-| `UT_GENERATE_CONFLUENCE_UPLOAD_URL` | Different Confluence URL for uploading | Optional |
-| `UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL` | Different email for uploading | Optional |
-| `UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN` | Different API token for uploading | Optional |
+    subgraph External["🌐 EXTERNAL SERVICES"]
+        E1["📋 JIRA<br/>Requirement Tracking"]
+        E2["📚 Confluence<br/>Documentation"]
+        E3["🧠 AWS Bedrock<br/>Claude AI Model"]
+    end
+
+    subgraph Plugin["⚙️ AI TEST ANALYZER PLUGIN"]
+        P1[Ticket Extractor]
+        P2[Data Collector]
+        P3[AI Analyzer]
+        P4[Report Generator]
+        P5[Quality Scorer]
+    end
+
+    subgraph Output["📤 OUTPUT & REPORTS"]
+        O1[PR Comment<br/>Summary]
+        O2[Confluence Page<br/>Detailed Report]
+        O3[GitHub Summary<br/>Workflow Log]
+    end
+
+    D1 --> D2
+    D2 --> G2
+    G2 --> G1
+
+    G1 --> P1
+    P1 -->|Extract BB-1234| P2
+
+    P2 -->|Fetch| E1
+    P2 -->|Fetch| E2
+    P2 --> P3
+
+    P3 -->|AI Request| E3
+    E3 -->|Analysis Results| P5
+
+    P5 --> P4
+    P4 --> O1
+    P4 --> O2
+    P4 --> O3
+
+    O1 --> G3
+    G3 --> D3
+
+    D3 --> D4
+    D4 -.->|Iterate| D1
+
+    style Developer fill:#e1f5fe
+    style GitHub fill:#f3e5f5
+    style External fill:#fff9c4
+    style Plugin fill:#e8f5e9
+    style Output fill:#fce4ec
+```
+
+### 4. Data Flow Diagram
+
+![alt text](image-3.png)
+
+
+### 5. Quality Analysis Components
+
+```mermaid
+mindmap
+  root((AI Test Quality<br/>Analyzer))
+    Input Sources
+      GitHub Repository
+        Test Files
+        Source Code
+        PR Metadata
+      JIRA Integration
+        Ticket Requirements
+        Acceptance Criteria
+        User Stories
+      Confluence
+        Technical Specs
+        API Documentation
+        Design Docs
+    AI Analysis
+      Code Coverage
+        Unit Test Coverage
+        Integration Tests
+        Edge Cases
+      Assertion Quality
+        Meaningful Asserts
+        Error Handling
+        Mock Usage
+      Best Practices
+        Naming Conventions
+        Test Structure
+        Maintainability
+      Documentation
+        Test Descriptions
+        Comments
+        Examples
+    Quality Metrics
+      Quantitative
+        Coverage %
+        Test Count
+        Assertion Count
+      Qualitative
+        Code Quality
+        Readability
+        Completeness
+      Scoring
+        Weighted Score
+        Pass/Fail Threshold
+        Trend Analysis
+    Report Delivery
+      GitHub PR
+        Inline Comments
+        Summary Report
+        Pass/Fail Status
+      Confluence Upload
+        Detailed Report
+        Historical Data
+        Recommendations
+      Notifications
+        PR Review
+        Email Alert
+        Slack Integration
+```
+
+### 6. Deployment & Integration Points
+
+```mermaid
+graph TB
+    subgraph Setup["🔧 SETUP PHASE"]
+        Setup1[Configure GitHub Secrets]
+        Setup2[Set Environment Variables]
+        Setup3[Install Workflow File]
+        Setup4[Configure Triggers]
+    end
+
+    subgraph Runtime["▶️ RUNTIME PHASE"]
+        Run1[PR Event Triggered]
+        Run2[Action Starts]
+        Run3[Authenticate Services]
+        Run4[Execute Analysis]
+        Run5[Generate Reports]
+    end
+
+    subgraph Integration["🔗 INTEGRATION POINTS"]
+        Int1["GitHub Actions API<br/>Workflow Execution"]
+        Int2["JIRA REST API<br/>v3.0"]
+        Int3["Confluence REST API<br/>v2.0"]
+        Int4["AWS Bedrock API<br/>Claude Models"]
+        Int5["GitHub GraphQL API<br/>Comments & Status"]
+    end
+
+    subgraph Security["🔒 SECURITY LAYER"]
+        Sec1[GitHub Secrets Manager]
+        Sec2[API Token Validation]
+        Sec3[Rate Limiting]
+        Sec4[Audit Logging]
+    end
+
+    Setup1 --> Setup2 --> Setup3 --> Setup4
+    Setup4 --> Run1
+
+    Run1 --> Run2
+    Run2 --> Run3
+    Run3 --> Run4
+    Run4 --> Run5
+
+    Run3 --> Int1
+    Run4 --> Int2
+    Run4 --> Int3
+    Run4 --> Int4
+    Run5 --> Int5
+
+    Int1 --> Sec1
+    Int2 --> Sec2
+    Int3 --> Sec2
+    Int4 --> Sec2
+    Sec2 --> Sec3
+    Sec3 --> Sec4
+
+    style Setup fill:#e1bee7
+    style Runtime fill:#c5e1a5
+    style Integration fill:#ffecb3
+    style Security fill:#ffccbc
+```
 
 ---
 
-## ⚙️ Step 2: Configure GitHub Variables
+## Prerequisites
 
-Navigate to your repository's **Settings → Secrets and variables → Actions → Variables tab → New repository variable**.
+Before setting up the action, ensure you have:
 
-### Required Variables
+1. **GitHub CLI** installed and authenticated
+   ```bash
+   # Install GitHub CLI
+   brew install gh  # macOS
+   # or visit: https://cli.github.com/
+
+   # Authenticate
+   gh auth login
+   ```
+
+2. **JIRA Access**
+   - JIRA instance URL
+   - JIRA user email
+   - JIRA API token ([Create token](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/))
+
+3. **Confluence Access**
+   - Confluence instance URL
+   - Confluence user email
+   - Confluence API token (same as JIRA if using Atlassian)
+
+4. **AWS Bedrock Access** (for AI analysis)
+   - AWS Access Key
+   - AWS Secret Key
+   - AWS Region with Bedrock enabled
+   - Access to Claude models in Bedrock
+
+---
+
+## Quick Setup
+
+### Step 1: Configure Environment Variables
+
+Create a `.env` file in your local environment with the following values:
+
+```bash
+# JIRA Configuration
+JIRA_URL=https://yourcompany.atlassian.net
+JIRA_EMAIL=jira-bot@yourcompany.com
+JIRA_API_TOKEN=ATBBxxxxxxxxxxxxxxxxxxxxxx
+JIRA_PROJECT_KEY=BB
+
+# Confluence Configuration
+CONFLUENCE_URL=https://yourcompany.atlassian.net/wiki
+CONFLUENCE_EMAIL=confluence-bot@yourcompany.com
+CONFLUENCE_API_TOKEN=ATBBxxxxxxxxxxxxxxxxxxxxxx
+CONFLUENCE_SPACE_KEY=BB
+
+# AWS Bedrock Configuration
+AWS_REGION_BEDROCK=us-east-2
+AWS_ACCESS_KEY_BEDROCK=AKIAIOSFODNN7EXAMPLE
+AWS_SECRET_KEY_BEDROCK=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+AWS_BEDROCK_MODEL=us.anthropic.claude-3-5-sonnet-20241022-v2:0
+ANTHROPIC_MODEL=sonnet[1m]
+
+# Optional: Separate Confluence for uploading results
+CONFLUENCE_UPLOAD_URL=https://targetcompany.atlassian.net/wiki
+CONFLUENCE_UPLOAD_EMAIL=upload-bot@targetcompany.com
+CONFLUENCE_UPLOAD_API_TOKEN=ATBBxxxxxxxxxxxxxxxxxxxxxx
+CONFLUENCE_UPLOAD_SPACE_KEY=TARGET
+
+# Quality Configuration
+MINIMUM_SCORE=1.0
+CLAUDE_CODE_USE_BEDROCK=1
+```
+
+### Step 2: Run the Setup Script
+
+Use the provided script to automatically configure GitHub secrets and variables:
+
+```bash
+# Make the script executable
+chmod +x setup-github-secrets.sh
+
+# Run the setup script
+./setup-github-secrets.sh
+```
+
+The script will:
+- Verify GitHub CLI authentication
+- Read values from your `.env` file
+- Prompt for repository name (format: `owner/repo`)
+- Configure all required secrets and variables
+- Provide a summary of the setup
+
+### Step 3: Add Workflow to Your Repository
+
+Copy the workflow template to your repository:
+
+```bash
+# Create workflows directory if it doesn't exist
+mkdir -p .github/workflows
+
+# Copy the workflow file
+cp templates/check-unit-testcases.yml .github/workflows/check-unit-testcases.yml
+```
+
+The workflow will automatically trigger on:
+- Pull requests to the `dev` branch
+- Manual workflow dispatch with custom parameters
+
+---
+
+## Manual Setup (Alternative)
+
+If you prefer to configure manually or need to customize specific settings:
+
+### GitHub Secrets Configuration
+
+Navigate to your repository → Settings → Secrets and variables → Actions → Secrets
+
+Add the following **required secrets**:
+
+| Secret Name | Description | Example |
+|------------|-------------|---------|
+| `UT_QUALITY_JIRA_URL` | JIRA instance URL | `https://yourcompany.atlassian.net` |
+| `UT_QUALITY_JIRA_EMAIL` | JIRA user email | `jira-bot@yourcompany.com` |
+| `UT_QUALITY_JIRA_API_TOKEN` | JIRA API token | `ATBBxxxxxxxxxxxxxxxxxxxxxx` |
+| `UT_QUALITY_CONFLUENCE_URL` | Confluence instance URL | `https://yourcompany.atlassian.net/wiki` |
+| `UT_QUALITY_CONFLUENCE_EMAIL` | Confluence user email | `confluence-bot@yourcompany.com` |
+| `UT_QUALITY_CONFLUENCE_API_TOKEN` | Confluence API token | `ATBBxxxxxxxxxxxxxxxxxxxxxx` |
+| `UT_QUALITY_AWS_ACCESS_KEY_BEDROCK` | AWS access key | `AKIAIOSFODNN7EXAMPLE` |
+| `UT_QUALITY_AWS_SECRET_KEY_BEDROCK` | AWS secret key | `wJalrXUtnFEMI/K7MDENG/...` |
+
+### GitHub Variables Configuration
+
+Navigate to your repository → Settings → Secrets and variables → Actions → Variables
+
+Add the following **optional variables** (defaults will be used if not set):
 
 | Variable Name | Description | Default | Example |
 |--------------|-------------|---------|---------|
-| `UT_GENERATE_JIRA_PROJECT_KEY` | JIRA project key | `BB` | `PROJ` |
-| `UT_GENERATE_CONFLUENCE_SPACE_KEY` | Confluence space key | `BB` | `TEAM` |
-
-### Optional Variables
-
-| Variable Name | Description | Default | Options |
-|--------------|-------------|---------|---------|
-| `UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY` | Different space for uploads | Same as fetch | Any space key |
-| `UT_GENERATE_CLAUDE_CODE_USE_BEDROCK` | Use AWS Bedrock (1) or disable (0) | `1` | `0` or `1` |
-
-**How to create Variables:**
-1. Go to **Settings → Secrets and variables → Actions**
-2. Click on **Variables** tab
-3. Click **New repository variable**
-4. Enter name and value
-5. Click **Add variable**
+| `UT_QUALITY_JIRA_PROJECT_KEY` | JIRA project key | `BB` | `PROJ` |
+| `UT_QUALITY_CONFLUENCE_SPACE_KEY` | Confluence space key | `BB` | `DOC` |
+| `UT_QUALITY_MINIMUM_SCORE` | Minimum quality score | `1.0` | `6.0` |
+| `UT_QUALITY_CLAUDE_CODE_USE_BEDROCK` | Use AWS Bedrock | `1` | `1` or `0` |
+| `UT_QUALITY_AWS_REGION_BEDROCK` | AWS region | `us-east-2` | `us-west-2` |
+| `UT_QUALITY_AWS_BEDROCK_MODEL` | Bedrock model ID | `us.anthropic.claude-3-5-sonnet-20241022-v2:0` | Model ID |
+| `UT_QUALITY_ANTHROPIC_MODEL` | Anthropic model | `sonnet[1m]` | Model name |
 
 ---
 
-## 📁 Step 3: Install Workflow File
+## Workflow Configuration
 
-### Option A: Copy Template File
+### Basic Configuration
 
-1. Copy the template file from this repository:
-   ```bash
-   curl -o .github/workflows/generate-unit-testcases.yml \
-     https://raw.githubusercontent.com/sourcefuse/ai-test-quality-analyzer/UT-V1.0/templates/generate-unit-testcases.yml
-   ```
-
-2. Or manually create the file `.github/workflows/generate-unit-testcases.yml` with the following content:
+The workflow file (`check-unit-testcases.yml`) includes:
 
 ```yaml
-name: Generate Unit Test Cases Via AI
+name: Check Unit Test Cases Quality
 
 on:
+  pull_request:
+    branches:
+      - dev  # Change this to your default branch
+    types: [opened, synchronize, reopened]
+
   workflow_dispatch:
     inputs:
       jira_ticket_id:
-        description: 'JIRA Ticket ID / Branch Name (e.g., BB-15690)'
+        description: 'JIRA Ticket ID'
         required: true
         type: string
-      target_branch:
-        description: 'Target branch for generated unit test cases (default: main)'
+      minimum_score:
+        description: 'Minimum acceptable score (0-10)'
         required: false
-        default: 'dev'
+        default: '1.0'
         type: string
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  generate-unit-tests:
-    name: Generate Unit Test Cases
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write      # Required to push commits
-      pull-requests: write # Required to create PRs
-
-    env:
-      TARGET_BRANCH: ${{ github.event.inputs.target_branch || 'main' }}
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set JIRA ticket ID and branch
-        id: extract_ticket
-        run: |
-          TICKET_ID="${{ github.event.inputs.jira_ticket_id }}"
-
-          if [ -z "$TICKET_ID" ]; then
-            echo "❌ Error: JIRA ticket ID / Branch name is required"
-            exit 1
-          fi
-
-          echo "ticket_id=$TICKET_ID" >> $GITHUB_OUTPUT
-          echo "📋 Using JIRA Ticket: $TICKET_ID"
-          echo "🌿 Using Branch: $TICKET_ID"
-
-      - name: Generate Unit Test Cases with AI
-        id: generate_tests
-        uses: sourcefuse/ai-test-quality-analyzer@UT-V1.0
-        with:
-          jira_url: ${{ secrets.UT_GENERATE_JIRA_URL }}
-          jira_email: ${{ secrets.UT_GENERATE_JIRA_EMAIL }}
-          jira_api_token: ${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}
-          jira_ticket_id: ${{ steps.extract_ticket.outputs.ticket_id }}
-          jira_project_key: ${{ vars.UT_GENERATE_JIRA_PROJECT_KEY || 'BB' }}
-          confluence_url: ${{ secrets.UT_GENERATE_CONFLUENCE_URL }}
-          confluence_email: ${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}
-          confluence_api_token: ${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}
-          confluence_space_key: ${{ vars.UT_GENERATE_CONFLUENCE_SPACE_KEY || 'BB' }}
-          confluence_upload_url: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_URL }}
-          confluence_upload_email: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL }}
-          confluence_upload_api_token: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN }}
-          confluence_upload_space_key: ${{ vars.UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY }}
-          repository_url: ${{ github.server_url }}/${{ github.repository }}
-          repository_branch: ${{ steps.extract_ticket.outputs.ticket_id }}
-          target_branch: ${{ env.TARGET_BRANCH }}
-          aws_region_bedrock: ${{ secrets.UT_GENERATE_AWS_REGION_BEDROCK }}
-          aws_access_key_bedrock: ${{ secrets.UT_GENERATE_AWS_ACCESS_KEY_BEDROCK }}
-          aws_secret_key_bedrock: ${{ secrets.UT_GENERATE_AWS_SECRET_KEY_BEDROCK }}
-          aws_bedrock_model: ${{ secrets.UT_GENERATE_AWS_BEDROCK_MODEL }}
-          anthropic_model: ${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}
-          claude_code_use_bedrock: ${{ vars.UT_GENERATE_CLAUDE_CODE_USE_BEDROCK || '1' }}
-        continue-on-error: true
-
-      - name: Display Results Summary
-        if: always()
-        shell: bash
-        run: |
-          echo ""
-          echo "========================================"
-          echo "✅ Unit Test Generation Completed"
-          echo "========================================"
-          echo ""
-          echo "📋 JIRA Ticket: ${{ steps.extract_ticket.outputs.ticket_id }}"
-          echo "🌿 Generated Branch: ${{ steps.extract_ticket.outputs.ticket_id }}-via-ai"
-          echo "🎯 Target Branch: ${{ env.TARGET_BRANCH }}"
-          echo ""
-          if [ -n "${{ steps.generate_tests.outputs.confluence_url }}" ]; then
-            echo "   • Confluence Report: ${{ steps.generate_tests.outputs.confluence_url }}"
-          fi
-          if [ -n "${{ steps.generate_tests.outputs.pr_url }}" ]; then
-            echo "   • Pull Request: ${{ steps.generate_tests.outputs.pr_url }}"
-          fi
-          echo ""
-          echo "🤖 Generated unit test cases are ready for review!"
-          echo "========================================"
 ```
 
-3. Commit and push the workflow file:
-   ```bash
-   git add .github/workflows/generate-unit-testcases.yml
-   git commit -m "chore: add unit test generation workflow"
-   git push
-   ```
+### Customization Options
+
+1. **Change trigger branches**: Edit the `branches` array under `pull_request`
+2. **Adjust quality threshold**: Set `UT_QUALITY_MINIMUM_SCORE` variable
+3. **Disable Confluence upload**: Set `upload_to_confluence: 'false'` in workflow
+4. **Change action version**: Update from `@QC-V1.0` to specific version
+
+### Advanced Configuration
+
+For multiple environments or different configurations per branch:
+
+```yaml
+minimum_score: ${{ 
+  github.base_ref == 'main' && '8.0' ||
+  github.base_ref == 'dev' && '6.0' ||
+  '1.0'
+}}
+```
 
 ---
 
-## ✅ Step 4: Verify Setup
+## Usage
 
-### Test the Workflow
+### Automatic Trigger
 
-1. Go to your repository on GitHub
-2. Click on **Actions** tab
-3. Select **Generate Unit Test Cases Via AI** workflow
-4. Click **Run workflow** button
-5. Enter test values:
-   - **JIRA Ticket ID**: `BB-12345` (use an actual ticket ID)
-   - **Target branch**: `dev` (or your default branch)
-6. Click **Run workflow**
+1. Create a pull request to your configured branch (default: `dev`)
+2. Ensure your branch name or PR title contains a JIRA ticket ID (e.g., `BB-1234`)
+3. The action will automatically run and post results as a PR comment
 
-### Expected Output
+### Manual Trigger
 
-The workflow should:
-1. ✅ Fetch JIRA ticket data
-2. ✅ Download Confluence pages
-3. ✅ Generate requirements document
-4. ✅ Create unit test cases
-5. ✅ Upload to Confluence
-6. ✅ Create a new branch
-7. ✅ Commit generated tests
-8. ✅ Create a Pull Request
+1. Go to Actions tab in your repository
+2. Select "Check Unit Test Cases Quality"
+3. Click "Run workflow"
+4. Enter:
+   - JIRA ticket ID (e.g., `BB-1234`)
+   - Minimum score (optional, default: `1.0`)
 
----
+### Understanding Results
 
-## 🚀 Usage
+The action provides:
 
-### Running the Workflow
+1. **PR Comment** with:
+   - Quality score (0-10)
+   - Score breakdown by category
+   - Links to full report
+   - Pass/fail status
 
-1. **Navigate to Actions**:
-   - Go to your repository → **Actions** tab
-   - Select **Generate Unit Test Cases Via AI**
+2. **Confluence Report** (if enabled) with:
+   - Detailed requirements analysis
+   - Test coverage mapping
+   - Improvement recommendations
+   - Code examples
 
-2. **Click "Run workflow"**:
-   - Enter **JIRA Ticket ID** (e.g., `BB-15690`)
-   - Enter **Target Branch** (e.g., `dev` or `main`)
-   - Click **Run workflow**
-
-3. **Monitor Progress**:
-   - Watch the workflow execution in real-time
-   - Review logs for each step
-
-4. **Review Results**:
-   - Check the Confluence page for generated documentation
-   - Review the Pull Request with generated test cases
-   - Verify test coverage and quality
-
-### Workflow Outputs
-
-After successful execution, you'll get:
-
-- **📄 Confluence Page**: Complete documentation with:
-  - JIRA ticket details
-  - Requirements analysis
-  - Generated unit test cases
-
-- **🔀 Pull Request**: Contains:
-  - Generated test files
-  - Proper test structure
-  - AI-generated test cases
-  - Link to Confluence documentation
-
-- **🌿 New Branch**: Format: `{TICKET-ID}-via-ai-{TIMESTAMP}`
+3. **GitHub Summary** with:
+   - Score metrics
+   - Links to reports
+   - File paths for artifacts
 
 ---
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
-#### 1. "Invalid Confluence credentials" Error
+1. **"Cannot find JIRA ticket"**
+   - Ensure branch name or PR title contains ticket ID
+   - Format: `PROJECT-NUMBER` (e.g., `BB-1234`)
 
-**Solution:**
-- Verify `UT_GENERATE_CONFLUENCE_URL` is correct
-- Check `UT_GENERATE_CONFLUENCE_EMAIL` is valid
-- Regenerate `UT_GENERATE_CONFLUENCE_API_TOKEN`
-- Ensure email has Confluence access
+2. **"AWS Bedrock authentication failed"**
+   - Verify AWS credentials are correct
+   - Ensure Bedrock is enabled in your AWS region
+   - Check IAM permissions for Bedrock access
 
-#### 2. "JIRA ticket not found" Error
+3. **"Confluence upload failed"**
+   - Verify API token has write permissions
+   - Check space key exists
+   - Ensure user has access to the space
 
-**Solution:**
-- Verify the ticket ID exists in JIRA
-- Check `UT_GENERATE_JIRA_PROJECT_KEY` matches your project
-- Ensure the API token has permission to read the ticket
-
-#### 3. "AWS Bedrock access denied" Error
-
-**Solution:**
-- Verify AWS credentials are correct
-- Check IAM permissions include `bedrock:InvokeModel`
-- Ensure Bedrock is enabled in your AWS region
-- Verify region is set to `us-east-2` or another supported region
-
-#### 4. "Page created under wrong parent" Issue
-
-**Solution:**
-- This is fixed in UT-V1.0
-- Ensure you're using `@UT-V1.0` in your workflow file
-- The action now validates parent hierarchy correctly
-
-#### 5. "Pull Request creation failed" Error
-
-**Solution:**
-- Ensure workflow has `contents: write` and `pull-requests: write` permissions
-- Check if a PR already exists for the branch
-- Verify GitHub token has sufficient permissions
+4. **"Score below threshold"**
+   - Review the detailed report for improvement areas
+   - Add missing test cases
+   - Improve test assertions and coverage
 
 ### Debug Mode
 
-To enable detailed logging, add this to your workflow:
+Enable detailed logging by adding to your workflow:
 
 ```yaml
 env:
-  ACTIONS_STEP_DEBUG: true
   ACTIONS_RUNNER_DEBUG: true
+  ACTIONS_STEP_DEBUG: true
 ```
+
+### Support
+
+For issues or questions:
+1. Check the [GitHub Issues](https://github.com/sourcefuse/ai-test-quality-analyzer/issues)
+2. Review workflow logs in Actions tab
+3. Verify all secrets and variables are correctly set
 
 ---
 
-## 🔧 Advanced Configuration
+## Security Best Practices
 
-### Custom AWS Region
+1. **API Token Security**
+   - Use dedicated service accounts
+   - Rotate tokens every 90 days
+   - Limit token permissions to required scope
 
-Add this secret if using a different region:
+2. **Secret Management**
+   - Never commit secrets to repository
+   - Use GitHub's secret scanning
+   - Consider using organization-level secrets
 
+3. **Access Control**
+   - Restrict workflow permissions
+   - Use environment protection rules
+   - Audit secret access logs regularly
+
+---
+
+## Version Information
+
+Current Version: **QC-V1.0**
+
+To use a specific version in your workflow:
 ```yaml
-secrets:
-  UT_GENERATE_AWS_REGION_BEDROCK: "us-west-2"
-```
-
-### Custom AI Model
-
-Override the default Claude model:
-
-```yaml
-secrets:
-  UT_GENERATE_AWS_BEDROCK_MODEL: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-  UT_GENERATE_ANTHROPIC_MODEL: "sonnet[1m]"
-```
-
-### Separate Confluence Upload Instance
-
-If you want to upload results to a different Confluence instance:
-
-```yaml
-secrets:
-  UT_GENERATE_CONFLUENCE_UPLOAD_URL: "https://different-instance.atlassian.net"
-  UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL: "bot@company.com"
-  UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN: "different-token"
-
-variables:
-  UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY: "REPORTS"
-```
-
-### Confluence Page Hierarchy
-
-The action creates this hierarchy in Confluence:
-
-```
-{SPACE_KEY}-Generate-Unit-Tests-Via-AI (Root)
-└── {TICKET_ID}-Via-AI (Ticket Container)
-    └── {TIMESTAMP}-Via-AI (Actual Report)
-```
-
-Example:
-```
-BB-Generate-Unit-Tests-Via-AI
-└── BB-15690-Via-AI
-    └── 2025-11-07-10-30-45-Via-AI
+uses: sourcefuse/ai-test-quality-analyzer@QC-V1.0
 ```
 
 ---
 
-## 📚 Additional Resources
+## Contributing
 
-- **GitHub Action Repository**: https://github.com/sourcefuse/ai-test-quality-analyzer
-- **Latest Release**: https://github.com/sourcefuse/ai-test-quality-analyzer/releases/tag/UT-V1.0
-- **Report Issues**: https://github.com/sourcefuse/ai-test-quality-analyzer/issues
+To contribute or report issues, please visit the [GitHub repository](https://github.com/sourcefuse/ai-test-quality-analyzer).
 
 ---
 
-## 📝 Support
+## License
 
-If you encounter issues:
-
-1. Check the [Troubleshooting](#troubleshooting) section
-2. Review workflow logs in GitHub Actions
-3. Create an issue in the repository with:
-   - Error message
-   - Workflow run link
-   - Steps to reproduce
+ISC License - see LICENSE file for details.
 
 ---
 
-## 🎉 Success Checklist
+## Author
 
-- [ ] All secrets configured in GitHub
-- [ ] All variables set in GitHub
-- [ ] Workflow file added to `.github/workflows/`
-- [ ] Test run completed successfully
-- [ ] Confluence page created correctly
-- [ ] Pull Request generated with tests
-- [ ] Team notified about the new workflow
-
-**You're all set! Start generating unit tests with AI!** 🚀
+Created by Vishal Gupta

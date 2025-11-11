@@ -7,12 +7,14 @@ Your task is to:
 
 - Read the following files from the latest analysis folder:
   - `Jira.md` - This is the requirement document containing JIRA ticket details
-  - `Confluence.md` - This is the project document containing Confluence pages content
+  - `Confluence-Rag.md` (if present) OR `Confluence.md` - This is the project document containing Confluence pages content
+    - Priority: If `Confluence-Rag.md` exists, use it instead of `Confluence.md`
+    - Rationale: Confluence-Rag.md contains RAG-enhanced content with more relevant context
 
 IMPORTANT OUTPUT FORMAT:
-- Analyze both Jira.md and Confluence.md
+- Analyze both Jira.md and the Confluence file (Confluence-Rag.md if present, otherwise Confluence.md)
 - Extract all requirements relevant for unit test cases generation
-- Write the extracted requirements to `Requirements.md` file in the SAME folder as Jira.md and Confluence.md
+- Write the extracted requirements to `Requirements.md` file in the SAME folder as Jira.md and Confluence files
 - Be precise and comprehensive
 - Only include requirements that are clearly defined in the documents
 
@@ -143,13 +145,18 @@ Define all technical terms and acronyms used
 ## ANALYSIS GUIDELINES
 
 When extracting requirements:
-1. **Be Comprehensive**: Extract ALL requirements, not just high-level ones
-2. **Be Specific**: Include exact field names, validation rules, error messages
-3. **Think Like a Developer**: Include technical details needed for implementation
-4. **Think Like a Tester**: Document edge cases and test scenarios
-5. **Preserve Context**: Keep relationships between requirements clear
-6. **Use Examples**: Include code snippets, query examples when available
-7. **Flag Ambiguities**: Note where requirements are unclear or incomplete
+1. **File Selection Priority**:
+   - Check if `Confluence-Rag.md` exists in the analysis folder
+   - If yes, use `Confluence-Rag.md` (contains RAG-enhanced, more relevant content)
+   - If no, use `Confluence.md` (full confluence dump)
+   - Always use `Jira.md` for ticket details
+2. **Be Comprehensive**: Extract ALL requirements, not just high-level ones
+3. **Be Specific**: Include exact field names, validation rules, error messages
+4. **Think Like a Developer**: Include technical details needed for implementation
+5. **Think Like a Tester**: Document edge cases and test scenarios
+6. **Preserve Context**: Keep relationships between requirements clear
+7. **Use Examples**: Include code snippets, query examples when available
+8. **Flag Ambiguities**: Note where requirements are unclear or incomplete
 
 ## FOCUS AREAS FOR UNIT TEST GENERATION
 

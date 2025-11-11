@@ -113,6 +113,30 @@
         "example": "sonnet[1m]",
         "sensitive": false,
         "reason": "Model configuration, not sensitive"
+      },
+      {
+        "name": "UT_QUALITY_DOCKER_USERNAME",
+        "env_var": "DOCKER_USERNAME",
+        "description": "Docker registry username for authentication",
+        "example": "dockerhub-user",
+        "sensitive": true,
+        "reason": "Docker registry credentials"
+      },
+      {
+        "name": "UT_QUALITY_DOCKER_PASSWORD",
+        "env_var": "DOCKER_PASSWORD",
+        "description": "Docker registry password/token for authentication",
+        "example": "dckr_pat_xxxxxxxxxxxxxxxxxxxx",
+        "sensitive": true,
+        "reason": "Docker registry authentication token"
+      },
+      {
+        "name": "UT_QUALITY_OPENAI_API_KEY",
+        "env_var": "OPENAI_API_KEY",
+        "description": "OpenAI API key for embeddings (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "example": "sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "sensitive": true,
+        "reason": "OpenAI API credentials for embeddings generation"
       }
     ]
   },
@@ -234,7 +258,10 @@
       "aws_access_key_bedrock": "${{ secrets.UT_QUALITY_AWS_ACCESS_KEY_BEDROCK }}",
       "aws_secret_key_bedrock": "${{ secrets.UT_QUALITY_AWS_SECRET_KEY_BEDROCK }}",
       "aws_bedrock_model": "${{ secrets.UT_QUALITY_AWS_BEDROCK_MODEL }}",
-      "anthropic_model": "${{ secrets.UT_QUALITY_ANTHROPIC_MODEL }}"
+      "anthropic_model": "${{ secrets.UT_QUALITY_ANTHROPIC_MODEL }}",
+      "docker_username": "${{ secrets.UT_QUALITY_DOCKER_USERNAME }}",
+      "docker_password": "${{ secrets.UT_QUALITY_DOCKER_PASSWORD }}",
+      "openai_api_key": "${{ secrets.UT_QUALITY_OPENAI_API_KEY }}"
     },
     "variables_example": {
       "jira_project_key": "${{ vars.UT_QUALITY_JIRA_PROJECT_KEY || 'BB' }}",

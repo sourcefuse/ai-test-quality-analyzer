@@ -19,6 +19,9 @@
 # - UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN (optional)
 # - UT_GENERATE_AWS_ACCESS_KEY_BEDROCK
 # - UT_GENERATE_AWS_SECRET_KEY_BEDROCK
+# - UT_GENERATE_DOCKER_USERNAME (optional - for Docker registry authentication)
+# - UT_GENERATE_DOCKER_PASSWORD (optional - for Docker registry authentication)
+# - UT_GENERATE_OPENAI_API_KEY (optional - for OpenAI embeddings if RAG enabled)
 #
 # Required Variables:
 # - UT_GENERATE_JIRA_PROJECT_KEY (optional, default: BB)
@@ -126,6 +129,9 @@ jobs:
           aws_bedrock_model: ${{ secrets.UT_GENERATE_AWS_BEDROCK_MODEL }}
           anthropic_model: ${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}
           claude_code_use_bedrock: ${{ vars.UT_GENERATE_CLAUDE_CODE_USE_BEDROCK || '1' }}
+          docker_username: ${{ secrets.UT_GENERATE_DOCKER_USERNAME }}
+          docker_password: ${{ secrets.UT_GENERATE_DOCKER_PASSWORD }}
+          openai_api_key: ${{ secrets.UT_GENERATE_OPENAI_API_KEY }}
         continue-on-error: true
 
       - name: Display Results Summary
