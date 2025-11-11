@@ -313,86 +313,12 @@ runs:
         npm run generate-unit-testcases
         echo "✅ Unit test cases generated successfully"
 
-    - name: Extract analysis paths
-      id: extract_paths
-      shell: bash
-      run: |
-        cd ${{ github.action_path }}
-        SPACE_KEY="${{ inputs.confluence_space_key }}"
-        TICKET_ID="${{ inputs.jira_ticket_id }}"
-
-        # Find the latest analysis folder
-        ANALYSIS_FOLDER=$(find . -type d -path "*${SPACE_KEY}-Quality-Check-Via-AI/${TICKET_ID}-Via-AI/*-Via-AI" -print | sort -r | head -1)
-
-        if [ -z "$ANALYSIS_FOLDER" ]; then
-          echo "❌ Analysis folder not found"
-          exit 1
-        fi
-
-        echo "analysis_path=$ANALYSIS_FOLDER" >> $GITHUB_OUTPUT
-        echo "requirements_file=$ANALYSIS_FOLDER/Requirements.md" >> $GITHUB_OUTPUT
-
-        # Find result file (could be AnalysisReport.md or AnalysisReport_*.md)
-        RESULT_FILE=$(find "$ANALYSIS_FOLDER" -name "AnalysisReport*.md" -type f | head -1)
-        echo "result_file=$RESULT_FILE" >> $GITHUB_OUTPUT
-
-        echo "📁 Analysis folder: $ANALYSIS_FOLDER"
-        echo "📄 Requirements file: $ANALYSIS_FOLDER/Requirements.md"
-        echo "📊 Result file: $RESULT_FILE"
-
-    - name: Extract test quality score
-      id: extract_score
-      shell: bash
-      run: |
-        cd ${{ github.action_path }}
-        RESULT_FILE="${{ steps.extract_paths.outputs.result_file }}"
-
-        if [ ! -f "$RESULT_FILE" ]; then
-          echo "❌ Result file not found: $RESULT_FILE"
-          exit 1
-        fi
-
-        # Extract the numeric score (e.g., "3.5" from "**Total Score:** 3.5/10")
-        SCORE=$(grep -E "^\*\*Total Score:\*\*|^Total Score:" "$RESULT_FILE" | grep -oE "[0-9]+(\.[0-9]+)?" | head -1)
-
-        if [ -z "$SCORE" ]; then
-          echo "❌ Could not extract score from result file"
-          exit 1
-        fi
-
-        echo "score=$SCORE" >> $GITHUB_OUTPUT
-        echo "📊 Test Quality Score: $SCORE/10"
-
-    - name: Check score threshold
-      id: check_score
-      shell: bash
-      run: |
-        SCORE="${{ steps.extract_score.outputs.score }}"
-        THRESHOLD="${{ inputs.minimum_score }}"
-
-        # Compare scores using awk (more portable than bc)
-        PASSED=$(awk -v score="$SCORE" -v threshold="$THRESHOLD" 'BEGIN { print (score >= threshold) ? "true" : "false" }')
-
-        echo "passed=$PASSED" >> $GITHUB_OUTPUT
-
-        if [ "$PASSED" = "true" ]; then
-          echo "✅ Test quality score ($SCORE) meets minimum threshold ($THRESHOLD)"
-        else
-          echo "⚠️  Test quality score ($SCORE) is below minimum threshold ($THRESHOLD)"
-        fi
-
-    - name: Step 4 - Upload to Confluence
+    - name: Step 3 - Upload to Confluence
       id: upload_confluence
-      if: inputs.upload_to_confluence == 'true'
       shell: bash
-      env:
-        TEST_QUALITY_SCORE: ${{ steps.extract_score.outputs.score }}
-        MINIMUM_SCORE_THRESHOLD: ${{ inputs.minimum_score }}
-        SCORE_PASSED: ${{ steps.check_score.outputs.passed }}
       run: |
         cd ${{ github.action_path }}
         echo "📤 Uploading results to Confluence..."
-        echo "   Score: ${TEST_QUALITY_SCORE}/10 (Threshold: ${MINIMUM_SCORE_THRESHOLD})"
         OUTPUT=$(npm run upload-requirements 2>&1)
         echo "$OUTPUT"
 
@@ -407,57 +333,72 @@ runs:
           echo "✅ Results uploaded to Confluence"
         fi
 
-    - name: Generate summary
+    - name: Step 4 - Commit and Push Generated Tests
+      id: commit_tests
       shell: bash
       run: |
-        cd ${{ github.action_path }}
-        SCORE="${{ steps.extract_score.outputs.score }}"
-        THRESHOLD="${{ inputs.minimum_score }}"
-        PASSED="${{ steps.check_score.outputs.passed }}"
-        RESULT_FILE="${{ steps.extract_paths.outputs.result_file }}"
-        CONFLUENCE_URL="${{ steps.upload_confluence.outputs.confluence_url }}"
+        cd ${{ github.action_path }}/repo
+        echo "📝 Committing all changes..."
 
-        echo "## 📊 Unit Test Quality Analysis Report" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**JIRA Ticket:** ${{ inputs.jira_ticket_id }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Test Quality Score:** ${SCORE}/10" >> $GITHUB_STEP_SUMMARY
-        echo "**Minimum Threshold:** ${THRESHOLD}/10" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        # Configure git
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
 
-        if [ "$PASSED" = "true" ]; then
-          echo "✅ **Status:** PASSED - Score meets minimum threshold" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "⚠️  **Status:** BELOW THRESHOLD - Additional test coverage needed" >> $GITHUB_STEP_SUMMARY
+        # Create branch name from ticket ID
+        BRANCH_NAME="${{ inputs.jira_ticket_id }}-via-ai-$(date +%Y-%m-%d-%H-%M-%S)"
+        echo "Preparing branch: $BRANCH_NAME"
+
+        # Delete branch if it exists on remote
+        if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+          echo "❌ Branch exists on remote, deleting it..."
+          git push origin --delete "$BRANCH_NAME" || echo "Failed to delete remote branch, continuing..."
         fi
 
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+        # Create new branch
+        echo "Creating new branch: $BRANCH_NAME"
+        git checkout -b "$BRANCH_NAME"
+        
+        # Add all changes
+        git add .
+        
+        # Commit all changes
+        git commit -m "test: generate unit tests for ${{ inputs.jira_ticket_id }}
 
-        # Add PR link if available
-        if [ -n "${{ github.event.pull_request.html_url }}" ]; then
-          echo "- **Pull Request:** [${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})" >> $GITHUB_STEP_SUMMARY
-        fi
+        Generated comprehensive unit test cases using AI based on JIRA requirements and Confluence documentation.
 
-        # Add Confluence link if upload was successful
-        if [ -n "$CONFLUENCE_URL" ]; then
-          echo "- **Confluence Report:** [View Analysis Report](${CONFLUENCE_URL})" >> $GITHUB_STEP_SUMMARY
-        fi
+        JIRA Ticket: ${{ inputs.jira_ticket_id }}
+        Target Branch: ${{ inputs.target_branch }}
 
-        # Add GitHub Actions artifacts link
-        echo "- **GitHub Artifacts:** [Download Reports](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        🤖 Generated via GitHub Actions"
 
-        echo "### 📁 Generated Files" >> $GITHUB_STEP_SUMMARY
-        echo "- Requirements: \`${{ steps.extract_paths.outputs.requirements_file }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- Analysis Report: \`$RESULT_FILE\`" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        # Push to remote
+        echo "⬆️  Pushing branch to remote..."
+        git push -u origin "$BRANCH_NAME"
 
-        # Extract score breakdown from result file
-        echo "### 📈 Score Breakdown" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        grep -A 1 "Test Coverage Analysis\|Test Quality Assessment\|Edge Cases & Error Scenarios\|Test Assertions Quality\|Code Organization & Maintainability" "$RESULT_FILE" | grep -E "\([0-9.]+/[0-9.]+ points\)" | head -5 >> $GITHUB_STEP_SUMMARY || echo "Score breakdown not available" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "✅ All changes committed and pushed to branch: $BRANCH_NAME"
+        echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        echo "has_changes=true" >> $GITHUB_OUTPUT
 
-        echo "📄 **Full report available in job artifacts**" >> $GITHUB_STEP_SUMMARY
+    - name: Step 6 - Generate Final Report
+      shell: bash
+      run: |
+        echo "=================================================="
+        echo "         🎉 UNIT TEST GENERATION COMPLETE"
+        echo "=================================================="
+        echo ""
+        echo "📋 JIRA Ticket: ${{ inputs.jira_ticket_id }}"
+        echo "🔗 JIRA Link: ${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }}"
+        echo ""
+        echo "📄 Confluence Documentation:"
+        echo "   ${{ steps.upload_confluence.outputs.confluence_url }}"
+        echo ""
+        echo "🌿 Generated Branch:"
+        echo "   ${{ steps.commit_tests.outputs.branch_name }}"
+        echo "   https://github.com/${{ github.repository }}/tree/${{ steps.commit_tests.outputs.branch_name }}"
+        echo ""
+        echo "🔀 Pull Request:"
+        echo "   ${{ steps.create_pr.outputs.pr_url }}"
+        echo ""
+        echo "=================================================="
+        echo "         ✅ All tasks completed successfully!"
+        echo "=================================================="

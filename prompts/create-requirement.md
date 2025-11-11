@@ -172,3 +172,15 @@ Pay special attention to:
 
 OUTPUT FILE LOCATION:
 - Save to: `{same-folder-as-input-files}/Requirements.md`
+
+---
+
+## FINAL STEP: DISPLAY COST
+
+After successfully creating the Requirements.md file, display the cost information by running:
+
+```
+/cost
+```
+
+This will show the token usage and cost for this analysis session.

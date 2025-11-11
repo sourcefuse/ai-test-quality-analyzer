@@ -117,43 +117,56 @@ async function main(): Promise<void> {
         }
         const jiraFileName = process.env.JIRA_FILE_NAME || 'Jira.md';
         const requirementsFileName = process.env.REQUIREMENTS_FILE_NAME || 'Requirements.md';
+        const requirementsRagFileName = 'Requirements-Rag.md';
         const analysisReportFileName = process.env.ANALYSIS_REPORT_FILE_NAME || 'AnalysisReport.md';
 
         const jiraFilePath = `${analysisFolder}/${jiraFileName}`;
         const requirementsFilePath = `${analysisFolder}/${requirementsFileName}`;
+        const requirementsRagFilePath = `${analysisFolder}/${requirementsRagFileName}`;
         const analysisReportFilePath = `${analysisFolder}/${analysisReportFileName}`;
 
         // Check if files exist
         const jiraExists = fs.existsSync(jiraFilePath);
         const requirementsExists = fs.existsSync(requirementsFilePath);
+        const requirementsRagExists = fs.existsSync(requirementsRagFilePath);
         const analysisReportExists = fs.existsSync(analysisReportFilePath);
+
+        // Prioritize Requirements.md, fallback to Requirements-Rag.md
+        const useRagRequirements = !requirementsExists && requirementsRagExists;
+        const finalRequirementsPath = useRagRequirements ? requirementsRagFilePath : requirementsFilePath;
+        const finalRequirementsFileName = useRagRequirements ? requirementsRagFileName : requirementsFileName;
+        const finalRequirementsExists = useRagRequirements ? requirementsRagExists : requirementsExists;
+
+        if (useRagRequirements) {
+            console.log(`ℹ️  Using ${requirementsRagFileName} (${requirementsFileName} not found)`);
+        }
 
         if (!jiraExists) {
             console.log(`⚠️  Warning: ${jiraFileName} not found: ${jiraFilePath}`);
         }
-        if (!requirementsExists) {
-            console.log(`⚠️  Warning: ${requirementsFileName} not found: ${requirementsFilePath}`);
+        if (!finalRequirementsExists) {
+            console.log(`⚠️  Warning: ${finalRequirementsFileName} not found: ${finalRequirementsPath}`);
         }
         if (!analysisReportExists) {
             console.log(`⚠️  Warning: ${analysisReportFileName} not found: ${analysisReportFilePath}`);
         }
 
         // At least one file must exist
-        if (!jiraExists && !requirementsExists && !analysisReportExists) {
-            throw new Error(`No analysis files (${jiraFileName}, ${requirementsFileName}, ${analysisReportFileName}) found in the analysis folder`);
+        if (!jiraExists && !finalRequirementsExists && !analysisReportExists) {
+            throw new Error(`No analysis files (${jiraFileName}, ${finalRequirementsFileName}, ${analysisReportFileName}) found in the analysis folder`);
         }
 
         // Read files
         console.log('\n📖 Reading files...');
         const jiraContent = jiraExists ? fs.readFileSync(jiraFilePath, 'utf-8') : '';
-        const requirementsContent = requirementsExists ? fs.readFileSync(requirementsFilePath, 'utf-8') : '';
+        const requirementsContent = finalRequirementsExists ? fs.readFileSync(finalRequirementsPath, 'utf-8') : '';
         const analysisReportContent = analysisReportExists ? fs.readFileSync(analysisReportFilePath, 'utf-8') : '';
 
         if (jiraContent) {
             console.log(`   ✅ ${jiraFileName} read successfully (${(jiraContent.length / 1024).toFixed(2)} KB)`);
         }
         if (requirementsContent) {
-            console.log(`   ✅ ${requirementsFileName} read successfully (${(requirementsContent.length / 1024).toFixed(2)} KB)`);
+            console.log(`   ✅ ${finalRequirementsFileName} read successfully (${(requirementsContent.length / 1024).toFixed(2)} KB)`);
         }
         if (analysisReportContent) {
             console.log(`   ✅ ${analysisReportFileName} read successfully (${(analysisReportContent.length / 1024).toFixed(2)} KB)`);
@@ -282,7 +295,7 @@ ${scoreBadge}
         console.log(`   Root Page: ${rootPageTitle}`);
         console.log(`   Ticket Page: ${ticketPageTitle}`);
         console.log(`   Analysis Page: ${analysisPageTitle}`);
-        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, requirementsContent && requirementsFileName, analysisReportContent && analysisReportFileName].filter(Boolean).join(', ')}`);
+        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, requirementsContent && finalRequirementsFileName, analysisReportContent && analysisReportFileName].filter(Boolean).join(', ')}`);
         if (analysisPageResponse.url) {
             console.log(`   URL: ${analysisPageResponse.url}`);
         }
