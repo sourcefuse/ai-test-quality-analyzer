@@ -1,5 +1,5 @@
 /**
- * Upload Jira.md, Requirements.md, and GeneratedTestsReport.md to Confluence
+ * Upload Jira.md, Requirements.md, and AnalysisReport.md to Confluence
  * Uploads all three analysis files to Confluence as a combined page with proper hierarchy
  */
 
@@ -37,15 +37,8 @@ function getAnalysisFolder(): string {
     const spaceKey = process.env.CONFLUENCE_SPACE_KEY || 'BB';
     const ticketId = process.env.JIRA_TICKET_ID;
     const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
-    const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Generate-Unit-Tests-Via-AI';
+    const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
     const ticketFolderSuffix = process.env.TICKET_FOLDER_SUFFIX || 'Via-AI';
-
-    console.log('\n📋 Environment Variables:');
-    console.log(`   CONFLUENCE_SPACE_KEY: ${spaceKey}`);
-    console.log(`   JIRA_TICKET_ID: ${ticketId}`);
-    console.log(`   CURRENT_ANALYSIS_PATH: ${currentAnalysisPath}`);
-    console.log(`   BASE_FOLDER_SUFFIX: ${baseFolderSuffix}`);
-    console.log(`   TICKET_FOLDER_SUFFIX: ${ticketFolderSuffix}`);
 
     if (!ticketId) {
         throw new Error('JIRA_TICKET_ID environment variable is required');
@@ -58,28 +51,8 @@ function getAnalysisFolder(): string {
     // Construct the full path: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}
     const analysisFolder = `./${spaceKey}-${baseFolderSuffix}/${ticketId}-${ticketFolderSuffix}/${currentAnalysisPath}`;
 
-    console.log(`\n📁 Looking for analysis folder: ${analysisFolder}`);
-    console.log(`   Current working directory: ${process.cwd()}`);
-
-    // List what's actually in the current directory
-    console.log('\n📂 Contents of current directory:');
-    try {
-        const files = fs.readdirSync('.');
-        files.forEach(file => {
-            const stats = fs.statSync(file);
-            console.log(`   ${stats.isDirectory() ? '📁' : '📄'} ${file}`);
-        });
-    } catch (err) {
-        console.log(`   Error reading directory: ${err}`);
-    }
-
     // Verify the folder exists
     if (!fs.existsSync(analysisFolder)) {
-        console.error(`\n❌ Analysis folder not found: ${analysisFolder}`);
-        console.error(`\n💡 Troubleshooting:`);
-        console.error(`   1. Check if Step 1 (Fetch JIRA and Confluence data) completed successfully`);
-        console.error(`   2. Verify CURRENT_ANALYSIS_PATH is set correctly in .env`);
-        console.error(`   3. Ensure the folder structure matches: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}`);
         throw new Error(`Analysis folder not found: ${analysisFolder}`);
     }
 
@@ -144,16 +117,16 @@ async function main(): Promise<void> {
         }
         const jiraFileName = process.env.JIRA_FILE_NAME || 'Jira.md';
         const requirementsFileName = process.env.REQUIREMENTS_FILE_NAME || 'Requirements.md';
-        const generatedTestsReportFileName = process.env.GENERATED_TESTS_REPORT_FILE_NAME || 'GeneratedTestsReport.md';
+        const analysisReportFileName = process.env.ANALYSIS_REPORT_FILE_NAME || 'AnalysisReport.md';
 
         const jiraFilePath = `${analysisFolder}/${jiraFileName}`;
         const requirementsFilePath = `${analysisFolder}/${requirementsFileName}`;
-        const generatedTestsReportFilePath = `${analysisFolder}/${generatedTestsReportFileName}`;
+        const analysisReportFilePath = `${analysisFolder}/${analysisReportFileName}`;
 
         // Check if files exist
         const jiraExists = fs.existsSync(jiraFilePath);
         const requirementsExists = fs.existsSync(requirementsFilePath);
-        const generatedTestsReportExists = fs.existsSync(generatedTestsReportFilePath);
+        const analysisReportExists = fs.existsSync(analysisReportFilePath);
 
         if (!jiraExists) {
             console.log(`⚠️  Warning: ${jiraFileName} not found: ${jiraFilePath}`);
@@ -161,20 +134,20 @@ async function main(): Promise<void> {
         if (!requirementsExists) {
             console.log(`⚠️  Warning: ${requirementsFileName} not found: ${requirementsFilePath}`);
         }
-        if (!generatedTestsReportExists) {
-            console.log(`⚠️  Warning: ${generatedTestsReportFileName} not found: ${generatedTestsReportFilePath}`);
+        if (!analysisReportExists) {
+            console.log(`⚠️  Warning: ${analysisReportFileName} not found: ${analysisReportFilePath}`);
         }
 
         // At least one file must exist
-        if (!jiraExists && !requirementsExists && !generatedTestsReportExists) {
-            throw new Error(`No test generation files (${jiraFileName}, ${requirementsFileName}, ${generatedTestsReportFileName}) found in the folder`);
+        if (!jiraExists && !requirementsExists && !analysisReportExists) {
+            throw new Error(`No analysis files (${jiraFileName}, ${requirementsFileName}, ${analysisReportFileName}) found in the analysis folder`);
         }
 
         // Read files
         console.log('\n📖 Reading files...');
         const jiraContent = jiraExists ? fs.readFileSync(jiraFilePath, 'utf-8') : '';
         const requirementsContent = requirementsExists ? fs.readFileSync(requirementsFilePath, 'utf-8') : '';
-        const generatedTestsReportContent = generatedTestsReportExists ? fs.readFileSync(generatedTestsReportFilePath, 'utf-8') : '';
+        const analysisReportContent = analysisReportExists ? fs.readFileSync(analysisReportFilePath, 'utf-8') : '';
 
         if (jiraContent) {
             console.log(`   ✅ ${jiraFileName} read successfully (${(jiraContent.length / 1024).toFixed(2)} KB)`);
@@ -182,8 +155,8 @@ async function main(): Promise<void> {
         if (requirementsContent) {
             console.log(`   ✅ ${requirementsFileName} read successfully (${(requirementsContent.length / 1024).toFixed(2)} KB)`);
         }
-        if (generatedTestsReportContent) {
-            console.log(`   ✅ ${generatedTestsReportFileName} read successfully (${(generatedTestsReportContent.length / 1024).toFixed(2)} KB)`);
+        if (analysisReportContent) {
+            console.log(`   ✅ ${analysisReportFileName} read successfully (${(analysisReportContent.length / 1024).toFixed(2)} KB)`);
         }
 
         const confluenceService = new ConfluenceService(confluenceConfig);
@@ -203,45 +176,66 @@ async function main(): Promise<void> {
         console.log(`   Ticket: ${ticketKey}`);
         console.log(`   Timestamp: ${timestampFolderName}`);
 
-        // Test generation completed
-        console.log(`   ✅ Unit test generation completed successfully`);
+        // Log score if available
+        const testQualityScore = process.env.TEST_QUALITY_SCORE || 'N/A';
+        const minimumThreshold = process.env.MINIMUM_SCORE_THRESHOLD || 'N/A';
+        const scorePassed = process.env.SCORE_PASSED === 'true';
 
-        // Step 1: Create/Get root page at root level
-        const confluenceRootSuffix = process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Generate-Unit-Tests-Via-AI';
+        if (testQualityScore !== 'N/A') {
+            const scoreIcon = scorePassed ? '✅' : '⚠️';
+            console.log(`   ${scoreIcon} Score: ${testQualityScore}/10 (Threshold: ${minimumThreshold}/10)`);
+        }
+
+        // Step 1: Create/Get root page
+        const confluenceRootSuffix = process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Quality-Check-Via-AI';
         const confluenceTicketSuffix = process.env.CONFLUENCE_TICKET_PAGE_SUFFIX || 'Via-AI';
 
         const rootPageTitle = `${spaceKey}-${confluenceRootSuffix}`;
-        console.log(`\n📄 Step 1/3: Creating root page: ${rootPageTitle}`);
+        console.log(`\n📄 Step 1/3: Creating/Getting root page: ${rootPageTitle}`);
         const rootPageResponse = await confluenceService.createPage({
             title: rootPageTitle,
-            content: `<p>This page contains AI-generated unit test reports for ${spaceKey} space.</p>`,
+            content: `<p>This page contains AI-generated quality check reports for ${spaceKey} space.</p>`,
             spaceKey: spaceKey,
         });
         console.log(`   ✅ Root page ID: ${rootPageResponse.pageId}`);
 
-        // Step 2: Create ticket page under root page
+        // Step 2: Create/Get ticket page
         const ticketPageTitle = `${ticketKey}-${confluenceTicketSuffix}`;
-        console.log(`\n📄 Step 2/3: Creating ticket page: ${ticketPageTitle}`);
+        console.log(`\n📄 Step 2/3: Creating/Getting ticket page: ${ticketPageTitle}`);
         const ticketPageResponse = await confluenceService.createPage({
             title: ticketPageTitle,
-            content: `<p>Generated unit test reports for ticket ${ticketKey}.</p>`,
+            content: `<p>Quality check reports for ticket ${ticketKey}.</p>`,
             spaceKey: spaceKey,
             parentId: rootPageResponse.pageId,
         });
         console.log(`   ✅ Ticket page ID: ${ticketPageResponse.pageId}`);
 
-        // Step 3: Create analysis page under ticket page (timestamp ensures uniqueness)
+        // Step 3: Create/Update analysis page (using CURRENT_ANALYSIS_PATH as the page title with content)
         const analysisPageTitle = timestampFolderName;
-        console.log(`\n📄 Step 3/3: Creating analysis page: ${analysisPageTitle}`);
+        console.log(`\n📄 Step 3/3: Creating/Updating analysis page: ${analysisPageTitle}`);
 
-        // No scoring for test generation
+        // Format score badge (using variables already defined above)
+        let scoreBadge = '';
+        if (testQualityScore !== 'N/A') {
+            const badgeColor = scorePassed ? '#36B37E' : '#FF5630';
+            const badgeIcon = scorePassed ? '✅' : '⚠️';
+            scoreBadge = `
+<p>
+    <strong>Test Quality Score:</strong>
+    <span style="background-color: ${badgeColor}; color: black; padding: 4px 12px; border-radius: 3px; font-weight: bold;">
+        ${badgeIcon} ${testQualityScore}/10
+    </span>
+    ${minimumThreshold !== 'N/A' ? `<span style="color: #6B778C; margin-left: 8px;">(Threshold: ${minimumThreshold}/10)</span>` : ''}
+</p>`;
+        }
 
         // Format content for Confluence
-        let confluenceContent = `<h1>Generated Unit Tests Report</h1>
+        let confluenceContent = `<h1>Complete Analysis Report</h1>
 <p><strong>Generated:</strong> ${new Date().toISOString()}</p>
 <p><strong>Ticket:</strong> ${ticketKey}</p>
 <p><strong>Space:</strong> ${spaceKey}</p>
 <p><strong>Analysis Path:</strong> ${timestampFolderName}</p>
+${scoreBadge}
 <hr />`;
 
         // Add JIRA content if available
@@ -266,13 +260,13 @@ async function main(): Promise<void> {
 <hr />`;
         }
 
-        // Add Generated Tests Report content if available
-        if (generatedTestsReportContent) {
+        // Add Analysis Report content if available
+        if (analysisReportContent) {
             confluenceContent += `
-<h2>3. Generated Unit Test Cases</h2>
+<h2>3. Test Cases Quality Analysis</h2>
 <ac:structured-macro ac:name="code">
 <ac:parameter ac:name="language">markdown</ac:parameter>
-<ac:plain-text-body><![CDATA[${generatedTestsReportContent}]]></ac:plain-text-body>
+<ac:plain-text-body><![CDATA[${analysisReportContent}]]></ac:plain-text-body>
 </ac:structured-macro>`;
         }
 
@@ -288,7 +282,7 @@ async function main(): Promise<void> {
         console.log(`   Root Page: ${rootPageTitle}`);
         console.log(`   Ticket Page: ${ticketPageTitle}`);
         console.log(`   Analysis Page: ${analysisPageTitle}`);
-        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, requirementsContent && requirementsFileName, generatedTestsReportContent && generatedTestsReportFileName].filter(Boolean).join(', ')}`);
+        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, requirementsContent && requirementsFileName, analysisReportContent && analysisReportFileName].filter(Boolean).join(', ')}`);
         if (analysisPageResponse.url) {
             console.log(`   URL: ${analysisPageResponse.url}`);
         }

@@ -5,7 +5,13 @@
 
 export * from './jira.service';
 export * from './confluence.service';
-export * from './vector-store.service';
-export * from './openrouter-ai.service';
-export * from './bedrock-ai.service';
-export * from './requirement-analyzer.service';
+
+// RAG System Services
+export * from './embedding.service';
+export * from './postgres-vector.service';
+export * from './confluence-indexer.service';
+export * from './jira-processor.service';
+
+// PII Detection Services
+export * from './presidio.service';
+export * from './hybrid-pii-detector.service';

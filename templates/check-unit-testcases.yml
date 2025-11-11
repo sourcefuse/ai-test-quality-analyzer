@@ -1,0 +1,288 @@
+##############################################################################
+# Check Unit Test Cases Quality - Workflow Template
+#
+# Copy this file to your repository at:
+# .github/workflows/check-unit-testcases.yml
+#
+# Required Secrets:
+# - JIRA_URL
+# - JIRA_EMAIL
+# - JIRA_API_TOKEN
+# - CONFLUENCE_URL
+# - CONFLUENCE_EMAIL
+# - CONFLUENCE_API_TOKEN
+# - JIRA_PROJECT_KEY (optional, default: BB)
+# - CONFLUENCE_SPACE_KEY (optional, default: BB)
+#
+# Customization:
+# 1. Update the action path: sourcefuse/ai-test-quality-analyzer@main (or @v1 for stable)
+# 2. Adjust minimum_score threshold (default: 1.0)
+# 3. Configure trigger branches as needed
+# 4. Modify JIRA URL in PR comment if needed
+##############################################################################
+
+name: Check Unit Test Cases Quality
+
+on:
+  pull_request:
+    branches:
+      - dev
+    types: [opened, synchronize, reopened]
+
+  workflow_dispatch:
+    inputs:
+      jira_ticket_id:
+        description: 'JIRA Ticket ID (e.g., BB-15690)'
+        required: true
+        type: string
+      minimum_score:
+        description: 'Minimum acceptable score (0-10)'
+        required: false
+        default: '1.0'
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze-test-quality:
+    name: Analyze Test Quality
+    runs-on: ubuntu-latest
+
+    # Required permissions for PR comments
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'renovate[bot]' &&
+      !contains(github.event.pull_request.title, '[skip ci]') &&
+      !contains(github.head_ref || github.ref_name, 'ai') &&
+      !contains(github.head_ref || github.ref_name, 'AI')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract JIRA ticket from branch or PR
+        id: extract_ticket
+        run: |
+          TICKET_ID=""
+
+          # Extract from branch name (e.g., feature/BB-15690-upgrade-ag-grid)
+          if [[ "${{ github.head_ref || github.ref_name }}" =~ ([A-Z]+-[0-9]+) ]]; then
+            TICKET_ID="${BASH_REMATCH[1]}"
+          fi
+
+          # Extract from PR title
+          if [ -z "$TICKET_ID" ] && [ "${{ github.event_name }}" == "pull_request" ]; then
+            PR_TITLE="${{ github.event.pull_request.title }}"
+            if [[ "$PR_TITLE" =~ ([A-Z]+-[0-9]+) ]]; then
+              TICKET_ID="${BASH_REMATCH[1]}"
+            fi
+          fi
+
+          # Use manual input
+          if [ -z "$TICKET_ID" ] && [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            TICKET_ID="${{ github.event.inputs.jira_ticket_id }}"
+          fi
+
+          # Fallback
+          if [ -z "$TICKET_ID" ]; then
+            echo "⚠️ Warning: Could not extract JIRA ticket ID"
+            TICKET_ID="UNKNOWN"
+          fi
+
+          echo "ticket_id=$TICKET_ID" >> $GITHUB_OUTPUT
+          echo "📋 Using JIRA Ticket: $TICKET_ID"
+
+      - name: Skip analysis - No JIRA ticket found
+        if: steps.extract_ticket.outputs.ticket_id == 'UNKNOWN'
+        run: |
+          echo "⚠️ Skipping test quality analysis - No JIRA ticket ID found"
+          echo "Please ensure your branch name or PR title contains a JIRA ticket ID (e.g., BB-1234)"
+          echo ""
+          echo "Expected formats:"
+          echo "  - Branch: feature/BB-1234-description"
+          echo "  - PR Title: 'BB-1234: Add new feature'"
+          echo ""
+          echo "Or run the workflow manually with a specific ticket ID"
+          exit 0
+
+      - name: Run Unit Test Quality Analysis
+        id: quality_check
+        if: steps.extract_ticket.outputs.ticket_id != 'UNKNOWN'
+        uses: sourcefuse/ai-test-quality-analyzer@QC-V1.0
+        with:
+          jira_url: ${{ secrets.UT_QUALITY_JIRA_URL }}
+          jira_email: ${{ secrets.UT_QUALITY_JIRA_EMAIL }}
+          jira_api_token: ${{ secrets.UT_QUALITY_JIRA_API_TOKEN }}
+          jira_ticket_id: ${{ steps.extract_ticket.outputs.ticket_id }}
+          jira_project_key: ${{ vars.UT_QUALITY_JIRA_PROJECT_KEY || 'BB' }}
+          confluence_url: ${{ secrets.UT_QUALITY_CONFLUENCE_URL }}
+          confluence_email: ${{ secrets.UT_QUALITY_CONFLUENCE_EMAIL }}
+          confluence_api_token: ${{ secrets.UT_QUALITY_CONFLUENCE_API_TOKEN }}
+          confluence_space_key: ${{ vars.UT_QUALITY_CONFLUENCE_SPACE_KEY || 'BB' }}
+          repository_url: ${{ github.server_url }}/${{ github.repository }}
+          repository_branch: ${{ github.head_ref || github.ref_name }}
+          minimum_score: ${{ github.event.inputs.minimum_score || vars.UT_QUALITY_MINIMUM_SCORE || '1.0' }}
+          aws_region_bedrock: ${{ secrets.UT_QUALITY_AWS_REGION_BEDROCK }}
+          aws_access_key_bedrock: ${{ secrets.UT_QUALITY_AWS_ACCESS_KEY_BEDROCK }}
+          aws_secret_key_bedrock: ${{ secrets.UT_QUALITY_AWS_SECRET_KEY_BEDROCK }}
+          aws_bedrock_model: ${{ secrets.UT_QUALITY_AWS_BEDROCK_MODEL }}
+          anthropic_model: ${{ secrets.UT_QUALITY_ANTHROPIC_MODEL }}
+          claude_code_use_bedrock: ${{ vars.UT_QUALITY_CLAUDE_CODE_USE_BEDROCK || '1' }}
+          upload_to_confluence: 'true'
+          save_to_file: 'true'
+        continue-on-error: true
+
+      - name: Comment on PR - No JIRA Ticket
+        if: github.event_name == 'pull_request' && steps.extract_ticket.outputs.ticket_id == 'UNKNOWN'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## ⚠️ Unit Test Quality Analysis Skipped
+            
+            **Reason:** No JIRA ticket ID found in branch name or PR title.
+            
+            ### How to Fix
+            
+            Please ensure your branch or PR contains a JIRA ticket ID:
+            
+            **Option 1:** Update branch name
+            \`\`\`
+            feature/BB-1234-your-feature-description
+            bugfix/BB-5678-fix-description  
+            \`\`\`
+            
+            **Option 2:** Update PR title
+            \`\`\`
+            BB-1234: Your PR title
+            [BB-5678] Fix for issue
+            \`\`\`
+            
+            **Option 3:** Run manually
+            - Go to Actions tab
+            - Select "Check Unit Test Cases Quality"
+            - Run workflow with specific JIRA ticket ID
+            
+            ---
+            
+            <sub>🤖 Generated by Check Unit Test Cases Quality Action</sub>
+            `;
+            
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+              console.log('✅ Warning comment created successfully');
+            } catch (error) {
+              console.error('❌ Failed to create PR comment:', error.message);
+            }
+
+      - name: Comment on PR with Results
+        if: github.event_name == 'pull_request' && steps.extract_ticket.outputs.ticket_id != 'UNKNOWN'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const score = '${{ steps.quality_check.outputs.test_quality_score }}';
+            const passed = '${{ steps.quality_check.outputs.score_passed }}';
+            const threshold = '${{ github.event.inputs.minimum_score || vars.UT_QUALITY_MINIMUM_SCORE || '1.0' }}';
+            const ticketId = '${{ steps.extract_ticket.outputs.ticket_id }}';
+
+            // Debug logging
+            console.log('PR Comment Debug Info:');
+            console.log(`  Score: "${score}"`);
+            console.log(`  Passed: "${passed}"`);
+            console.log(`  Threshold: "${threshold}"`);
+            console.log(`  Ticket ID: "${ticketId}"`);
+
+            // Check if we have required data
+            if (!score || score === '' || score === 'undefined') {
+              console.log('⚠️  No test quality score available - analysis may have failed');
+              console.log('Skipping PR comment creation');
+              return;
+            }
+
+            let statusEmoji = passed === 'true' ? '✅' : (parseFloat(score) < 4.0 ? '❌' : '⚠️');
+            let statusText = passed === 'true' ? 'PASSED' : (parseFloat(score) < 4.0 ? 'CRITICAL' : 'NEEDS IMPROVEMENT');
+
+            const scoreNum = parseFloat(score);
+            const filledBars = Math.round(scoreNum);
+            const emptyBars = 10 - filledBars;
+            const scoreBar = '█'.repeat(filledBars) + '░'.repeat(emptyBars);
+
+            const body = `## ${statusEmoji} Unit Test Quality Report
+
+            **JIRA Ticket:** [${ticketId}](https://your-jira.atlassian.net/browse/${ticketId})
+            **Branch:** \`${{ github.head_ref }}\`
+
+            ---
+
+            ### 📊 Quality Score
+
+            \`\`\`
+            ${scoreBar} ${score}/10
+            \`\`\`
+
+            | Metric | Score |
+            |--------|-------|
+            | Test Quality Score | **${score}/10** |
+            | Minimum Threshold | ${threshold}/10 |
+            | Status | **${statusText}** |
+
+            ---
+
+            ### 📄 Full Report
+
+            📦 Download the detailed analysis from [workflow artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            📦 Download the detailed analysis from [Confluence](${{ steps.quality_check.outputs.confluence_url }}})
+            
+            ---
+
+            <sub>🤖 Generated by Check Unit Test Cases Quality Action</sub>
+            `;
+
+            try {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              });
+              
+              console.log('Creating new comment');
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+              console.log('✅ Comment created successfully');
+
+            } catch (error) {
+              console.error('❌ Failed to create/update PR comment:', error.message);
+              console.error('This might be due to insufficient permissions or the PR being from a fork');
+            }
+
+      # - name: Upload Analysis Reports
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: test-quality-reports-${{ steps.extract_ticket.outputs.ticket_id }}-${{ github.run_number }}
+      #     path: ${{ steps.quality_check.outputs.analysis_path }}
+      #     retention-days: ${{ vars.UT_QUALITY_WORKFLOW_RETENTION_DAYS || '2' }}
+
+      # - name: Fail if quality below threshold
+      #   if: steps.quality_check.outputs.score_passed == 'false'
+      #   run: |
+      #     echo "❌ Test quality score (${{ steps.quality_check.outputs.test_quality_score }}/10) is below minimum threshold"
+      #     echo "Please improve test coverage before merging."
+      #     exit 1
