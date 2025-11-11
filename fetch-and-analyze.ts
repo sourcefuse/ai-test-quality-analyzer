@@ -1,15 +1,22 @@
 /**
- * Main entry point for Generate Unit Tests
+ * Main entry point for CheckUnitTestCases
  * Demonstrates JIRA and Confluence integration following SourceFuse design patterns
+ *
+ * Features:
+ * - Fetch JIRA ticket details and save to file
+ * - Fetch Confluence pages and save to file
+ * - Search related documents using RAG (process-jira-with-rag-search.ts)
+ *
+ * Note: Use process-jira-with-rag-search.ts for RAG functionality with PostgreSQL + pgvector.
  */
 
 import * as dotenv from 'dotenv';
 import * as dotenvExt from 'dotenv-extended';
 import * as fs from 'fs';
 import {randomUUID} from 'crypto';
-import {JiraService, ConfluenceService} from './src/services';
+import {JiraService, ConfluenceService, HybridPIIDetectorService} from './src/services';
 import {JiraConfigDto, JiraTicketQueryDto, ConfluenceConfigDto, ConfluenceSearchRequestDto} from './src/dtos';
-import {stripHtmlTags, extractPlainText, createAIService} from './src/utils';
+import {stripHtmlTags, extractPlainText} from './src/utils';
 
 /**
  * Load environment variables with dotenv-extended
@@ -79,7 +86,7 @@ async function main(): Promise<void> {
     loadEnvironment();
 
     console.log('='.repeat(60));
-    console.log('Generate Unit Tests - JIRA & Confluence Integration');
+    console.log('CheckUnitTestCases - JIRA & Confluence Integration Demo');
     console.log('='.repeat(60));
     console.log('Node version:', process.version);
     console.log('Current directory:', process.cwd());
@@ -87,6 +94,23 @@ async function main(): Promise<void> {
     console.log('='.repeat(60));
 
     try {
+        // Initialize Hybrid PII Detector
+        console.log('\n🔒 Initializing PII Detection...');
+        const piiDetector = new HybridPIIDetectorService();
+        const detectionMethod = await piiDetector.initialize();
+        const piiStatus = piiDetector.getStatus();
+
+        console.log('✅ PII Detector initialized');
+        console.log(`   Method: ${detectionMethod.toUpperCase()}`);
+        if (piiStatus.presidioConfigured) {
+            console.log(`   Presidio configured: ${piiStatus.presidioStatus?.isAvailable ? '✅ Available' : '❌ Unavailable'}`);
+            if (detectionMethod === 'regex') {
+                console.log('   ℹ️  Using fallback regex-based detection');
+            }
+        } else {
+            console.log('   ℹ️  Presidio not configured, using regex-based detection');
+        }
+
         // Get JIRA configuration from environment
         const jiraConfig = getJiraConfig();
 
@@ -145,7 +169,7 @@ async function main(): Promise<void> {
                 // Create folder with naming convention: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{date-time-TIMESTAMP_FOLDER_SUFFIX}
                 const spaceKey = process.env.CONFLUENCE_SPACE_KEY || 'DEFAULT';
                 const ticketKey = ticketDetails.issue.key;
-                const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Generate-Unit-Tests-Via-AI';
+                const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
                 const ticketFolderSuffix = process.env.TICKET_FOLDER_SUFFIX || 'Via-AI';
                 const timestampFolderSuffix = process.env.TIMESTAMP_FOLDER_SUFFIX || 'Via-AI';
 
@@ -268,7 +292,7 @@ async function main(): Promise<void> {
             if (process.env.SAVE_TO_FILE === 'true') {
                 // Create folder with naming convention
                 const spaceKey = confluenceConfig.spaceKey || 'DEFAULT';
-                const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Generate-Unit-Tests-Via-AI';
+                const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
                 const ticketFolderSuffix = process.env.TICKET_FOLDER_SUFFIX || 'Via-AI';
                 const timestampFolderSuffix = process.env.TIMESTAMP_FOLDER_SUFFIX || 'Via-AI';
                 const baseDir = `./${spaceKey}-${baseFolderSuffix}`;
@@ -364,9 +388,6 @@ async function main(): Promise<void> {
                     }
                 }
 
-                // AI service will be created later only if needed for vector DB operations
-                let aiService: any = null;
-
                 // Initialize Confluence file
                 const confluenceFileName = process.env.CONFLUENCE_FILE_NAME || 'Confluence.md';
                 const confluenceFilePath = `${tmpDir}/${confluenceFileName}`;
@@ -393,12 +414,17 @@ Strategy: Incremental batch processing - saving raw content to file
 
                 // Get AI-generated report title patterns to exclude from processing
                 const excludeTitlePatterns = [
-                    process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Generate-Unit-Tests-Via-AI',
+                    process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Quality-Check-Via-AI',
                     process.env.CONFLUENCE_TICKET_PAGE_SUFFIX || 'Via-AI',
                 ];
 
                 // Build regex pattern to match timestamp-based analysis pages (e.g., "2025-01-30-Via-AI" or "20250130-14-30-45-Via-AI")
                 const timestampPagePattern = new RegExp(`^\\d{4}[-\\d]*-${timestampFolderSuffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+
+                // Track PII detection statistics across all batches
+                let totalPIIDetected = 0;
+                let totalPagesWithPII = 0;
+                const piiSummaryByType: {[key: string]: number} = {};
 
                 // Process Confluence pages in batches
                 for await (const batch of confluenceService.listPagesInBatches(searchRequest)) {
@@ -441,7 +467,7 @@ Strategy: Incremental batch processing - saving raw content to file
                             continue;
                         }
 
-                        const cleanContent = extractPlainText(page.body.storage.value);
+                        let cleanContent = extractPlainText(page.body.storage.value);
                         if (!cleanContent || cleanContent.trim().length === 0) {
                             if (!silentMode) {
                                 console.log(`   ⊘ Skipping page with empty content: ${page.title}`);
@@ -451,10 +477,43 @@ Strategy: Incremental batch processing - saving raw content to file
                             continue;
                         }
 
-                        // Page has content, add it to batch
-                        if (!silentMode) {
-                            console.log(`   - ${page.id}: ${page.title}`);
+                        // Detect and redact PII from page content using hybrid detector
+                        const piiResult = await piiDetector.detectAndRedact(cleanContent);
+                        if (piiResult.hasPII) {
+                            totalPagesWithPII++;
+
+                            // Calculate PII count based on detection method
+                            let piiCount = 0;
+                            if (piiResult.method === 'presidio' && piiResult.presidioEntities) {
+                                piiCount = piiResult.presidioEntities.length;
+                                // Aggregate PII types from Presidio entities
+                                const summary = HybridPIIDetectorService.getPresidioSummary(piiResult.presidioEntities);
+                                for (const [type, count] of Object.entries(summary)) {
+                                    piiSummaryByType[type] = (piiSummaryByType[type] || 0) + count;
+                                }
+                            } else if (piiResult.method === 'regex' && piiResult.regexMatches) {
+                                piiCount = piiResult.regexMatches.length;
+                                // Aggregate PII types from regex matches
+                                for (const [type, count] of Object.entries(piiResult.summary || {})) {
+                                    piiSummaryByType[type] = (piiSummaryByType[type] || 0) + count;
+                                }
+                            }
+
+                            totalPIIDetected += piiCount;
+
+                            // Use redacted content from hybrid detector
+                            cleanContent = piiResult.redactedText;
+
+                            if (!silentMode) {
+                                console.log(`   🔒 ${page.id}: ${page.title} (${piiCount} PII item(s) redacted via ${piiResult.method})`);
+                            }
+                        } else {
+                            if (!silentMode) {
+                                console.log(`   - ${page.id}: ${page.title}`);
+                            }
                         }
+
+                        // Page has content, add it to batch (with PII redacted)
                         batchContent += `## ${page.title}\n\n`;
                         batchContent += `${cleanContent}\n\n`;
                         batchContent += `---\n\n`;
@@ -478,79 +537,6 @@ Strategy: Incremental batch processing - saving raw content to file
                             console.log(`   ⊘ Batch ${batch.batchNumber}: All ${pagesWithoutContent} page(s) skipped (no content)`);
                         }
                     }
-
-                    /*
-                    // ========================================
-                    // AI FILTERING (COMMENTED OUT FOR NOW)
-                    // ========================================
-                    // Analyze batch with AI if available
-                    if (aiService && jiraContent && batchContent.trim()) {
-                        console.log(`\n🔍 Analyzing batch ${batch.batchNumber} for relevance and removing PII...`);
-
-                        const systemPrompt = `You are a technical requirements analyst with expertise in identifying relevant project documentation and ensuring data privacy.
-
-Your task is to:
-1. Analyze the JIRA ticket requirements provided
-2. From the Confluence batch content, extract ONLY the pages/sections that are relevant to these requirements
-3. Remove ALL Personally Identifiable Information (PII) from the output, including:
-   - Names of individuals (replace with roles like "QA Engineer", "Developer", etc.)
-   - Email addresses, phone numbers, meeting passcodes
-   - Employee IDs, specific locations
-   - Any other personal identifiers
-
-IMPORTANT OUTPUT FORMAT:
-- Remove the content which you think is a generated tests report, like having text GeneratedTestsReport_
-- If NO content is relevant, return ONLY the word "EMPTY" (without quotes)
-- If content IS relevant, return ONLY the relevant sections with PII removed as clean markdown
-- Do NOT include explanations, summaries, or metadata - only the filtered content or "EMPTY"
-- Keep the original structure with ## headings and --- separators`;
-
-                        const userPrompt = `# JIRA Requirements:
-${jiraContent}
-
-# Confluence Batch Content:
-${batchContent}
-
-Return only relevant content with PII removed, or "EMPTY" if nothing is relevant.`;
-
-                        try {
-                            const result = await aiService.chatCompletion({
-                                system: systemPrompt,
-                                messages: [
-                                    {
-                                        role: 'user',
-                                        content: userPrompt,
-                                    },
-                                ],
-                                temperature: 0.3,
-                            } as any);
-
-                            const filteredContent = result.response.trim();
-
-                            // Check if content is relevant
-                            if (filteredContent && filteredContent !== 'EMPTY' && filteredContent.length > 10) {
-                                console.log(`   ✅ Relevant content found in batch ${batch.batchNumber}`);
-                                totalRelevantPages += batch.pages.length;
-
-                                // Append to Confluence.md with batch separator
-                                const batchSeparator = `\n<!-- BATCH ${batch.batchNumber} - ${new Date().toISOString()} -->\n\n`;
-                                fs.appendFileSync(confluenceFilePath, batchSeparator + filteredContent + '\n\n');
-                            } else {
-                                console.log(`   ⊘ No relevant content in batch ${batch.batchNumber}`);
-                            }
-
-                            // Display token usage if available
-                            if (result.tokensUsed && result.tokensUsed.total) {
-                                console.log(`   📊 Tokens used: ${result.tokensUsed.total}`);
-                            }
-                        } catch (error: any) {
-                            console.error(`   ❌ Error analyzing batch ${batch.batchNumber}:`, error.message);
-                            console.log(`   ⚠️  Saving batch content without filtering`);
-                            const batchSeparator = `\n<!-- BATCH ${batch.batchNumber} - UNFILTERED -->\n\n`;
-                            fs.appendFileSync(confluenceFilePath, batchSeparator + batchContent + '\n\n');
-                        }
-                    }
-                    */
                 }
 
                 console.log('\n' + '='.repeat(60));
@@ -562,7 +548,7 @@ Return only relevant content with PII removed, or "EMPTY" if nothing is relevant
                 console.log(`Total AI-generated reports excluded: ${totalAIReportsSkipped}`);
                 console.log(`Output file: ${confluenceFilePath}`);
 
-                // Append summary to Confluence.md
+                // Append summary to Confluence.md (including PII stats)
                 const summary = `\n\n---\n\n# Processing Summary
 
 - Total batches processed: ${batchCount}
@@ -571,526 +557,178 @@ Return only relevant content with PII removed, or "EMPTY" if nothing is relevant
 - AI-generated reports excluded: ${totalAIReportsSkipped}
 - Completed: ${new Date().toISOString()}
 
-**Note:** AI-generated test reports are automatically excluded to prevent feedback loops.
+## PII Detection & Redaction
+
+- Total PII items detected: ${totalPIIDetected}
+- Pages with PII: ${totalPagesWithPII}
+- PII redaction: ${totalPIIDetected > 0 ? '✅ Applied' : 'N/A'}
+
+${totalPIIDetected > 0 ? `### PII Types Found:\n${Object.entries(piiSummaryByType).map(([type, count]) => `- ${type}: ${count}`).join('\n')}\n` : ''}
+
+**Note:**
+- AI-generated analysis reports are automatically excluded to prevent feedback loops.
+- All PII data has been automatically detected and redacted from this document.
 `;
                 fs.appendFileSync(confluenceFilePath, summary);
                 console.log(`✅ Confluence pages saved to ${confluenceFilePath}`);
 
-                // Step: Push Confluence.md to Vector Database
-                // Enable vector DB when CLAUDE_CODE_USE_BEDROCK is '0'
-                const enableVectorDB = process.env.CLAUDE_CODE_USE_BEDROCK === '0';
-
-                if (!enableVectorDB) {
+                // Save detailed PII report if PII was detected
+                if (totalPIIDetected > 0) {
                     console.log('\n\n' + '='.repeat(60));
-                    console.log('VECTOR DATABASE OPERATIONS DISABLED');
+                    console.log('PII DETECTION SUMMARY');
                     console.log('='.repeat(60));
-                    console.log('\n⚠️  Vector database operations are disabled');
-                    console.log('   Set CLAUDE_CODE_USE_BEDROCK=0 in .env to enable vector database features');
-                    console.log('   Skipping: Push to VectorDB and Requirements search');
-                } else {
-                    console.log('\n\n' + '='.repeat(60));
-                    console.log('PUSHING CONFLUENCE DATA TO VECTOR DATABASE');
-                    console.log('='.repeat(60));
-
-                try {
-                    // Read the Confluence.md file
-                    console.log('\n📖 Reading Confluence.md file...');
-                    const confluenceDocContent = fs.readFileSync(confluenceFilePath, 'utf-8');
-                    console.log(`✅ File read successfully (${confluenceDocContent.length} characters)`);
-
-                    // Check if content is too large for single embedding (Titan limit ~8K tokens)
-                    const MAX_CHARS_PER_CHUNK = 20000; // ~5K tokens (safe margin for token density variance)
-                    const contentSizeKB = (confluenceDocContent.length / 1024).toFixed(2);
-                    console.log(`   File size: ${contentSizeKB} KB`);
-
-                    if (confluenceDocContent.length > MAX_CHARS_PER_CHUNK) {
-                        console.log(`\n⚠️  Content too large for single embedding (${contentSizeKB} KB > 30 KB limit)`);
-                        console.log(`   Chunking content for batch processing...`);
-
-                        // Create vector store service with custom collection name based on Confluence space
-                        console.log('\n🔧 Initializing Vector Store...');
-                        const {createVectorStoreService} = await import('./src/utils');
-
-                        // Override collection name to use Confluence space key
-                        const collectionName = `${confluenceConfig.spaceKey}-index`;
-                        process.env.VECTOR_STORE_COLLECTION_NAME = collectionName;
-
-                        const vectorStore = createVectorStoreService();
-                        vectorStore.validateConfig();
-                        console.log(`   Using collection name: ${collectionName}`);
-
-                        // Delete existing collection if it exists
-                        console.log('🗑️  Deleting existing collection (if any)...');
-                        try {
-                            const collectionInfo = await vectorStore.getCollectionInfo();
-                            console.log(`   Found existing collection: ${collectionInfo.name} (${collectionInfo.documentCount} docs)`);
-
-                            // Delete via direct Qdrant API call
-                            const qdrantUrl = process.env.VECTOR_STORE_URL || 'http://127.0.0.1:6333';
-                            const deleteResponse = await fetch(`${qdrantUrl}/collections/${collectionName}`, {
-                                method: 'DELETE',
-                            });
-
-                            if (deleteResponse.ok) {
-                                console.log(`   ✅ Collection deleted successfully`);
-                            } else {
-                                console.log(`   ⚠️  Failed to delete collection`);
-                            }
-                        } catch (error: any) {
-                            console.log(`   ℹ️  No existing collection found (clean start)`);
-                        }
-
-                        // Create fresh collection
-                        console.log('🔨 Creating fresh collection...');
-                        await vectorStore.initializeCollection();
-
-                        // Create or reuse AI service for embeddings
-                        const embeddingService = aiService || createAIService();
-
-                        // Split content into chunks
-                        const chunks: string[] = [];
-                        for (let i = 0; i < confluenceDocContent.length; i += MAX_CHARS_PER_CHUNK) {
-                            chunks.push(confluenceDocContent.substring(i, i + MAX_CHARS_PER_CHUNK));
-                        }
-
-                        console.log(`   Content split into ${chunks.length} chunk(s)`);
-
-                        // Batch processing: Generate all embeddings first, then batch upsert
-                        console.log(`\n🔢 Generating embeddings for all chunks...`);
-                        const startTime = Date.now();
-
-                        const embeddings: number[][] = [];
-                        const upsertRequests: any[] = [];
-
-                        // Generate embeddings for all chunks (sequential to avoid rate limits)
-                        for (let i = 0; i < chunks.length; i++) {
-                            console.log(`   Generating embedding ${i + 1}/${chunks.length}...`);
-                            const embeddingResult = await embeddingService.generateEmbedding({
-                                text: chunks[i],
-                            });
-                            embeddings.push(embeddingResult.embedding);
-
-                            // Prepare upsert request
-                            upsertRequests.push({
-                                id: randomUUID(),
-                                content: chunks[i],
-                                metadata: {
-                                    source: 'confluence',
-                                    sourceId: ticketId || 'unknown',
-                                    title: ticketId ? `${ticketId} - Confluence Documentation (Chunk ${i + 1}/${chunks.length})` : `Confluence Documentation (Chunk ${i + 1})`,
-                                    spaceKey: confluenceConfig.spaceKey || '',
-                                    projectKey: jiraConfig.projectKey || '',
-                                    type: 'confluence-pages',
-                                    chunkIndex: i + 1,
-                                    totalChunks: chunks.length,
-                                    createdAt: new Date().toISOString(),
-                                    modifiedAt: new Date().toISOString(),
-                                },
-                            });
-                        }
-
-                        const embeddingTime = ((Date.now() - startTime) / 1000).toFixed(2);
-                        console.log(`   ✅ All embeddings generated in ${embeddingTime}s`);
-
-                        // Batch upsert to vector store
-                        console.log(`\n📤 Batch upserting ${chunks.length} chunks to vector DB...`);
-                        const upsertStartTime = Date.now();
-                        await vectorStore.upsertBatch(upsertRequests, embeddings);
-                        const upsertTime = ((Date.now() - upsertStartTime) / 1000).toFixed(2);
-                        console.log(`   ✅ Batch upsert completed in ${upsertTime}s`);
-
-                        const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
-                        console.log(`   ⚡ Total processing time: ${totalTime}s`);
-                        console.log(`   ⚡ Average per chunk: ${(Number(totalTime) / chunks.length).toFixed(2)}s`);
-
-                        // Get collection info
-                        const collectionInfo = await vectorStore.getCollectionInfo();
-                        console.log('\n✅ Vector Database Update Complete!');
-                        console.log(`   Collection: ${collectionInfo.name}`);
-                        console.log(`   Total documents: ${collectionInfo.documentCount}`);
-                        console.log(`   Vector dimensions: ${collectionInfo.vectorSize}`);
-                        console.log(`   Chunks uploaded: ${chunks.length}`);
-
-                    } else {
-                        // Content is small enough for single embedding
-                        console.log(`   Content size OK for single embedding`);
-
-                        // Create vector store service with custom collection name based on Confluence space
-                        console.log('\n🔧 Initializing Vector Store...');
-                        const {createVectorStoreService} = await import('./src/utils');
-
-                        // Override collection name to use Confluence space key
-                        const collectionName = `${confluenceConfig.spaceKey}-index`;
-                        process.env.VECTOR_STORE_COLLECTION_NAME = collectionName;
-
-                        const vectorStore = createVectorStoreService();
-                        vectorStore.validateConfig();
-                        console.log(`   Using collection name: ${collectionName}`);
-
-                        // Delete existing collection if it exists
-                        console.log('🗑️  Deleting existing collection (if any)...');
-                        try {
-                            const collectionInfo = await vectorStore.getCollectionInfo();
-                            console.log(`   Found existing collection: ${collectionInfo.name} (${collectionInfo.documentCount} docs)`);
-
-                            // Delete via direct Qdrant API call
-                            const qdrantUrl = process.env.VECTOR_STORE_URL || 'http://127.0.0.1:6333';
-                            const deleteResponse = await fetch(`${qdrantUrl}/collections/${collectionName}`, {
-                                method: 'DELETE',
-                            });
-
-                            if (deleteResponse.ok) {
-                                console.log(`   ✅ Collection deleted successfully`);
-                            } else {
-                                console.log(`   ⚠️  Failed to delete collection`);
-                            }
-                        } catch (error: any) {
-                            console.log(`   ℹ️  No existing collection found (clean start)`);
-                        }
-
-                        // Create fresh collection
-                        console.log('🔨 Creating fresh collection...');
-                        await vectorStore.initializeCollection();
-
-                        // Create or reuse AI service for embeddings
-                        const embeddingService = aiService || createAIService();
-
-                        // Generate embedding using Bedrock AI service
-                        console.log('\n🔢 Generating embedding for Confluence content...');
-                        const embeddingResult = await embeddingService.generateEmbedding({
-                            text: confluenceDocContent,
-                        });
-                        console.log(`✅ Embedding generated (${embeddingResult.dimensions} dimensions)`);
-
-                        // Prepare document for vector store (use UUID for Qdrant compatibility)
-                        const documentId = randomUUID();
-                        const upsertRequest = {
-                            id: documentId,
-                            content: confluenceDocContent,
-                            metadata: {
-                                source: 'confluence',
-                                sourceId: ticketId || 'unknown',
-                                title: ticketId ? `${ticketId} - Confluence Documentation` : 'Confluence Documentation',
-                                spaceKey: confluenceConfig.spaceKey || '',
-                                projectKey: jiraConfig.projectKey || '',
-                                type: 'confluence-pages',
-                                createdAt: new Date().toISOString(),
-                                modifiedAt: new Date().toISOString(),
-                            },
-                        };
-
-                        // Upsert document to vector store
-                        console.log('\n📤 Pushing document to vector database...');
-                        await vectorStore.upsertDocument(upsertRequest, embeddingResult.embedding);
-
-                        // Get collection info
-                        const collectionInfo = await vectorStore.getCollectionInfo();
-                        console.log('\n✅ Vector Database Update Complete!');
-                        console.log(`   Collection: ${collectionInfo.name}`);
-                        console.log(`   Total documents: ${collectionInfo.documentCount}`);
-                        console.log(`   Vector dimensions: ${collectionInfo.vectorSize}`);
-                        console.log(`   Document ID: ${documentId}`);
+                    console.log(`\n🔒 PII Detection Results:`);
+                    console.log(`   Total PII items detected: ${totalPIIDetected}`);
+                    console.log(`   Pages with PII: ${totalPagesWithPII}/${totalPagesProcessed}`);
+                    console.log(`\n📊 PII Types:`);
+                    for (const [type, count] of Object.entries(piiSummaryByType)) {
+                        console.log(`   - ${type}: ${count}`);
                     }
 
-                } catch (error: any) {
-                    console.error('\n❌ Error pushing to vector database:', error.message);
-                    if (error.stack) {
-                        console.error('   Stack trace:', error.stack);
-                    }
-                    console.error('   Confluence.md file was still saved successfully');
-                    console.error('   You can manually push to vector DB later if needed');
+                    // Save detailed PII report
+                    const piiReportPath = `${tmpDir}/PII-Detection-Report.md`;
+                    const piiReport = `# PII Detection & Redaction Report
+
+**File:** ${confluenceFilePath}
+**Scanned:** ${new Date().toISOString()}
+**Detection Method:** ${detectionMethod.toUpperCase()}${detectionMethod === 'regex' ? ' (Presidio unavailable)' : ' (Presidio active)'}
+
+## Summary
+
+- Total PII items detected: ${totalPIIDetected}
+- Pages with PII: ${totalPagesWithPII}
+- Total pages processed: ${totalPagesProcessed}
+- PII redaction status: ✅ Applied to all detected items
+
+## PII Types Detected
+
+${Object.entries(piiSummaryByType).map(([type, count]) => `- **${type}**: ${count} occurrence(s)`).join('\n')}
+
+## Detection Method Details
+
+${detectionMethod === 'presidio' ? `
+### Presidio (Microsoft PII Detection)
+- **Analyzer:** ${piiStatus.presidioConfigured ? process.env.PRESIDIO_ANALYZE_URL : 'Not configured'}
+- **Anonymizer:** ${piiStatus.presidioConfigured ? process.env.PRESIDIO_ANONYMIZE_URL : 'Not configured'}
+- **Advantages:** Context-aware ML-based detection, lower false positives
+- **Method:** Uses Named Entity Recognition (NER) models
+` : `
+### Regex-based Detection (Fallback)
+- **Method:** Pattern-matching using regular expressions
+- **Patterns:** 15+ PII types including email, SSN, credit cards, API keys, etc.
+- **Note:** ${piiStatus.presidioConfigured ? 'Presidio was unavailable, using fallback method' : 'Presidio not configured'}
+`}
+
+## Redaction Method
+
+${detectionMethod === 'presidio' ? `
+All PII data was redacted using Presidio's masking anonymizer:
+- Complete masking with asterisks (*)
+- Original structure preserved
+
+Example: \`user@example.com\` → \`*****************\`
+` : `
+All PII data was automatically redacted using pattern matching:
+- First 2 characters visible
+- Middle characters replaced with asterisks (*)
+- Last 2 characters visible
+
+Example: \`user@example.com\` → \`us***********om\`
+`}
+
+## Next Steps
+
+✅ Safe to use: Both Confluence.md and PostgreSQL vector DB contain redacted content.
+⚠️  Review: Check the redacted content to ensure business-critical information wasn't over-redacted.
+${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
+💡 **Tip:** Start Presidio services for improved PII detection:
+   \`\`\`bash
+   docker run -d -p 5002:3000 mcr.microsoft.com/presidio-analyzer
+   docker run -d -p 5001:3000 mcr.microsoft.com/presidio-anonymizer
+   \`\`\`
+` : ''}
+`;
+                    fs.writeFileSync(piiReportPath, piiReport);
+                    console.log(`\n📄 Detailed PII report saved to ${piiReportPath}`);
                 }
 
-                // Step: Search Vector DB using JIRA content and save to Requirements.md
-                console.log('\n\n' + '='.repeat(60));
-                console.log('SEARCHING VECTOR DB FOR RELATED REQUIREMENTS');
-                console.log('='.repeat(60));
+                // Step: Push to PostgreSQL Vector DB (if enabled)
+                const usePostgresVectorDB = process.env.USE_POSTGRES_VECTOR_DB === 'true';
+                if (usePostgresVectorDB) {
+                    console.log('\n\n' + '='.repeat(60));
+                    console.log('PUSHING CONFLUENCE DATA TO POSTGRESQL VECTOR DB');
+                    console.log('='.repeat(60));
 
-                try {
-                    // Use the same folder as before (variables already declared in parent scope)
-                    const baseDir = `./${spaceKey}-${baseFolderSuffix}`;
+                    try {
+                        // Initialize services
+                        const {EmbeddingService, PostgresVectorService, ConfluenceIndexerService} = await import('./src/services');
+                        const {getRequiredEnv, getOptionalEnvAsNumber} = await import('./src/utils/env-validator.util');
 
-                    // Get ticket ID from environment or scan for existing folders
-                    let ticketKey = process.env.JIRA_TICKET_ID || '';
-
-                    // If no ticket ID in env, try to find existing ticket folder
-                    if (!ticketKey && fs.existsSync(baseDir)) {
-                        const folders = fs.readdirSync(baseDir).filter(f => {
-                            const fullPath = `${baseDir}/${f}`;
-                            return fs.statSync(fullPath).isDirectory() && f.includes(`-${ticketFolderSuffix}`);
+                        console.log('\n🔧 Initializing services...');
+                        const embeddingService = new EmbeddingService({
+                            apiKey: getRequiredEnv('OPENAI_API_KEY', 'OpenAI API key for embeddings'),
+                            model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+                            provider: (process.env.EMBEDDING_PROVIDER as 'openai' | 'openrouter') || 'openai',
+                            concurrency: getOptionalEnvAsNumber('EMBEDDING_CONCURRENCY', 20),
                         });
-                        if (folders.length > 0) {
-                            // Use the first ticket folder found
-                            const folderName = folders[0];
-                            ticketKey = folderName.replace(`-${ticketFolderSuffix}`, '');
-                            console.log(`ℹ️  Using existing ticket folder: ${folderName}`);
-                        }
-                    }
-
-                    if (!ticketKey) {
-                        ticketKey = 'UNKNOWN';
-                    }
-
-                    const ticketDir = `${baseDir}/${ticketKey}-${ticketFolderSuffix}`;
-
-                    // Check if CURRENT_ANALYSIS_PATH is set in environment, otherwise find the latest
-                    let tmpDir = '';
-                    const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
-
-                    if (currentAnalysisPath) {
-                        tmpDir = `${ticketDir}/${currentAnalysisPath}`;
-                        console.log(`ℹ️  Using analysis folder from CURRENT_ANALYSIS_PATH: ${currentAnalysisPath}`);
-                    } else {
-                        // Fallback: Find the latest timestamp folder
-                        if (fs.existsSync(ticketDir)) {
-                            const timestampPattern = new RegExp(`^\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-${timestampFolderSuffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
-                            const timestampFolders = fs.readdirSync(ticketDir).filter(f => {
-                                const fullPath = `${ticketDir}/${f}`;
-                                return fs.statSync(fullPath).isDirectory() && timestampPattern.test(f);
-                            }).sort().reverse(); // Sort descending to get latest
-
-                            if (timestampFolders.length > 0) {
-                                tmpDir = `${ticketDir}/${timestampFolders[0]}`;
-                                console.log(`ℹ️  Using analysis folder: ${timestampFolders[0]}`);
-                            }
-                        }
-                    }
-
-                    if (!tmpDir || !fs.existsSync(tmpDir)) {
-                        console.log('\n⚠️  No analysis folder found - skipping requirements search');
-                        throw new Error('No analysis folder found');
-                    }
-
-                    // Check if Jira file exists
-                    const jiraFileName = process.env.JIRA_FILE_NAME || 'Jira.md';
-                    const jiraFilePath = `${tmpDir}/${jiraFileName}`;
-                    if (!fs.existsSync(jiraFilePath)) {
-                        console.log(`\n⚠️  ${jiraFileName} not found - skipping requirements search`);
-                    } else {
-                        // Read JIRA content to use as query
-                        console.log(`\n📖 Reading ${jiraFileName} for query...`);
-                        const jiraQueryContent = fs.readFileSync(jiraFilePath, 'utf-8');
-                        console.log(`✅ JIRA content read (${jiraQueryContent.length} characters)`);
-
-                        // Extract ticket ID and summary
-                        let queryTicketId = 'unknown';
-                        let querySummary = '';
-                        const ticketIdMatch = jiraQueryContent.match(/\*\*Ticket ID:\*\*\s*([A-Z]+-\d+)/);
-                        const summaryMatch = jiraQueryContent.match(/\*\*Summary:\*\*\s*(.+)/);
-                        if (ticketIdMatch) {
-                            queryTicketId = ticketIdMatch[1];
-                        }
-                        if (summaryMatch) {
-                            querySummary = summaryMatch[1].trim();
-                        }
-
-                        console.log(`   Query Ticket: ${queryTicketId}`);
-                        console.log(`   Summary: ${querySummary}`);
-
-                        // Initialize vector store and AI service
-                        console.log('\n🔧 Initializing Vector Store for search...');
-                        const {createVectorStoreService} = await import('./src/utils');
-
-                        // Use the same collection name as before
-                        const collectionName = `${confluenceConfig.spaceKey}-index`;
-                        process.env.VECTOR_STORE_COLLECTION_NAME = collectionName;
-
-                        const vectorStore = createVectorStoreService();
-                        console.log(`   Using collection: ${collectionName}`);
-
-                        const searchService = aiService || createAIService();
-
-                        // Generate embedding for JIRA query
-                        console.log('\n🔢 Generating embedding for JIRA query...');
-                        const queryEmbeddingResult = await searchService.generateEmbedding({
-                            text: jiraQueryContent,
+                        const vectorService = new PostgresVectorService({
+                            host: process.env.DATABASE_HOST || 'localhost',
+                            port: parseInt(process.env.DATABASE_PORT || '5432'),
+                            database: process.env.DATABASE_NAME || 'postgres-pgvector',
+                            user: process.env.DATABASE_USER || 'postgres',
+                            password: process.env.DATABASE_PASSWORD || 'admin',
                         });
-                        console.log(`✅ Query embedding generated (${queryEmbeddingResult.dimensions} dimensions)`);
 
-                        // Search vector database
-                        console.log('\n🔍 Searching vector database for related content...');
-                        const searchLimit = parseInt(process.env.MAX_VECTOR_RESULTS || '10');
-                        const minScore = parseFloat(process.env.MIN_SIMILARITY_SCORE || '0.7');
+                        // Initialize database
+                        console.log('🔧 Initializing database...');
+                        await vectorService.initialize();
+                        console.log('✅ Database initialized');
 
-                        console.log(`   Search limit: ${searchLimit} results`);
-                        console.log(`   Min similarity score: ${minScore}`);
+                        // Create indexer service
+                        const chunkSize = getOptionalEnvAsNumber('CHUNK_SIZE', 1000);
+                        const chunkOverlap = getOptionalEnvAsNumber('CHUNK_OVERLAP', 200);
+                        const batchSize = getOptionalEnvAsNumber('INDEXER_BATCH_SIZE', 10);
 
-                        const searchResults = await vectorStore.search(
-                            {
-                                query: `${queryTicketId}: ${querySummary}`,
-                                limit: searchLimit,
-                                minScore: minScore,
-                            },
-                            queryEmbeddingResult.embedding,
+                        const indexerService = new ConfluenceIndexerService(
+                            confluenceService,
+                            embeddingService,
+                            vectorService,
+                            chunkSize,
+                            chunkOverlap,
                         );
 
-                        console.log(`✅ Found ${searchResults.results.length} matching document(s)`);
+                        // Index the space
+                        console.log(`\n📚 Indexing Confluence space: ${confluenceConfig.spaceKey}`);
+                        const stats = await indexerService.indexSpace(confluenceConfig.spaceKey, batchSize);
 
-                        // ============================================
-                        // STEP 4: LLM SUMMARIZATION (RAG Completion)
-                        // ============================================
-                        let llmExtractedContent = '';
-                        let llmProcessingTime = 0;
-
-                        if (searchResults.results.length > 0) {
-                            console.log('\n🤖 Step 4: Using LLM to extract relevant requirements from retrieved chunks...');
-
-                            try {
-                                const llmStartTime = Date.now();
-
-                                // Combine all chunks with metadata
-                                let combinedChunks = '';
-                                for (let i = 0; i < searchResults.results.length; i++) {
-                                    const result = searchResults.results[i];
-                                    const score = ((result.score || 0) * 100).toFixed(2);
-                                    combinedChunks += `\n### Document Chunk ${i + 1} (Similarity: ${score}%)\n`;
-                                    combinedChunks += `Source: ${result.metadata.title || 'Untitled'}\n\n`;
-                                    combinedChunks += result.content + '\n\n';
-                                    combinedChunks += `---\n`;
-                                }
-
-                                // Ask LLM to extract only relevant info
-                                const systemPrompt = `You are a technical requirements analyst. Your task is to extract ONLY information relevant to the provided JIRA ticket from the documentation chunks retrieved from a vector database.
-
-**Analysis Structure:**
-Return a structured markdown report with these sections:
-
-1. **Relevant Requirements** - Requirements, features, or specifications related to this ticket
-2. **Implementation Details** - Technical details, APIs, design patterns, architecture decisions
-3. **Test Scenarios** - Existing test patterns, quality standards, or testing approaches
-4. **Dependencies** - Related components, services, libraries, or tickets mentioned
-5. **Additional Context** - Any other relevant information (error handling, edge cases, etc.)
-
-**Important Guidelines:**
-- Extract and summarize ONLY information directly relevant to the JIRA ticket
-- If a section has no relevant information, write "No relevant information found in retrieved documents."
-- Keep technical details precise and actionable
-- Reference specific patterns, APIs, or approaches when mentioned
-- Be concise but comprehensive`;
-
-                                const userPrompt = `# JIRA Ticket Information
-${jiraQueryContent}
-
-# Documentation Chunks Retrieved from Vector Database
-${combinedChunks}
-
-Extract and structure the relevant information according to the analysis framework.`;
-
-                                console.log('   Sending request to LLM...');
-                                const llmResult = await searchService.chatCompletion({
-                                    system: systemPrompt,
-                                    messages: [{role: 'user', content: userPrompt}],
-                                    temperature: 0.3,
-                                } as any);
-
-                                llmExtractedContent = llmResult.response;
-                                llmProcessingTime = ((Date.now() - llmStartTime) / 1000);
-
-                                console.log(`✅ LLM extraction completed in ${llmProcessingTime.toFixed(2)}s`);
-                                if (llmResult.tokensUsed && llmResult.tokensUsed.total) {
-                                    console.log(`   Tokens used: ${llmResult.tokensUsed.total}`);
-                                }
-                            } catch (error: any) {
-                                console.error(`❌ LLM extraction failed: ${error.message}`);
-                                console.log('   Falling back to raw chunks...');
-                                llmExtractedContent = ''; // Will use fallback below
-                            }
+                        console.log('\n✅ PostgreSQL Vector DB indexing complete!');
+                        console.log(`   Space: ${stats.spaceKey}`);
+                        console.log(`   Pages indexed: ${stats.totalPages}`);
+                        console.log(`   Total chunks: ${stats.totalChunks}`);
+                        console.log(`   Processing time: ${(stats.processingTime / 1000).toFixed(2)}s`);
+                        if (stats.errors.length > 0) {
+                            console.log(`   Errors: ${stats.errors.length}`);
                         }
 
-                        // Write results to Requirements file
-                        const requirementsFileName = process.env.REQUIREMENTS_FILE_NAME || 'Requirements.md';
-                        const requirementsFilePath = `${tmpDir}/${requirementsFileName}`;
-                        console.log(`\n📝 Writing results to ${requirementsFilePath}...`);
+                        // Clean up expired records
+                        console.log('\n🗑️  Cleaning up expired records...');
+                        await vectorService.cleanupExpired();
 
-                        let requirementsContent = `# Related Requirements from Vector DB\n\n`;
-                        requirementsContent += `**JIRA Ticket:** ${queryTicketId}\n`;
-                        requirementsContent += `**Summary:** ${querySummary}\n`;
-                        requirementsContent += `**Generated:** ${new Date().toISOString()}\n`;
-                        requirementsContent += `**Collection:** ${collectionName}\n`;
-                        requirementsContent += `**Search Results:** ${searchResults.results.length} of ${searchLimit} requested\n`;
-                        requirementsContent += `**Min Similarity Score:** ${minScore}\n`;
-                        requirementsContent += `**Processing:** Vector Search + LLM Extraction (RAG)\n\n`;
-                        requirementsContent += `---\n\n`;
+                        // Close database connection
+                        await vectorService.close();
 
-                        if (searchResults.results.length === 0) {
-                            requirementsContent += `## No Related Requirements Found\n\n`;
-                            requirementsContent += `No documents were found with similarity score >= ${minScore}.\n`;
-                            requirementsContent += `Try lowering the MIN_SIMILARITY_SCORE in .env or adding more documents to the vector database.\n`;
-                        } else if (llmExtractedContent && llmExtractedContent.trim().length > 0) {
-                            // Use LLM-extracted content (Step 4 complete!)
-                            requirementsContent += `## AI-Extracted Requirements Analysis\n\n`;
-                            requirementsContent += `*The following analysis was generated by an LLM after retrieving ${searchResults.results.length} relevant document chunks from the vector database.*\n\n`;
-                            requirementsContent += llmExtractedContent + '\n\n';
-
-                            // Add raw chunks as appendix for reference
-                            requirementsContent += `\n---\n\n`;
-                            requirementsContent += `## Appendix: Raw Retrieved Chunks\n\n`;
-                            requirementsContent += `*The following are the raw document chunks retrieved from vector search, before LLM processing.*\n\n`;
-
-                            for (let i = 0; i < searchResults.results.length; i++) {
-                                const result = searchResults.results[i];
-                                const resultNum = i + 1;
-                                const similarityPercent = ((result.score || 0) * 100).toFixed(2);
-
-                                requirementsContent += `### ${resultNum}. ${result.metadata.title || 'Untitled'}\n\n`;
-                                requirementsContent += `**Similarity Score:** ${similarityPercent}%\n`;
-                                if (result.metadata.chunkIndex) {
-                                    requirementsContent += `**Chunk:** ${result.metadata.chunkIndex} of ${result.metadata.totalChunks}\n`;
-                                }
-                                requirementsContent += `\n<details>\n<summary>Click to view raw content</summary>\n\n`;
-                                requirementsContent += `\`\`\`\n${result.content.substring(0, 500)}...\n\`\`\`\n\n`;
-                                requirementsContent += `</details>\n\n`;
-                            }
-                        } else {
-                            // Fallback to raw chunks if LLM fails
-                            requirementsContent += `## Related Documentation (${searchResults.results.length} results)\n\n`;
-                            requirementsContent += `*Note: LLM extraction unavailable. Showing raw chunks from vector search.*\n\n`;
-
-                            for (let i = 0; i < searchResults.results.length; i++) {
-                                const result = searchResults.results[i];
-                                const resultNum = i + 1;
-                                const similarityPercent = ((result.score || 0) * 100).toFixed(2);
-
-                                requirementsContent += `### ${resultNum}. ${result.metadata.title || 'Untitled'}\n\n`;
-                                requirementsContent += `**Similarity Score:** ${similarityPercent}%\n`;
-                                requirementsContent += `**Source:** ${result.metadata.source}\n`;
-                                requirementsContent += `**Type:** ${result.metadata.type}\n`;
-                                if (result.metadata.chunkIndex) {
-                                    requirementsContent += `**Chunk:** ${result.metadata.chunkIndex} of ${result.metadata.totalChunks}\n`;
-                                }
-                                requirementsContent += `\n**Content:**\n\n`;
-                                requirementsContent += `\`\`\`\n${result.content}\n\`\`\`\n\n`;
-                                requirementsContent += `---\n\n`;
-                            }
+                    } catch (error: any) {
+                        console.error('\n❌ Error pushing to PostgreSQL Vector DB:', error.message);
+                        if (error.stack) {
+                            console.error('   Stack trace:', error.stack);
                         }
-
-                        // Add search metadata
-                        requirementsContent += `\n## Search Metadata\n\n`;
-                        requirementsContent += `- **Query Length:** ${jiraQueryContent.length} characters\n`;
-                        requirementsContent += `- **Embedding Dimensions:** ${queryEmbeddingResult.dimensions}\n`;
-                        requirementsContent += `- **Total Results:** ${searchResults.total}\n`;
-                        requirementsContent += `- **Collection:** ${collectionName}\n`;
-                        if (llmProcessingTime > 0) {
-                            requirementsContent += `- **LLM Processing Time:** ${llmProcessingTime.toFixed(2)}s\n`;
-                        }
-                        requirementsContent += `- **Timestamp:** ${new Date().toISOString()}\n`;
-
-                        // Write to file
-                        fs.writeFileSync(requirementsFilePath, requirementsContent);
-                        console.log(`✅ Requirements saved to ${requirementsFilePath}`);
-                        console.log(`   Total results: ${searchResults.results.length}`);
-                        console.log(`   Average similarity: ${(searchResults.results.reduce((sum, r) => sum + (r.score || 0), 0) / searchResults.results.length * 100).toFixed(2)}%`);
+                        console.error('   Confluence.md file was still saved successfully');
+                        console.error('   You can manually index to vector DB later using: npm run process:jira');
                     }
-
-                } catch (error: any) {
-                    console.error('\n❌ Error searching vector database:', error.message);
-                    if (error.stack) {
-                        console.error('   Stack trace:', error.stack);
-                    }
-                    const requirementsFileName = process.env.REQUIREMENTS_FILE_NAME || 'Requirements.md';
-                    console.error(`   ${requirementsFileName} file may not have been created`);
+                } else {
+                    console.log('\nℹ️  PostgreSQL Vector DB indexing disabled (USE_POSTGRES_VECTOR_DB=false)');
+                    console.log('   Set USE_POSTGRES_VECTOR_DB=true in .env to enable automatic indexing');
                 }
-                } // End of vector DB check (controlled by CLAUDE_CODE_USE_BEDROCK)
 
             } else {
                 // Just list pages without saving
@@ -1109,7 +747,7 @@ Extract and structure the relevant information according to the analysis framewo
         }
 
         console.log('\n' + '='.repeat(60));
-        console.log('✅ Generate Unit Tests - Completed successfully!');
+        console.log('✅ CheckUnitTestCases - Completed successfully!');
         console.log('='.repeat(60));
 
         // Explicitly exit with success code
