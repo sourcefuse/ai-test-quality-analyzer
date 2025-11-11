@@ -7,6 +7,7 @@
 import {ConfluenceService} from './confluence.service';
 import {EmbeddingService} from './embedding.service';
 import {PostgresVectorService} from './postgres-vector.service';
+import {HybridPIIDetectorService} from './hybrid-pii-detector.service';
 import * as cheerio from 'cheerio';
 
 export interface IndexStats {
@@ -34,6 +35,7 @@ export class ConfluenceIndexerService {
   private readonly confluenceService: ConfluenceService;
   private readonly embeddingService: EmbeddingService;
   private readonly vectorService: PostgresVectorService;
+  private readonly piiDetector?: HybridPIIDetectorService;
   private readonly chunkSize: number;
   private readonly chunkOverlap: number;
 
@@ -44,6 +46,7 @@ export class ConfluenceIndexerService {
    * @param vectorService - PostgreSQL vector service instance
    * @param chunkSize - Size of text chunks (default: 1000)
    * @param chunkOverlap - Overlap between chunks (default: 200)
+   * @param piiDetector - Optional PII detector for sanitizing data before storage
    */
   constructor(
     confluenceService: ConfluenceService,
@@ -51,12 +54,14 @@ export class ConfluenceIndexerService {
     vectorService: PostgresVectorService,
     chunkSize: number = 1000,
     chunkOverlap: number = 200,
+    piiDetector?: HybridPIIDetectorService,
   ) {
     this.confluenceService = confluenceService;
     this.embeddingService = embeddingService;
     this.vectorService = vectorService;
     this.chunkSize = chunkSize;
     this.chunkOverlap = chunkOverlap;
+    this.piiDetector = piiDetector;
   }
 
   /**
@@ -113,7 +118,22 @@ export class ConfluenceIndexerService {
    * @param stats - Index statistics object
    */
   private async processBatch(pages: any[], stats: IndexStats): Promise<void> {
-    // 1. Chunk all pages in batch
+    // 1. Apply PII detection if enabled
+    if (this.piiDetector) {
+      console.log('   🔒 Applying PII detection...');
+      for (const page of pages) {
+        if (page.content) {
+          const piiResult = await this.piiDetector.detectAndRedact(page.content);
+          if (piiResult.hasPII) {
+            page.content = piiResult.redactedText;
+            console.log(`      🔒 ${page.title}: PII redacted via ${piiResult.method}`);
+          }
+        }
+      }
+      console.log('   ✅ PII detection complete');
+    }
+
+    // 2. Chunk all pages in batch
     console.log('   🔄 Chunking text...');
     const allChunks: TextChunk[] = [];
 
@@ -124,14 +144,14 @@ export class ConfluenceIndexerService {
 
     console.log(`   ✅ Created ${allChunks.length} chunks`);
 
-    // 2. Generate embeddings for all chunks in batch (parallel)
+    // 3. Generate embeddings for all chunks in batch (parallel)
     console.log('   🔄 Generating embeddings...');
     const embeddings = await this.embeddingService.batchGenerateEmbeddings(
       allChunks.map(c => c.text),
     );
     console.log(`   ✅ Generated ${embeddings.length} embeddings`);
 
-    // 3. Save to database
+    // 4. Save to database
     console.log('   🔄 Saving to database...');
     for (let i = 0; i < pages.length; i++) {
       try {

@@ -5,6 +5,7 @@
 
 import * as dotenv from 'dotenv';
 import * as dotenvExt from 'dotenv-extended';
+import * as fs from 'fs';
 import {
   JiraService,
   ConfluenceService,
@@ -87,29 +88,85 @@ async function main() {
 
     await vectorService.initialize();
 
-    // 5. Initialize JIRA Processor Service
+    // 5. Initialize Hybrid PII Detector
+    console.log('\n🔒 Initializing PII Detection...');
+    const HybridPIIDetectorService = (await import('./src/services')).HybridPIIDetectorService;
+    const piiDetector = new HybridPIIDetectorService();
+    const detectionMethod = await piiDetector.initialize();
+    const piiStatus = piiDetector.getStatus();
+
+    console.log('✅ PII Detector initialized');
+    console.log(`   Method: ${detectionMethod.toUpperCase()}`);
+    if (piiStatus.presidioConfigured) {
+      console.log(`   Presidio configured: ${piiStatus.presidioStatus?.isAvailable ? '✅ Available' : '❌ Unavailable'}`);
+      if (detectionMethod === 'regex') {
+        console.log('   ℹ️  Using fallback regex-based detection');
+      }
+    } else {
+      console.log('   ℹ️  Presidio not configured, using regex-based detection');
+    }
+
+    // 6. Get folder naming configuration
+    const spaceKey = getRequiredEnv('CONFLUENCE_SPACE_KEY', 'Confluence space key');
+    const baseFolderSuffix = getOptionalEnv('BASE_FOLDER_SUFFIX', 'Generate-Unit-Tests-Via-AI');
+    const ticketFolderSuffix = getOptionalEnv('TICKET_FOLDER_SUFFIX', 'Via-AI');
+
+    // Construct output directory to match fetch-and-analyze.ts structure
+    const baseDir = `./${spaceKey}-${baseFolderSuffix}`;
+    const ticketDir = `${baseDir}/${ticketKey}-${ticketFolderSuffix}`;
+
+    // Use CURRENT_ANALYSIS_PATH if set, otherwise use the latest folder
+    const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
+    let outputDir = '';
+
+    if (currentAnalysisPath) {
+      outputDir = `${ticketDir}/${currentAnalysisPath}`;
+    } else {
+      // Find the latest timestamp folder
+      if (fs.existsSync(ticketDir)) {
+        const timestampFolderSuffix = getOptionalEnv('TIMESTAMP_FOLDER_SUFFIX', 'Via-AI');
+        const timestampPattern = new RegExp(`^\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-${timestampFolderSuffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
+        const folders = fs.readdirSync(ticketDir).filter((f: string) => timestampPattern.test(f));
+
+        if (folders.length > 0) {
+          folders.sort().reverse();
+          outputDir = `${ticketDir}/${folders[0]}`;
+          console.log(`ℹ️  Using existing analysis folder: ${folders[0]}`);
+        }
+      }
+
+      if (!outputDir) {
+        console.error('❌ No analysis folder found. Please run fetch-and-analyze.ts first.');
+        process.exit(1);
+      }
+    }
+
+    console.log(`📂 Output directory: ${outputDir}\n`);
+
+    // 7. Initialize JIRA Processor Service with PII detector (only if Presidio is available)
     const processor = new JiraProcessorService(
       jiraService,
       confluenceService,
       embeddingService,
-      vectorService
+      vectorService,
+      piiStatus.presidioStatus?.isAvailable ? piiDetector : undefined
     );
 
-    // 6. Process the ticket
+    // 8. Process the ticket
     console.log(`🎫 Processing JIRA ticket: ${ticketKey}`);
     const result = await processor.processTicket(ticketKey, topK);
 
-    // 7. Save results to file
-    const outputDir = getOptionalEnv('OUTPUT_DIR', './output');
-    const filePath = await processor.saveToFile(result, outputDir);
+    // 9. Save Confluence pages to Confluence-Rag.md
+    const confluenceFileName = getOptionalEnv('CONFLUENCE_RAG_FILE_NAME', 'Confluence-Rag.md');
+    await processor.saveConfluencePages(result, outputDir, confluenceFileName);
 
-    console.log('\n✅ Processing Complete!');
+    console.log('\n✅ RAG Processing Complete!');
     console.log(`   Ticket: ${result.ticketKey}`);
     console.log(`   Title: ${result.ticketTitle}`);
     console.log(`   Related Documents: ${result.relatedDocuments.length}`);
-    console.log(`   Output: ${filePath}`);
+    console.log(`   Output: ${outputDir}/${confluenceFileName}`);
 
-    // 8. Close connections
+    // 10. Close connections
     await vectorService.close();
   } catch (error) {
     console.error('❌ Error:', error);

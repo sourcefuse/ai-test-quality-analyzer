@@ -8,6 +8,7 @@ import {JiraService} from './jira.service';
 import {ConfluenceService} from './confluence.service';
 import {EmbeddingService} from './embedding.service';
 import {PostgresVectorService, SearchResult} from './postgres-vector.service';
+import {HybridPIIDetectorService} from './hybrid-pii-detector.service';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as cheerio from 'cheerio';
@@ -37,6 +38,7 @@ export class JiraProcessorService {
   private readonly confluenceService: ConfluenceService;
   private readonly embeddingService: EmbeddingService;
   private readonly vectorService: PostgresVectorService;
+  private readonly piiDetector?: HybridPIIDetectorService;
 
   /**
    * Constructor
@@ -44,17 +46,20 @@ export class JiraProcessorService {
    * @param confluenceService - Confluence service instance
    * @param embeddingService - Embedding service instance
    * @param vectorService - PostgreSQL vector service instance
+   * @param piiDetector - Optional PII detector for sanitizing Confluence content
    */
   constructor(
     jiraService: JiraService,
     confluenceService: ConfluenceService,
     embeddingService: EmbeddingService,
     vectorService: PostgresVectorService,
+    piiDetector?: HybridPIIDetectorService,
   ) {
     this.jiraService = jiraService;
     this.confluenceService = confluenceService;
     this.embeddingService = embeddingService;
     this.vectorService = vectorService;
+    this.piiDetector = piiDetector;
   }
 
   /**
@@ -92,20 +97,20 @@ export class JiraProcessorService {
   }
 
   /**
-   * Get full document content from Confluence by page ID (plain text)
+   * Get full document content from Confluence by page ID (plain text and HTML)
    * @param pageId - Confluence page ID
-   * @returns Plain text content
+   * @returns Plain text content and HTML content
    */
   private async getFullDocumentContentFromConfluence(
     pageId: string,
-  ): Promise<{content: string} | null> {
+  ): Promise<{content: string; htmlContent: string; title: string; url: string} | null> {
     try {
       // Access the internal Confluence client to fetch page by ID
       const client = (this.confluenceService as any).client;
 
       const response = await client.content.getContentById({
         id: pageId,
-        expand: ['body.view', 'body.storage'],
+        expand: ['body.view', 'body.storage', '_links.webui'],
       });
 
       if (!response) {
@@ -113,18 +118,30 @@ export class JiraProcessorService {
       }
 
       let plainContent = '';
+      let htmlContent = '';
 
-      // Use body.view (rendered HTML) and strip tags
+      // Use body.view (rendered HTML) and strip tags for plain text
       if (response.body?.view?.value) {
-        const $ = cheerio.load(response.body.view.value);
+        htmlContent = response.body.view.value;
+        const $ = cheerio.load(htmlContent);
         plainContent = $.text();
       } else if (response.body?.storage?.value) {
-        // Fallback to storage format and strip HTML
-        const $ = cheerio.load(response.body.storage.value);
+        // Fallback to storage format
+        htmlContent = response.body.storage.value;
+        const $ = cheerio.load(htmlContent);
         plainContent = $.text();
       }
 
-      return {content: plainContent};
+      const url = response._links?.webui
+        ? `${(this.confluenceService as any).config.host}${response._links.webui}`
+        : '';
+
+      return {
+        content: plainContent,
+        htmlContent: htmlContent,
+        title: response.title || '',
+        url: url,
+      };
     } catch (error) {
       console.error(`Error fetching Confluence page ${pageId}:`, error);
       return null;
@@ -313,6 +330,103 @@ export class JiraProcessorService {
     };
 
     return result;
+  }
+
+  /**
+   * Save Confluence pages to markdown file (similar to Confluence.md)
+   * @param result - JiraTicketResult with related documents
+   * @param outputDir - Directory to save the file
+   * @param filename - Filename (default: Confluence-Rag.md)
+   * @returns File path
+   */
+  async saveConfluencePages(
+    result: JiraTicketResult,
+    outputDir: string,
+    filename: string = 'Confluence-Rag.md',
+  ): Promise<string> {
+    // Create output directory if it doesn't exist
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, {recursive: true});
+    }
+
+    const filePath = path.join(outputDir, filename);
+
+    // Get unique page IDs
+    const uniquePageIds = Array.from(
+      new Set(result.relatedDocuments.map((doc, idx) => {
+        // Extract page ID from URL (last segment after /pages/)
+        const match = doc.url.match(/\/pages\/(\d+)\//);
+        return match ? match[1] : `unknown-${idx}`;
+      })),
+    );
+
+    console.log(`\n📄 Fetching ${uniquePageIds.length} unique Confluence pages...`);
+
+    let confluenceContent = '';
+    let totalPII = 0;
+    let pagesWithPII = 0;
+
+    // Fetch and process each page
+    for (let i = 0; i < uniquePageIds.length; i++) {
+      const pageId = uniquePageIds[i];
+
+      if (pageId.startsWith('unknown-')) {
+        console.log(`   ⊘ Skipping page with unknown ID`);
+        continue;
+      }
+
+      console.log(`   🔄 Fetching page ${i + 1}/${uniquePageIds.length}: ${pageId}`);
+
+      const fullDoc = await this.getFullDocumentContentFromConfluence(pageId);
+
+      if (!fullDoc || !fullDoc.htmlContent) {
+        console.log(`   ⚠️  Page ${pageId}: No content found`);
+        continue;
+      }
+
+      // Strip HTML to get plain text
+      const $ = cheerio.load(fullDoc.htmlContent);
+      let cleanContent = $.text().replace(/\s+/g, ' ').trim();
+
+      // Apply PII detection if enabled
+      if (this.piiDetector && cleanContent) {
+        const piiResult = await this.piiDetector.detectAndRedact(cleanContent);
+        if (piiResult.hasPII) {
+          pagesWithPII++;
+
+          // Calculate PII count
+          let piiCount = 0;
+          if (piiResult.method === 'presidio' && piiResult.presidioEntities) {
+            piiCount = piiResult.presidioEntities.length;
+          } else if (piiResult.method === 'regex' && piiResult.regexMatches) {
+            piiCount = piiResult.regexMatches.length;
+          }
+
+          totalPII += piiCount;
+          cleanContent = piiResult.redactedText;
+          console.log(`   🔒 Page ${pageId}: ${fullDoc.title} (${piiCount} PII item(s) redacted via ${piiResult.method})`);
+        } else {
+          console.log(`   ✅ Page ${pageId}: ${fullDoc.title}`);
+        }
+      } else {
+        console.log(`   ✅ Page ${pageId}: ${fullDoc.title}`);
+      }
+
+      // Add to content in Confluence.md format
+      confluenceContent += `## ${fullDoc.title}\n\n`;
+      confluenceContent += `${cleanContent}\n\n`;
+      confluenceContent += `---\n\n`;
+    }
+
+    // Write to file
+    fs.writeFileSync(filePath, confluenceContent, 'utf-8');
+
+    console.log(`\n💾 Confluence pages saved to: ${filePath}`);
+    if (this.piiDetector) {
+      console.log(`   🔒 PII Detection: ${pagesWithPII} page(s) with ${totalPII} PII item(s) redacted`);
+    }
+
+    return filePath;
   }
 
   /**

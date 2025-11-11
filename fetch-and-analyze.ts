@@ -689,12 +689,17 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
                         const chunkOverlap = getOptionalEnvAsNumber('CHUNK_OVERLAP', 200);
                         const batchSize = getOptionalEnvAsNumber('INDEXER_BATCH_SIZE', 10);
 
+                        // Check if PII sanitization is enabled for PostgreSQL data
+                        const sanitizePgData = process.env.SANITIZE_PG_DATA !== 'false'; // default true
+                        console.log(`\n🔒 PostgreSQL PII Sanitization: ${sanitizePgData ? '✅ ENABLED' : '❌ DISABLED'}`);
+
                         const indexerService = new ConfluenceIndexerService(
                             confluenceService,
                             embeddingService,
                             vectorService,
                             chunkSize,
                             chunkOverlap,
+                            sanitizePgData ? piiDetector : undefined, // pass piiDetector only if enabled
                         );
 
                         // Index the space
