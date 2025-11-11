@@ -667,6 +667,7 @@ ${totalPIIDetected > 0 ? `### PII Types Found:\n${Object.entries(piiSummaryByTyp
 
 **File:** ${confluenceFilePath}
 **Scanned:** ${new Date().toISOString()}
+**Detection Method:** ${detectionMethod.toUpperCase()}${detectionMethod === 'regex' ? ' (Presidio unavailable)' : ' (Presidio active)'}
 
 ## Summary
 
@@ -679,19 +680,49 @@ ${totalPIIDetected > 0 ? `### PII Types Found:\n${Object.entries(piiSummaryByTyp
 
 ${Object.entries(piiSummaryByType).map(([type, count]) => `- **${type}**: ${count} occurrence(s)`).join('\n')}
 
+## Detection Method Details
+
+${detectionMethod === 'presidio' ? `
+### Presidio (Microsoft PII Detection)
+- **Analyzer:** ${piiStatus.presidioConfigured ? process.env.PRESIDIO_ANALYZE_URL : 'Not configured'}
+- **Anonymizer:** ${piiStatus.presidioConfigured ? process.env.PRESIDIO_ANONYMIZE_URL : 'Not configured'}
+- **Advantages:** Context-aware ML-based detection, lower false positives
+- **Method:** Uses Named Entity Recognition (NER) models
+` : `
+### Regex-based Detection (Fallback)
+- **Method:** Pattern-matching using regular expressions
+- **Patterns:** 15+ PII types including email, SSN, credit cards, API keys, etc.
+- **Note:** ${piiStatus.presidioConfigured ? 'Presidio was unavailable, using fallback method' : 'Presidio not configured'}
+`}
+
 ## Redaction Method
 
-All PII data was automatically redacted using pattern matching. Redacted values show:
+${detectionMethod === 'presidio' ? `
+All PII data was redacted using Presidio's masking anonymizer:
+- Complete masking with asterisks (*)
+- Original structure preserved
+
+Example: \`user@example.com\` → \`*****************\`
+` : `
+All PII data was automatically redacted using pattern matching:
 - First 2 characters visible
 - Middle characters replaced with asterisks (*)
 - Last 2 characters visible
 
 Example: \`user@example.com\` → \`us***********om\`
+`}
 
 ## Next Steps
 
 ✅ Safe to use: Both Confluence.md and PostgreSQL vector DB contain redacted content.
 ⚠️  Review: Check the redacted content to ensure business-critical information wasn't over-redacted.
+${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
+💡 **Tip:** Start Presidio services for improved PII detection:
+   \`\`\`bash
+   docker run -d -p 5002:3000 mcr.microsoft.com/presidio-analyzer
+   docker run -d -p 5001:3000 mcr.microsoft.com/presidio-anonymizer
+   \`\`\`
+` : ''}
 `;
                     fs.writeFileSync(piiReportPath, piiReport);
                     console.log(`\n📄 Detailed PII report saved to ${piiReportPath}`);
