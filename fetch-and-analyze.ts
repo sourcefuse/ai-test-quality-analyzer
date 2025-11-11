@@ -16,7 +16,7 @@ import * as fs from 'fs';
 import {randomUUID} from 'crypto';
 import {JiraService, ConfluenceService, HybridPIIDetectorService} from './src/services';
 import {JiraConfigDto, JiraTicketQueryDto, ConfluenceConfigDto, ConfluenceSearchRequestDto} from './src/dtos';
-import {stripHtmlTags, extractPlainText, createAIService} from './src/utils';
+import {stripHtmlTags, extractPlainText} from './src/utils';
 
 /**
  * Load environment variables with dotenv-extended
@@ -388,9 +388,6 @@ async function main(): Promise<void> {
                     }
                 }
 
-                // AI service will be created later only if needed for vector DB operations
-                let aiService: any = null;
-
                 // Initialize Confluence file
                 const confluenceFileName = process.env.CONFLUENCE_FILE_NAME || 'Confluence.md';
                 const confluenceFilePath = `${tmpDir}/${confluenceFileName}`;
@@ -540,79 +537,6 @@ Strategy: Incremental batch processing - saving raw content to file
                             console.log(`   ⊘ Batch ${batch.batchNumber}: All ${pagesWithoutContent} page(s) skipped (no content)`);
                         }
                     }
-
-                    /*
-                    // ========================================
-                    // AI FILTERING (COMMENTED OUT FOR NOW)
-                    // ========================================
-                    // Analyze batch with AI if available
-                    if (aiService && jiraContent && batchContent.trim()) {
-                        console.log(`\n🔍 Analyzing batch ${batch.batchNumber} for relevance and removing PII...`);
-
-                        const systemPrompt = `You are a technical requirements analyst with expertise in identifying relevant project documentation and ensuring data privacy.
-
-Your task is to:
-1. Analyze the JIRA ticket requirements provided
-2. From the Confluence batch content, extract ONLY the pages/sections that are relevant to these requirements
-3. Remove ALL Personally Identifiable Information (PII) from the output, including:
-   - Names of individuals (replace with roles like "QA Engineer", "Developer", etc.)
-   - Email addresses, phone numbers, meeting passcodes
-   - Employee IDs, specific locations
-   - Any other personal identifiers
-
-IMPORTANT OUTPUT FORMAT:
-- Remove the content which you think is a analysis report, like having text GenerateTestCasesReport_
-- If NO content is relevant, return ONLY the word "EMPTY" (without quotes)
-- If content IS relevant, return ONLY the relevant sections with PII removed as clean markdown
-- Do NOT include explanations, summaries, or metadata - only the filtered content or "EMPTY"
-- Keep the original structure with ## headings and --- separators`;
-
-                        const userPrompt = `# JIRA Requirements:
-${jiraContent}
-
-# Confluence Batch Content:
-${batchContent}
-
-Return only relevant content with PII removed, or "EMPTY" if nothing is relevant.`;
-
-                        try {
-                            const result = await aiService.chatCompletion({
-                                system: systemPrompt,
-                                messages: [
-                                    {
-                                        role: 'user',
-                                        content: userPrompt,
-                                    },
-                                ],
-                                temperature: 0.3,
-                            } as any);
-
-                            const filteredContent = result.response.trim();
-
-                            // Check if content is relevant
-                            if (filteredContent && filteredContent !== 'EMPTY' && filteredContent.length > 10) {
-                                console.log(`   ✅ Relevant content found in batch ${batch.batchNumber}`);
-                                totalRelevantPages += batch.pages.length;
-
-                                // Append to Confluence.md with batch separator
-                                const batchSeparator = `\n<!-- BATCH ${batch.batchNumber} - ${new Date().toISOString()} -->\n\n`;
-                                fs.appendFileSync(confluenceFilePath, batchSeparator + filteredContent + '\n\n');
-                            } else {
-                                console.log(`   ⊘ No relevant content in batch ${batch.batchNumber}`);
-                            }
-
-                            // Display token usage if available
-                            if (result.tokensUsed && result.tokensUsed.total) {
-                                console.log(`   📊 Tokens used: ${result.tokensUsed.total}`);
-                            }
-                        } catch (error: any) {
-                            console.error(`   ❌ Error analyzing batch ${batch.batchNumber}:`, error.message);
-                            console.log(`   ⚠️  Saving batch content without filtering`);
-                            const batchSeparator = `\n<!-- BATCH ${batch.batchNumber} - UNFILTERED -->\n\n`;
-                            fs.appendFileSync(confluenceFilePath, batchSeparator + batchContent + '\n\n');
-                        }
-                    }
-                    */
                 }
 
                 console.log('\n' + '='.repeat(60));

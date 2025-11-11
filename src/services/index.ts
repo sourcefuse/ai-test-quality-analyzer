@@ -5,8 +5,6 @@
 
 export * from './jira.service';
 export * from './confluence.service';
-export * from './openrouter-ai.service';
-export * from './bedrock-ai.service';
 
 // RAG System Services
 export * from './embedding.service';
