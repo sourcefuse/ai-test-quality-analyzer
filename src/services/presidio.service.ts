@@ -3,8 +3,6 @@
  * Integration with Microsoft Presidio for PII detection and anonymization
  */
 
-import fetch from 'node-fetch';
-
 export interface PresidioPIIEntity {
   entity_type: string;
   start: number;
@@ -95,7 +93,7 @@ export class PresidioService {
       this.isAvailable !== null &&
       now - this.lastHealthCheck < this.healthCheckInterval
     ) {
-      return this.isAvailable;
+      return this.isAvailable as boolean; // Already checked !== null above
     }
 
     try {
