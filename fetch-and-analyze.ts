@@ -14,9 +14,9 @@ import * as dotenv from 'dotenv';
 import * as dotenvExt from 'dotenv-extended';
 import * as fs from 'fs';
 import {randomUUID} from 'crypto';
-import {JiraService, ConfluenceService} from './src/services';
+import {JiraService, ConfluenceService, HybridPIIDetectorService} from './src/services';
 import {JiraConfigDto, JiraTicketQueryDto, ConfluenceConfigDto, ConfluenceSearchRequestDto} from './src/dtos';
-import {stripHtmlTags, extractPlainText, createAIService, detectPII, redactPII, generatePIIReport} from './src/utils';
+import {stripHtmlTags, extractPlainText, createAIService} from './src/utils';
 
 /**
  * Load environment variables with dotenv-extended
@@ -94,6 +94,23 @@ async function main(): Promise<void> {
     console.log('='.repeat(60));
 
     try {
+        // Initialize Hybrid PII Detector
+        console.log('\n🔒 Initializing PII Detection...');
+        const piiDetector = new HybridPIIDetectorService();
+        const detectionMethod = await piiDetector.initialize();
+        const piiStatus = piiDetector.getStatus();
+
+        console.log('✅ PII Detector initialized');
+        console.log(`   Method: ${detectionMethod.toUpperCase()}`);
+        if (piiStatus.presidioConfigured) {
+            console.log(`   Presidio configured: ${piiStatus.presidioStatus?.isAvailable ? '✅ Available' : '❌ Unavailable'}`);
+            if (detectionMethod === 'regex') {
+                console.log('   ℹ️  Using fallback regex-based detection');
+            }
+        } else {
+            console.log('   ℹ️  Presidio not configured, using regex-based detection');
+        }
+
         // Get JIRA configuration from environment
         const jiraConfig = getJiraConfig();
 
@@ -463,22 +480,35 @@ Strategy: Incremental batch processing - saving raw content to file
                             continue;
                         }
 
-                        // Detect and redact PII from page content
-                        const piiResult = detectPII(cleanContent);
+                        // Detect and redact PII from page content using hybrid detector
+                        const piiResult = await piiDetector.detectAndRedact(cleanContent);
                         if (piiResult.hasPII) {
                             totalPagesWithPII++;
-                            totalPIIDetected += piiResult.matches.length;
 
-                            // Aggregate PII types
-                            for (const [type, count] of Object.entries(piiResult.summary)) {
-                                piiSummaryByType[type] = (piiSummaryByType[type] || 0) + count;
+                            // Calculate PII count based on detection method
+                            let piiCount = 0;
+                            if (piiResult.method === 'presidio' && piiResult.presidioEntities) {
+                                piiCount = piiResult.presidioEntities.length;
+                                // Aggregate PII types from Presidio entities
+                                const summary = HybridPIIDetectorService.getPresidioSummary(piiResult.presidioEntities);
+                                for (const [type, count] of Object.entries(summary)) {
+                                    piiSummaryByType[type] = (piiSummaryByType[type] || 0) + count;
+                                }
+                            } else if (piiResult.method === 'regex' && piiResult.regexMatches) {
+                                piiCount = piiResult.regexMatches.length;
+                                // Aggregate PII types from regex matches
+                                for (const [type, count] of Object.entries(piiResult.summary || {})) {
+                                    piiSummaryByType[type] = (piiSummaryByType[type] || 0) + count;
+                                }
                             }
 
-                            // Redact PII from content
-                            cleanContent = redactPII(cleanContent);
+                            totalPIIDetected += piiCount;
+
+                            // Use redacted content from hybrid detector
+                            cleanContent = piiResult.redactedText;
 
                             if (!silentMode) {
-                                console.log(`   🔒 ${page.id}: ${page.title} (${piiResult.matches.length} PII item(s) redacted)`);
+                                console.log(`   🔒 ${page.id}: ${page.title} (${piiCount} PII item(s) redacted via ${piiResult.method})`);
                             }
                         } else {
                             if (!silentMode) {
