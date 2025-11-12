@@ -65,6 +65,9 @@ export class PostgresVectorService {
         user: this.config.user,
         password: this.config.password,
         max: this.config.max,
+        ssl: {
+          rejectUnauthorized: false,
+        },
       });
 
       // Test connection
