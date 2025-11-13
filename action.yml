@@ -189,7 +189,7 @@ runs:
         npm install -g @anthropic-ai/claude-code
 
     - name: Setup PostgreSQL Database
-      if: inputs.docker_username != '' && inputs.docker_password != '' && inputs.database_host != ''
+      if: inputs.database_host == 'localhost' && inputs.docker_username != '' && inputs.docker_password != ''
       shell: bash
       run: |
         echo "🐘 Setting up PostgreSQL database..."
@@ -399,7 +399,7 @@ runs:
         echo "✅ Environment configuration created"
 
     - name: Test PostgreSQL Database Connection
-      if: inputs.docker_username != '' && inputs.docker_password != '' && inputs.database_host != ''
+      if: inputs.database_host == 'localhost' && inputs.docker_username != '' && inputs.docker_password != ''
       shell: bash
       run: |
         echo "🔍 Testing PostgreSQL database connection..."
@@ -428,8 +428,16 @@ runs:
         echo "🔄 Fetching JIRA ticket and Confluence pages..."
         npm run start
         echo "✅ Data fetched successfully"
-        
-    - name: Step 1.5 - List Analysis Folder Contents
+
+    - name: Step 2 - Fetch Confluence with RAG
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        echo "🔄 Fetching Confluence data using RAG-based approach..."
+        npm run fetch-confluence-rag
+        echo "✅ Confluence RAG data fetched successfully"
+
+    - name: Step 2.5 - List Analysis Folder Contents
       shell: bash
       run: |
         cd ${{ github.action_path }}
@@ -451,7 +459,7 @@ runs:
         fi
         exit 1
 
-    - name: Step 2 - Create Requirements document
+    - name: Step 3 - Create Requirements document
       if: inputs.claude_code_use_bedrock == '1'
       shell: bash
       env:
@@ -470,7 +478,7 @@ runs:
         npm run generate-unit-testcases
         echo "✅ Unit test cases generated successfully"
 
-    - name: Step 3 - Commit and Push Generated Tests
+    - name: Step 4 - Commit and Push Generated Tests
       id: commit_tests
       shell: bash
       run: |
@@ -520,7 +528,7 @@ runs:
         echo "branch_url=$BRANCH_URL" >> $GITHUB_OUTPUT
         echo "has_changes=true" >> $GITHUB_OUTPUT
 
-    - name: Step 4 - Upload to Confluence with Branch URL
+    - name: Step 5 - Upload to Confluence with Branch URL
       id: upload_confluence
       shell: bash
       env:
@@ -546,7 +554,7 @@ runs:
           echo "✅ Results uploaded to Confluence"
         fi
 
-    - name: Step 5 - Generate Final Report
+    - name: Step 6 - Generate Final Report
       shell: bash
       run: |
         echo "=================================================="
