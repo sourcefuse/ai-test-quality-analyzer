@@ -316,12 +316,12 @@ runs:
         npm run generate-unit-testcases
         echo "✅ Unit test cases generated successfully"
 
-    - name: Step 3 - Upload to Confluence
-      id: upload_confluence
+    - name: Step 3 - Upload to Confluence (Initial)
+      id: upload_confluence_initial
       shell: bash
       run: |
         cd ${{ github.action_path }}
-        echo "📤 Uploading results to Confluence..."
+        echo "📤 Uploading initial results to Confluence..."
         OUTPUT=$(npm run upload-requirements 2>&1)
         echo "$OUTPUT"
 
@@ -330,10 +330,10 @@ runs:
 
         if [ -n "$CONFLUENCE_URL" ]; then
           echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
-          echo "✅ Results uploaded to Confluence: $CONFLUENCE_URL"
+          echo "✅ Initial results uploaded to Confluence: $CONFLUENCE_URL"
         else
           echo "confluence_url=" >> $GITHUB_OUTPUT
-          echo "✅ Results uploaded to Confluence"
+          echo "✅ Initial results uploaded to Confluence"
         fi
 
     - name: Step 4 - Commit and Push Generated Tests
@@ -378,68 +378,41 @@ runs:
         echo "⬆️  Pushing branch to remote..."
         git push -u origin "$BRANCH_NAME"
 
+        # Generate branch URL
+        BRANCH_URL="https://github.com/${{ github.repository }}/tree/$BRANCH_NAME"
+
         echo "✅ All changes committed and pushed to branch: $BRANCH_NAME"
         echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        echo "branch_url=$BRANCH_URL" >> $GITHUB_OUTPUT
         echo "has_changes=true" >> $GITHUB_OUTPUT
 
-    - name: Step 5 - Create Pull Request
-      id: create_pr
+    - name: Step 4.5 - Update Confluence with Branch URL
+      id: upload_confluence
       if: steps.commit_tests.outputs.has_changes == 'true'
       shell: bash
       env:
-        GH_TOKEN: ${{ github.token }}
+        BRANCH_URL: ${{ steps.commit_tests.outputs.branch_url }}
+        BRANCH_NAME: ${{ steps.commit_tests.outputs.branch_name }}
       run: |
-        cd ${{ github.action_path }}/repo
+        cd ${{ github.action_path }}
+        echo "📤 Updating Confluence with branch URL..."
 
-        BRANCH_NAME="${{ steps.commit_tests.outputs.branch_name }}"
-        TARGET_BRANCH="${{ inputs.target_branch }}"
+        # Pass branch URL as environment variable to the upload script
+        OUTPUT=$(npm run upload-requirements 2>&1)
+        echo "$OUTPUT"
 
-        echo "🔀 Creating Pull Request..."
-        echo "   From: $BRANCH_NAME"
-        echo "   To: $TARGET_BRANCH"
+        # Extract Confluence URL from output
+        CONFLUENCE_URL="${{ inputs.confluence_url }}/wiki$(echo "$OUTPUT" | grep -oP 'URL: \K.*' | head -1)"
 
-        # Create PR using GitHub CLI
-        PR_URL=$(gh pr create \
-          --base "$TARGET_BRANCH" \
-          --head "$BRANCH_NAME" \
-          --title "test: Unit tests for ${{ inputs.jira_ticket_id }}" \
-          --body "## 🤖 AI-Generated Unit Tests
-
-        This PR contains comprehensive unit test cases generated using AI based on:
-        - **JIRA Ticket**: [${{ inputs.jira_ticket_id }}](${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }})
-        - **Confluence Documentation**: ${{ steps.upload_confluence.outputs.confluence_url }}
-
-        ### 📋 What's Included
-        - Unit test cases aligned with JIRA requirements
-        - Test coverage for all acceptance criteria
-        - Edge case and integration test scenarios
-
-        ### 🔍 Review Checklist
-        - [ ] Verify tests cover all requirements from JIRA ticket
-        - [ ] Check test assertions are meaningful
-        - [ ] Ensure proper test structure and naming
-        - [ ] Review edge cases and error scenarios
-
-        ### 📊 Analysis Report
-        Full analysis report available in Confluence: ${{ steps.upload_confluence.outputs.confluence_url }}
-
-        ---
-
-        🤖 Generated via GitHub Actions
-        Target Branch: \`$TARGET_BRANCH\`" \
-          --label "automated" \
-          --label "unit-tests" \
-          --label "ai-generated" 2>&1)
-
-        if [ $? -eq 0 ]; then
-          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
-          echo "✅ Pull Request created: $PR_URL"
+        if [ -n "$CONFLUENCE_URL" ]; then
+          echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
+          echo "✅ Confluence updated with branch link: $BRANCH_URL"
         else
-          echo "⚠️  Failed to create PR: $PR_URL"
-          echo "pr_url=" >> $GITHUB_OUTPUT
+          echo "confluence_url=${{ steps.upload_confluence_initial.outputs.confluence_url }}" >> $GITHUB_OUTPUT
+          echo "✅ Using initial Confluence URL"
         fi
 
-    - name: Step 6 - Generate Final Report
+    - name: Step 5 - Generate Final Report
       shell: bash
       run: |
         echo "=================================================="
@@ -453,11 +426,13 @@ runs:
         echo "   ${{ steps.upload_confluence.outputs.confluence_url }}"
         echo ""
         echo "🌿 Generated Branch:"
-        echo "   ${{ steps.commit_tests.outputs.branch_name }}"
-        echo "   https://github.com/${{ github.repository }}/tree/${{ steps.commit_tests.outputs.branch_name }}"
+        echo "   Name: ${{ steps.commit_tests.outputs.branch_name }}"
+        echo "   URL: ${{ steps.commit_tests.outputs.branch_url }}"
         echo ""
-        echo "🔀 Pull Request:"
-        echo "   ${{ steps.create_pr.outputs.pr_url }}"
+        echo "📝 Next Steps:"
+        echo "   1. Review the generated tests in the branch"
+        echo "   2. Create a Pull Request manually if needed"
+        echo "   3. Check Confluence for detailed analysis report"
         echo ""
         echo "=================================================="
         echo "         ✅ All tasks completed successfully!"

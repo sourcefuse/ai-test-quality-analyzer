@@ -242,12 +242,23 @@ async function main(): Promise<void> {
 </p>`;
         }
 
+        // Get branch URL from environment (if provided by GitHub Actions)
+        const branchUrl = process.env.BRANCH_URL;
+        const branchName = process.env.BRANCH_NAME;
+
+        // Format branch info if available
+        let branchInfo = '';
+        if (branchUrl && branchName) {
+            branchInfo = `<p><strong>Generated Branch:</strong> <a href="${branchUrl}">${branchName}</a></p>`;
+        }
+
         // Format content for Confluence
         let confluenceContent = `<h1>Complete Analysis Report</h1>
 <p><strong>Generated:</strong> ${new Date().toISOString()}</p>
 <p><strong>Ticket:</strong> ${ticketKey}</p>
 <p><strong>Space:</strong> ${spaceKey}</p>
 <p><strong>Analysis Path:</strong> ${timestampFolderName}</p>
+${branchInfo}
 ${scoreBadge}
 <hr />`;
 
