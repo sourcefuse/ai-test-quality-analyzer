@@ -7,6 +7,26 @@ branding:
   color: 'green'
 
 inputs:
+  database_host:
+    description: 'PostgreSQL database host'
+    required: false
+    default: 'localhost'
+  database_port:
+    description: 'PostgreSQL database port'
+    required: false
+    default: '5432'
+  database_name:
+    description: 'PostgreSQL database name'
+    required: false
+    default: 'postgres-pgvector'
+  database_user:
+    description: 'PostgreSQL database user'
+    required: false
+    default: 'postgres'
+  database_password:
+    description: 'PostgreSQL database password'
+    required: false
+    default: 'admin'
   jira_url:
     description: 'JIRA instance URL'
     required: true
@@ -173,10 +193,10 @@ runs:
         echo "🚀 Starting PostgreSQL container..."
         docker run -d \
           --name postgres-pgvector \
-          -e POSTGRES_USER="${{ secrets.UT_QUALITY_DATABASE_USER || 'postgres' }}" \
-          -e POSTGRES_PASSWORD="${{ secrets.UT_QUALITY_DATABASE_PASSWORD || 'admin' }}" \
-          -e POSTGRES_DB="${{ secrets.UT_QUALITY_DATABASE_NAME || 'postgres-pgvector' }}" \
-          -p 5432:5432 \
+          -e POSTGRES_USER="${{ inputs.database_user }}" \
+          -e POSTGRES_PASSWORD="${{ inputs.database_password }}" \
+          -e POSTGRES_DB="${{ inputs.database_name }}" \
+          -p ${{ inputs.database_port }}:5432 \
           ankane/pgvector:latest
 
         # Wait for PostgreSQL to be ready
@@ -199,12 +219,12 @@ runs:
 
         # Test connection and run sample queries
         echo "📊 Running sample queries..."
-        docker exec postgres-pgvector psql -U "${{ secrets.UT_QUALITY_DATABASE_USER || 'postgres' }}" -d "${{ secrets.UT_QUALITY_DATABASE_NAME || 'postgres-pgvector' }}" -c "SELECT version();"
+        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "SELECT version();"
 
         echo ""
         echo "📦 Checking pgvector extension..."
-        docker exec postgres-pgvector psql -U "${{ secrets.UT_QUALITY_DATABASE_USER || 'postgres' }}" -d "${{ secrets.UT_QUALITY_DATABASE_NAME || 'postgres-pgvector' }}" -c "CREATE EXTENSION IF NOT EXISTS vector;"
-        docker exec postgres-pgvector psql -U "${{ secrets.UT_QUALITY_DATABASE_USER || 'postgres' }}" -d "${{ secrets.UT_QUALITY_DATABASE_NAME || 'postgres-pgvector' }}" -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
+        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
 
         echo ""
         echo "✅ Database connection test complete!"
