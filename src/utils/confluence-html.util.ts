@@ -125,10 +125,11 @@ export function extractPlainText(confluenceHtml: string): string {
   // Strip all HTML tags
   text = stripHtmlTags(text);
 
-  // Clean up whitespace
+  // Clean up whitespace - preserve newlines for readability
   text = text
-    .replace(/\s+/g, ' ')
-    .replace(/\n\s+/g, '\n')
+    .replace(/[ \t]+/g, ' ') // Replace multiple spaces/tabs with single space
+    .replace(/\n{3,}/g, '\n\n') // Replace 3+ newlines with 2
+    .replace(/\n\s+/g, '\n') // Remove spaces after newlines
     .trim();
 
   return text;
