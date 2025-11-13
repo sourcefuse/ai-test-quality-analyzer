@@ -178,7 +178,15 @@ runs:
         ANALYSIS_PATH="$(date +'%Y-%m-%d-%H-%M-%S')-Via-AI"
         echo "CURRENT_ANALYSIS_PATH=$ANALYSIS_PATH" >> $GITHUB_ENV
         echo "analysis_path=$ANALYSIS_PATH" >> $GITHUB_OUTPUT
+
+        # Set ANALYSIS_FOLDER for use in prompts
+        SPACE_KEY="${{ inputs.confluence_space_key }}"
+        BASE_FOLDER_SUFFIX="${{ inputs.base_folder_suffix }}"
+        ANALYSIS_FOLDER="${SPACE_KEY}-${BASE_FOLDER_SUFFIX}/${ANALYSIS_PATH}"
+        echo "ANALYSIS_FOLDER=$ANALYSIS_FOLDER" >> $GITHUB_ENV
+
         echo "✅ Analysis path set: $ANALYSIS_PATH"
+        echo "✅ Analysis folder set: $ANALYSIS_FOLDER"
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -366,6 +374,7 @@ runs:
 
         # Analysis Configuration
         CURRENT_ANALYSIS_PATH=${{ env.CURRENT_ANALYSIS_PATH }}
+        ANALYSIS_FOLDER=${{ env.ANALYSIS_FOLDER }}
         SAVE_TO_FILE=${{ inputs.save_to_file }}
 
         # File Names Configuration
@@ -442,7 +451,26 @@ runs:
         npm run fetch-confluence-rag
         echo "✅ Confluence RAG data fetched successfully"
 
-    - name: Step 2.5. - List Analysis Folder Contents
+    - name: Step 3 - Create Requirements document
+      if: inputs.claude_code_use_bedrock == '1'
+      shell: bash
+      env:
+        CLAUDE_CODE_USE_BEDROCK:  "1"
+        AWS_REGION:               ${{ inputs.aws_region_bedrock }}
+        ANTHROPIC_MODEL:          ${{ inputs.anthropic_model }}
+        AWS_ACCESS_KEY_ID:        ${{ inputs.aws_access_key_bedrock }}
+        AWS_SECRET_ACCESS_KEY:    ${{ inputs.aws_secret_key_bedrock }}
+      run: |
+        cd ${{ github.action_path }}
+        echo "📋 Creating requirements document from JIRA and Confluence..."
+        npm run create-requirement-doc
+        echo "✅ Requirements document created"
+
+        # echo "🔍 Generating unit test cases..."
+        # npm run generate-unit-testcases
+        # echo "✅ Unit test cases generated successfully"
+
+    - name: Step 3.5 - List Analysis Folder Contents
       shell: bash
       run: |
         cd ${{ github.action_path }}
@@ -463,25 +491,6 @@ runs:
           ls -alh "${SPACE_KEY}-${BASE_FOLDER_SUFFIX}" || echo "Base directory not found"
         fi
         exit 1
-
-    - name: Step 3 - Create Requirements document
-      if: inputs.claude_code_use_bedrock == '1'
-      shell: bash
-      env:
-        CLAUDE_CODE_USE_BEDROCK:  "1"
-        AWS_REGION:               ${{ inputs.aws_region_bedrock }}
-        ANTHROPIC_MODEL:          ${{ inputs.anthropic_model }}
-        AWS_ACCESS_KEY_ID:        ${{ inputs.aws_access_key_bedrock }}
-        AWS_SECRET_ACCESS_KEY:    ${{ inputs.aws_secret_key_bedrock }}
-      run: |
-        cd ${{ github.action_path }}
-        echo "📋 Creating requirements document from JIRA and Confluence..."
-        npm run create-requirement-doc
-        echo "✅ Requirements document created"
-
-        echo "🔍 Generating unit test cases..."
-        npm run generate-unit-testcases
-        echo "✅ Unit test cases generated successfully"
 
     - name: Step 4 - Commit and Push Generated Tests
       id: commit_tests
