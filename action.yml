@@ -200,131 +200,131 @@ runs:
         npm install
         npm install -g @anthropic-ai/claude-code
 
-    # - name: Setup PostgreSQL Database
-    #   if: inputs.database_host == 'localhost' && inputs.docker_username != '' && inputs.docker_password != ''
-    #   shell: bash
-    #   run: |
-    #     echo "🐘 Setting up PostgreSQL database..."
+    - name: Setup PostgreSQL Database
+      if: inputs.database_host == 'localhost' && inputs.docker_username != '' && inputs.docker_password != ''
+      shell: bash
+      run: |
+        echo "🐘 Setting up PostgreSQL database..."
 
-    #     # Pull PostgreSQL image with pgvector pre-installed
-    #     echo "📥 Pulling PostgreSQL + pgvector image..."
-    #     docker pull ankane/pgvector:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+        # Pull PostgreSQL image with pgvector pre-installed
+        echo "📥 Pulling PostgreSQL + pgvector image..."
+        docker pull ankane/pgvector:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
 
-    #     # Start PostgreSQL container
-    #     echo "🚀 Starting PostgreSQL container..."
-    #     docker run -d \
-    #       --name postgres-pgvector \
-    #       -e POSTGRES_USER="${{ inputs.database_user }}" \
-    #       -e POSTGRES_PASSWORD="${{ inputs.database_password }}" \
-    #       -e POSTGRES_DB="${{ inputs.database_name }}" \
-    #       -p ${{ inputs.database_port }}:5432 \
-    #       ankane/pgvector:latest
+        # Start PostgreSQL container
+        echo "🚀 Starting PostgreSQL container..."
+        docker run -d \
+          --name postgres-pgvector \
+          -e POSTGRES_USER="${{ inputs.database_user }}" \
+          -e POSTGRES_PASSWORD="${{ inputs.database_password }}" \
+          -e POSTGRES_DB="${{ inputs.database_name }}" \
+          -p ${{ inputs.database_port }}:5432 \
+          ankane/pgvector:latest
 
-    #     # Wait for PostgreSQL to be ready
-    #     echo "⏳ Waiting for PostgreSQL to be ready..."
-    #     sleep 10
+        # Wait for PostgreSQL to be ready
+        echo "⏳ Waiting for PostgreSQL to be ready..."
+        sleep 10
 
-    #     # Verify PostgreSQL is running
-    #     echo "✅ PostgreSQL setup complete"
-    #     docker ps | grep postgres-pgvector
+        # Verify PostgreSQL is running
+        echo "✅ PostgreSQL setup complete"
+        docker ps | grep postgres-pgvector
 
-    # - name: Docker login and start Presidio services
-    #   if: inputs.docker_username != '' && inputs.docker_password != ''
-    #   shell: bash
-    #   run: |
-    #     echo "🐳 Logging in to Docker registry..."
-    #     echo "${{ inputs.docker_password }}" | docker login -u "${{ inputs.docker_username }}" --password-stdin docker.io
+    - name: Docker login and start Presidio services
+      if: inputs.docker_username != '' && inputs.docker_password != ''
+      shell: bash
+      run: |
+        echo "🐳 Logging in to Docker registry..."
+        echo "${{ inputs.docker_password }}" | docker login -u "${{ inputs.docker_username }}" --password-stdin docker.io
 
-    #     echo "📥 Pulling Presidio Docker images..."
-    #     docker pull mcr.microsoft.com/presidio-analyzer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
-    #     docker pull mcr.microsoft.com/presidio-anonymizer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+        echo "📥 Pulling Presidio Docker images..."
+        docker pull mcr.microsoft.com/presidio-analyzer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+        docker pull mcr.microsoft.com/presidio-anonymizer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
 
-    #     echo "🚀 Starting Presidio services..."
-    #     docker run -d -p 5001:3000 --name presidio-anonymizer mcr.microsoft.com/presidio-anonymizer:latest
-    #     docker run -d -p 5002:3000 --name presidio-analyzer mcr.microsoft.com/presidio-analyzer:latest
+        echo "🚀 Starting Presidio services..."
+        docker run -d -p 5001:3000 --name presidio-anonymizer mcr.microsoft.com/presidio-anonymizer:latest
+        docker run -d -p 5002:3000 --name presidio-analyzer mcr.microsoft.com/presidio-analyzer:latest
 
-    #     echo "⏳ Waiting for services to be ready..."
-    #     sleep 10
+        echo "⏳ Waiting for services to be ready..."
+        sleep 10
 
-    #     echo "🔍 Testing Presidio services availability..."
+        echo "🔍 Testing Presidio services availability..."
 
-    #     # Wait up to 60 seconds for Presidio Analyzer to be ready
-    #     MAX_WAIT=60
-    #     ELAPSED=0
-    #     ANALYZER_READY=false
+        # Wait up to 60 seconds for Presidio Analyzer to be ready
+        MAX_WAIT=60
+        ELAPSED=0
+        ANALYZER_READY=false
 
-    #     while [ $ELAPSED -lt $MAX_WAIT ]; do
-    #       if curl -s -X POST http://localhost:5002/analyze \
-    #         -H "Content-Type: application/json" \
-    #         -d '{"text":"test","language":"en"}' \
-    #         --max-time 5 > /dev/null 2>&1; then
-    #         ANALYZER_READY=true
-    #         echo "✅ Presidio Analyzer is ready (took ${ELAPSED}s)"
-    #         break
-    #       fi
-    #       echo "   ⏳ Waiting for Presidio Analyzer... (${ELAPSED}s/${MAX_WAIT}s)"
-    #       sleep 5
-    #       ELAPSED=$((ELAPSED + 5))
-    #     done
+        while [ $ELAPSED -lt $MAX_WAIT ]; do
+          if curl -s -X POST http://localhost:5002/analyze \
+            -H "Content-Type: application/json" \
+            -d '{"text":"test","language":"en"}' \
+            --max-time 5 > /dev/null 2>&1; then
+            ANALYZER_READY=true
+            echo "✅ Presidio Analyzer is ready (took ${ELAPSED}s)"
+            break
+          fi
+          echo "   ⏳ Waiting for Presidio Analyzer... (${ELAPSED}s/${MAX_WAIT}s)"
+          sleep 5
+          ELAPSED=$((ELAPSED + 5))
+        done
 
-    #     if [ "$ANALYZER_READY" = false ]; then
-    #       echo "⚠️  Presidio Analyzer did not respond within ${MAX_WAIT}s - PII detection will use regex fallback"
-    #     fi
+        if [ "$ANALYZER_READY" = false ]; then
+          echo "⚠️  Presidio Analyzer did not respond within ${MAX_WAIT}s - PII detection will use regex fallback"
+        fi
 
-    #     # Wait up to 60 seconds for Presidio Anonymizer to be ready
-    #     ELAPSED=0
-    #     ANONYMIZER_READY=false
+        # Wait up to 60 seconds for Presidio Anonymizer to be ready
+        ELAPSED=0
+        ANONYMIZER_READY=false
 
-    #     while [ $ELAPSED -lt $MAX_WAIT ]; do
-    #       if curl -s -X POST http://localhost:5001/anonymize \
-    #         -H "Content-Type: application/json" \
-    #         -d '{"text":"test","anonymizers":{}}' \
-    #         --max-time 5 > /dev/null 2>&1; then
-    #         ANONYMIZER_READY=true
-    #         echo "✅ Presidio Anonymizer is ready (took ${ELAPSED}s)"
-    #         break
-    #       fi
-    #       echo "   ⏳ Waiting for Presidio Anonymizer... (${ELAPSED}s/${MAX_WAIT}s)"
-    #       sleep 5
-    #       ELAPSED=$((ELAPSED + 5))
-    #     done
+        while [ $ELAPSED -lt $MAX_WAIT ]; do
+          if curl -s -X POST http://localhost:5001/anonymize \
+            -H "Content-Type: application/json" \
+            -d '{"text":"test","anonymizers":{}}' \
+            --max-time 5 > /dev/null 2>&1; then
+            ANONYMIZER_READY=true
+            echo "✅ Presidio Anonymizer is ready (took ${ELAPSED}s)"
+            break
+          fi
+          echo "   ⏳ Waiting for Presidio Anonymizer... (${ELAPSED}s/${MAX_WAIT}s)"
+          sleep 5
+          ELAPSED=$((ELAPSED + 5))
+        done
 
-    #     if [ "$ANONYMIZER_READY" = false ]; then
-    #       echo "⚠️  Presidio Anonymizer did not respond within ${MAX_WAIT}s - PII detection will use regex fallback"
-    #     fi
+        if [ "$ANONYMIZER_READY" = false ]; then
+          echo "⚠️  Presidio Anonymizer did not respond within ${MAX_WAIT}s - PII detection will use regex fallback"
+        fi
 
-    #     if [ "$ANALYZER_READY" = true ] && [ "$ANONYMIZER_READY" = true ]; then
-    #       echo "✅ All Presidio services are ready and responding"
-    #     else
-    #       echo "⚠️  Some Presidio services are not ready - application will use regex-based PII detection"
-    #     fi
+        if [ "$ANALYZER_READY" = true ] && [ "$ANONYMIZER_READY" = true ]; then
+          echo "✅ All Presidio services are ready and responding"
+        else
+          echo "⚠️  Some Presidio services are not ready - application will use regex-based PII detection"
+        fi
 
-    #     echo ""
-    #     echo "📊 Presidio containers status:"
-    #     docker ps | grep presidio
+        echo ""
+        echo "📊 Presidio containers status:"
+        docker ps | grep presidio
 
-    # - name: Skip Presidio setup notification
-    #   if: inputs.docker_username == '' || inputs.docker_password == ''
-    #   shell: bash
-    #   run: |
-    #     echo "⚠️  Skipping Docker login and Presidio setup"
-    #     echo "   Docker credentials not provided - PII detection will be disabled"
-    #     echo "   To enable Presidio services, provide docker_username and docker_password inputs"
+    - name: Skip Presidio setup notification
+      if: inputs.docker_username == '' || inputs.docker_password == ''
+      shell: bash
+      run: |
+        echo "⚠️  Skipping Docker login and Presidio setup"
+        echo "   Docker credentials not provided - PII detection will be disabled"
+        echo "   To enable Presidio services, provide docker_username and docker_password inputs"
 
-    # - name: Clone repository for analysis
-    #   shell: bash
-    #   run: |
-    #     cd ${{ github.action_path }}
-    #     echo "📥 Cloning repository for test analysis..."
+    - name: Clone repository for analysis
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        echo "📥 Cloning repository for test analysis..."
 
-    #     # Use head_ref for PRs (gives branch name like BB-2244), ref_name for other events
-    #     BRANCH="${{ github.head_ref || github.ref_name }}"
-    #     echo "Branch to clone: $BRANCH"
+        # Use head_ref for PRs (gives branch name like BB-2244), ref_name for other events
+        BRANCH="${{ github.head_ref || github.ref_name }}"
+        echo "Branch to clone: $BRANCH"
 
-    #     mkdir -p repo
-    #     cd repo
-    #     git clone --depth 1 --branch "$BRANCH" --single-branch https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git .
-    #     echo "✅ Repository cloned successfully (branch: $BRANCH)"
+        mkdir -p repo
+        cd repo
+        git clone --depth 1 --branch "$BRANCH" --single-branch https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git .
+        echo "✅ Repository cloned successfully (branch: $BRANCH)"
 
     - name: Create .env file
       shell: bash
@@ -388,7 +388,8 @@ runs:
 
         # Confluence Page Names Configuration
         CONFLUENCE_ROOT_PAGE_SUFFIX=${{ inputs.confluence_root_page_suffix }}
-        CONFLUENCE_TICKET_PAGE_SUFFIX=Via-AI
+        CONFLUENCE_TICKET_PAGE_SUFFIX=UT-Via-AI
+        CONFLUENCE_TIMESTAMP_PAGE_SUFFIX=UT-Via-AI
 
         # RAG System Configuration (PostgreSQL + pgvector)
         USE_POSTGRES_VECTOR_DB=${{ inputs.use_postgres_vector_db }}
@@ -411,64 +412,64 @@ runs:
         EOF
         echo "✅ Environment configuration created"
 
-    # - name: Test PostgreSQL Database Connection
-    #   if: inputs.database_host == 'localhost' && inputs.docker_username != '' && inputs.docker_password != ''
-    #   shell: bash
-    #   run: |
-    #     echo "🔍 Testing PostgreSQL database connection..."
+    - name: Test PostgreSQL Database Connection
+      if: inputs.database_host == 'localhost' && inputs.docker_username != '' && inputs.docker_password != ''
+      shell: bash
+      run: |
+        echo "🔍 Testing PostgreSQL database connection..."
 
-    #     # Wait a bit more for PostgreSQL to fully initialize
-    #     echo "⏳ Waiting for PostgreSQL to fully initialize..."
-    #     sleep 5
+        # Wait a bit more for PostgreSQL to fully initialize
+        echo "⏳ Waiting for PostgreSQL to fully initialize..."
+        sleep 5
 
-    #     # Test connection and run sample queries
-    #     echo "📊 Running sample queries..."
-    #     docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "SELECT version();"
+        # Test connection and run sample queries
+        echo "📊 Running sample queries..."
+        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "SELECT version();"
 
-    #     echo ""
-    #     echo "📦 Checking pgvector extension..."
-    #     docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "CREATE EXTENSION IF NOT EXISTS vector;"
-    #     docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
+        echo ""
+        echo "📦 Checking pgvector extension..."
+        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
 
-    #     echo ""
-    #     echo "✅ Database connection test complete!"
-    #     echo "🛑 Exiting workflow for testing purposes..."
+        echo ""
+        echo "✅ Database connection test complete!"
+        echo "🛑 Exiting workflow for testing purposes..."
 
-    # - name: Step 1 - Fetch JIRA and Confluence data
-    #   shell: bash
-    #   run: |
-    #     cd ${{ github.action_path }}
-    #     echo "🔄 Fetching JIRA ticket and Confluence pages..."
-    #     npm run start
-    #     echo "✅ Data fetched successfully"
+    - name: Step 1 - Fetch JIRA and Confluence data
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        echo "🔄 Fetching JIRA ticket and Confluence pages..."
+        npm run start
+        echo "✅ Data fetched successfully"
 
-    # - name: Step 2 - Fetch Confluence with RAG
-    #   if: inputs.use_postgres_vector_db == 'true'
-    #   shell: bash
-    #   run: |
-    #     cd ${{ github.action_path }}
-    #     echo "🔄 Fetching Confluence data using RAG-based approach..."
-    #     npm run fetch-confluence-rag
-    #     echo "✅ Confluence RAG data fetched successfully"
+    - name: Step 2 - Fetch Confluence with RAG
+      if: inputs.use_postgres_vector_db == 'true'
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        echo "🔄 Fetching Confluence data using RAG-based approach..."
+        npm run fetch-confluence-rag
+        echo "✅ Confluence RAG data fetched successfully"
 
-    # - name: Step 3 - Create Requirements document
-    #   if: inputs.claude_code_use_bedrock == '1'
-    #   shell: bash
-    #   env:
-    #     CLAUDE_CODE_USE_BEDROCK:  "1"
-    #     AWS_REGION:               ${{ inputs.aws_region_bedrock }}
-    #     ANTHROPIC_MODEL:          ${{ inputs.anthropic_model }}
-    #     AWS_ACCESS_KEY_ID:        ${{ inputs.aws_access_key_bedrock }}
-    #     AWS_SECRET_ACCESS_KEY:    ${{ inputs.aws_secret_key_bedrock }}
-    #   run: |
-    #     cd ${{ github.action_path }}
-    #     echo "📋 Creating requirements document from JIRA and Confluence..."
-    #     npm run create-requirement-doc
-    #     echo "✅ Requirements document created"
+    - name: Step 3 - Create Requirements document
+      if: inputs.claude_code_use_bedrock == '1'
+      shell: bash
+      env:
+        CLAUDE_CODE_USE_BEDROCK:  "1"
+        AWS_REGION:               ${{ inputs.aws_region_bedrock }}
+        ANTHROPIC_MODEL:          ${{ inputs.anthropic_model }}
+        AWS_ACCESS_KEY_ID:        ${{ inputs.aws_access_key_bedrock }}
+        AWS_SECRET_ACCESS_KEY:    ${{ inputs.aws_secret_key_bedrock }}
+      run: |
+        cd ${{ github.action_path }}
+        echo "📋 Creating requirements document from JIRA and Confluence..."
+        npm run create-requirement-doc
+        echo "✅ Requirements document created"
 
-    #     echo "🔍 Generating unit test cases..."
-    #     npm run generate-unit-testcases
-    #     echo "✅ Unit test cases generated successfully"
+        echo "🔍 Generating unit test cases..."
+        npm run generate-unit-testcases
+        echo "✅ Unit test cases generated successfully"
 
     - name: Step 3.5 - List Analysis Folder Contents
       shell: bash
@@ -511,66 +512,66 @@ runs:
           ls -alh "${SPACE_KEY}-${BASE_FOLDER_SUFFIX}" || echo "Base directory not found"
         fi
 
-    # - name: Step 4 - Commit and Push Generated Tests
-    #   id: commit_tests
-    #   shell: bash
-    #   run: |
-    #     cd ${{ github.action_path }}/repo
-    #     echo "📝 Committing all changes..."
+    - name: Step 4 - Commit and Push Generated Tests
+      id: commit_tests
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}/repo
+        echo "📝 Committing all changes..."
 
-    #     # Configure git
-    #     git config user.name "github-actions[bot]"
-    #     git config user.email "github-actions[bot]@users.noreply.github.com"
+        # Configure git
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
 
-    #     # Create branch name from ticket ID
-    #     BRANCH_NAME="${{ inputs.jira_ticket_id }}-via-ai-$(date +%Y-%m-%d-%H-%M-%S)"
-    #     echo "Preparing branch: $BRANCH_NAME"
+        # Create branch name from ticket ID
+        BRANCH_NAME="${{ inputs.jira_ticket_id }}-via-ai-$(date +%Y-%m-%d-%H-%M-%S)"
+        echo "Preparing branch: $BRANCH_NAME"
 
-    #     # Delete branch if it exists on remote
-    #     if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
-    #       echo "❌ Branch exists on remote, deleting it..."
-    #       git push origin --delete "$BRANCH_NAME" || echo "Failed to delete remote branch, continuing..."
-    #     fi
+        # Delete branch if it exists on remote
+        if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+          echo "❌ Branch exists on remote, deleting it..."
+          git push origin --delete "$BRANCH_NAME" || echo "Failed to delete remote branch, continuing..."
+        fi
 
-    #     # Create new branch
-    #     echo "Creating new branch: $BRANCH_NAME"
-    #     git checkout -b "$BRANCH_NAME"
+        # Create new branch
+        echo "Creating new branch: $BRANCH_NAME"
+        git checkout -b "$BRANCH_NAME"
         
-    #     # Add all changes
-    #     git add .
+        # Add all changes
+        git add .
         
-    #     # Commit all changes
-    #     git commit -m "test: generate unit tests for ${{ inputs.jira_ticket_id }}
+        # Commit all changes
+        git commit -m "test: generate unit tests for ${{ inputs.jira_ticket_id }}
 
-    #     Generated comprehensive unit test cases using AI based on JIRA requirements and Confluence documentation.
+        Generated comprehensive unit test cases using AI based on JIRA requirements and Confluence documentation.
 
-    #     JIRA Ticket: ${{ inputs.jira_ticket_id }}
-    #     Target Branch: ${{ inputs.target_branch }}
+        JIRA Ticket: ${{ inputs.jira_ticket_id }}
+        Target Branch: ${{ inputs.target_branch }}
 
-    #     🤖 Generated via GitHub Actions"
+        🤖 Generated via GitHub Actions"
 
-    #     # Push to remote
-    #     echo "⬆️  Pushing branch to remote..."
-    #     git push -u origin "$BRANCH_NAME"
+        # Push to remote
+        echo "⬆️  Pushing branch to remote..."
+        git push -u origin "$BRANCH_NAME"
 
-    #     # Generate branch URL
-    #     BRANCH_URL="https://github.com/${{ github.repository }}/tree/$BRANCH_NAME"
+        # Generate branch URL
+        BRANCH_URL="https://github.com/${{ github.repository }}/tree/$BRANCH_NAME"
 
-    #     echo "✅ All changes committed and pushed to branch: $BRANCH_NAME"
-    #     echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-    #     echo "branch_url=$BRANCH_URL" >> $GITHUB_OUTPUT
-    #     echo "has_changes=true" >> $GITHUB_OUTPUT
+        echo "✅ All changes committed and pushed to branch: $BRANCH_NAME"
+        echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        echo "branch_url=$BRANCH_URL" >> $GITHUB_OUTPUT
+        echo "has_changes=true" >> $GITHUB_OUTPUT
 
     - name: Step 5 - Upload to Confluence with Branch URL
       id: upload_confluence
       shell: bash
       env:
-        BRANCH_URL: test-url
-        BRANCH_NAME: test-branch-name
+        BRANCH_URL: ${{ steps.commit_tests.outputs.branch_url }}
+        BRANCH_NAME: ${{ steps.commit_tests.outputs.branch_name }}
       run: |
         cd ${{ github.action_path }}
         echo "📤 Uploading results to Confluence with branch URL..."
-        npm run upload-requirements
+        # npm run upload-requirements
 
         # Pass branch URL as environment variable to the upload script
         OUTPUT=$(npm run upload-requirements 2>&1)
