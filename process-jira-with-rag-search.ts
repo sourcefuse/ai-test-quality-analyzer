@@ -166,8 +166,11 @@ async function main() {
     console.log(`   Related Documents: ${result.relatedDocuments.length}`);
     console.log(`   Output: ${outputDir}/${confluenceFileName}`);
 
-    // 10. Close connections
-    await vectorService.close();
+    // 10. Extract project key from ticket key (e.g., BB-12345 -> BB)
+    const projectKey = ticketKey.split('-')[0];
+
+    // 11. Close connections and cleanup project-specific expired records
+    await vectorService.close(projectKey);
   } catch (error) {
     console.error('❌ Error:', error);
     process.exit(1);

@@ -744,12 +744,12 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
                             console.log('\n✅ Skipped Confluence fetch - using existing PostgreSQL data');
                         }
 
-                        // Clean up expired records
+                        // Clean up expired records (general cleanup)
                         console.log('\n🗑️  Cleaning up expired records...');
                         await vectorService.cleanupExpired();
 
-                        // Close database connection
-                        await vectorService.close();
+                        // Close database connection and cleanup project-specific expired records
+                        await vectorService.close(projectKey);
 
                     } catch (error: any) {
                         console.error('\n❌ Error pushing to PostgreSQL Vector DB:', error.message);

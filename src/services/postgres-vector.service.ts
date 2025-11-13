@@ -386,10 +386,59 @@ export class PostgresVectorService {
   }
 
   /**
-   * Close database connection
+   * Clean up expired records for a specific project key
+   * Deletes documents and chunks where expires_at <= CURRENT_TIMESTAMP AND project_key matches
+   * @param projectKey - JIRA project key
+   * @returns Number of documents and chunks deleted
    */
-  async close(): Promise<void> {
+  async cleanupExpiredByProjectKey(projectKey: string): Promise<{documents: number; chunks: number}> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    // Delete expired chunks for this project (by joining with confluence_documents)
+    const chunksResult = await this.pool.query<{count: string}>(
+      `DELETE FROM document_chunks
+       WHERE expires_at <= CURRENT_TIMESTAMP
+       AND document_id IN (
+         SELECT id FROM confluence_documents WHERE project_key = $1
+       )
+       RETURNING id`,
+      [projectKey],
+    );
+
+    // Delete expired documents for this project (CASCADE will delete related chunks)
+    const docsResult = await this.pool.query<{count: string}>(
+      `DELETE FROM confluence_documents
+       WHERE expires_at <= CURRENT_TIMESTAMP
+       AND project_key = $1
+       RETURNING id`,
+      [projectKey],
+    );
+
+    const documentsDeleted = docsResult.rowCount || 0;
+    const chunksDeleted = chunksResult.rowCount || 0;
+
+    if (documentsDeleted > 0 || chunksDeleted > 0) {
+      console.log(
+        `🗑️  Cleaned up ${documentsDeleted} expired document(s) and ${chunksDeleted} expired chunk(s) for project ${projectKey}`,
+      );
+    }
+
+    return {documents: documentsDeleted, chunks: chunksDeleted};
+  }
+
+  /**
+   * Close database connection
+   * Optionally cleans up expired records for a specific project before closing
+   * @param projectKey - Optional JIRA project key to clean up expired records
+   */
+  async close(projectKey?: string): Promise<void> {
     if (this.pool) {
+      // Clean up expired records before closing if project key is provided
+      if (projectKey) {
+        console.log(`\n🗑️  Cleaning up expired records for project ${projectKey}...`);
+        await this.cleanupExpiredByProjectKey(projectKey);
+      }
+
       await this.pool.end();
       this.pool = null;
       console.log('✅ PostgreSQL connection closed');
