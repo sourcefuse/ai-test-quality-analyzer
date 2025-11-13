@@ -90,11 +90,11 @@ inputs:
   base_folder_suffix:
     description: 'Base folder suffix for organizing analysis results'
     required: false
-    default: 'Quality-Check-Via-AI'
+    default: 'Generate-Unit-Tests-Via-AI'
   confluence_root_page_suffix:
     description: 'Confluence root page suffix for organizing reports'
     required: false
-    default: 'Quality-Check-Via-AI'
+    default: 'Generate-Unit-Tests-Via-AI'
   confluence_upload_url:
     description: 'Confluence instance URL for uploading results (if different from fetch URL)'
     required: false
@@ -316,27 +316,7 @@ runs:
         npm run generate-unit-testcases
         echo "✅ Unit test cases generated successfully"
 
-    - name: Step 3 - Upload to Confluence (Initial)
-      id: upload_confluence_initial
-      shell: bash
-      run: |
-        cd ${{ github.action_path }}
-        echo "📤 Uploading initial results to Confluence..."
-        OUTPUT=$(npm run upload-requirements 2>&1)
-        echo "$OUTPUT"
-
-        # Extract Confluence URL from output
-        CONFLUENCE_URL="${{ inputs.confluence_url }}/wiki$(echo "$OUTPUT" | grep -oP 'URL: \K.*' | head -1)"
-
-        if [ -n "$CONFLUENCE_URL" ]; then
-          echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
-          echo "✅ Initial results uploaded to Confluence: $CONFLUENCE_URL"
-        else
-          echo "confluence_url=" >> $GITHUB_OUTPUT
-          echo "✅ Initial results uploaded to Confluence"
-        fi
-
-    - name: Step 4 - Commit and Push Generated Tests
+    - name: Step 3 - Commit and Push Generated Tests
       id: commit_tests
       shell: bash
       run: |
@@ -386,16 +366,15 @@ runs:
         echo "branch_url=$BRANCH_URL" >> $GITHUB_OUTPUT
         echo "has_changes=true" >> $GITHUB_OUTPUT
 
-    - name: Step 4.5 - Update Confluence with Branch URL
+    - name: Step 4 - Upload to Confluence with Branch URL
       id: upload_confluence
-      if: steps.commit_tests.outputs.has_changes == 'true'
       shell: bash
       env:
         BRANCH_URL: ${{ steps.commit_tests.outputs.branch_url }}
         BRANCH_NAME: ${{ steps.commit_tests.outputs.branch_name }}
       run: |
         cd ${{ github.action_path }}
-        echo "📤 Updating Confluence with branch URL..."
+        echo "📤 Uploading results to Confluence with branch URL..."
 
         # Pass branch URL as environment variable to the upload script
         OUTPUT=$(npm run upload-requirements 2>&1)
@@ -406,10 +385,11 @@ runs:
 
         if [ -n "$CONFLUENCE_URL" ]; then
           echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
-          echo "✅ Confluence updated with branch link: $BRANCH_URL"
+          echo "✅ Results uploaded to Confluence: $CONFLUENCE_URL"
+          echo "✅ Branch link included: ${{ steps.commit_tests.outputs.branch_url }}"
         else
-          echo "confluence_url=${{ steps.upload_confluence_initial.outputs.confluence_url }}" >> $GITHUB_OUTPUT
-          echo "✅ Using initial Confluence URL"
+          echo "confluence_url=" >> $GITHUB_OUTPUT
+          echo "✅ Results uploaded to Confluence"
         fi
 
     - name: Step 5 - Generate Final Report
