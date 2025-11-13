@@ -166,7 +166,9 @@ async function main(): Promise<void> {
 
             // Save Jira details to file if SAVE_TO_FILE flag is enabled
             if (process.env.SAVE_TO_FILE === 'true') {
-                // Create folder with naming convention: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{date-time-TIMESTAMP_FOLDER_SUFFIX}
+                // Create folder with naming convention:
+                // If CURRENT_ANALYSIS_PATH is set: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}
+                // Otherwise: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{date-time-TIMESTAMP_FOLDER_SUFFIX}
                 const spaceKey = process.env.CONFLUENCE_SPACE_KEY || 'DEFAULT';
                 const ticketKey = ticketDetails.issue.key;
                 const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
@@ -174,15 +176,14 @@ async function main(): Promise<void> {
                 const timestampFolderSuffix = process.env.TIMESTAMP_FOLDER_SUFFIX || 'Via-AI';
 
                 const baseDir = `./${spaceKey}-${baseFolderSuffix}`;
-                const ticketDir = `${baseDir}/${ticketKey}-${ticketFolderSuffix}`;
 
                 // Check if CURRENT_ANALYSIS_PATH is set in environment
                 let tmpDir = '';
                 const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
 
                 if (currentAnalysisPath) {
-                    // Use the analysis path from environment variable
-                    tmpDir = `${ticketDir}/${currentAnalysisPath}`;
+                    // Use the analysis path directly under base folder (skip ticket folder level)
+                    tmpDir = `${baseDir}/${currentAnalysisPath}`;
                     if (!fs.existsSync(tmpDir)) {
                         fs.mkdirSync(tmpDir, { recursive: true });
                         console.log(`✅ Created analysis folder from CURRENT_ANALYSIS_PATH: ${tmpDir}`);
@@ -190,7 +191,8 @@ async function main(): Promise<void> {
                         console.log(`ℹ️  Using existing analysis folder from CURRENT_ANALYSIS_PATH: ${currentAnalysisPath}`);
                     }
                 } else {
-                    // Create new timestamp folder
+                    // Create traditional 3-level structure
+                    const ticketDir = `${baseDir}/${ticketKey}-${ticketFolderSuffix}`;
                     const now = new Date();
                     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
                     const timestampFolderName = `${timestamp}-${timestampFolderSuffix}`;
@@ -290,44 +292,22 @@ async function main(): Promise<void> {
 
             // Start incremental processing if SAVE_TO_FILE is enabled
             if (process.env.SAVE_TO_FILE === 'true') {
-                // Create folder with naming convention
+                // Create folder with naming convention:
+                // If CURRENT_ANALYSIS_PATH is set: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}
+                // Otherwise: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{date-time-TIMESTAMP_FOLDER_SUFFIX}
                 const spaceKey = confluenceConfig.spaceKey || 'DEFAULT';
                 const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
                 const ticketFolderSuffix = process.env.TICKET_FOLDER_SUFFIX || 'Via-AI';
                 const timestampFolderSuffix = process.env.TIMESTAMP_FOLDER_SUFFIX || 'Via-AI';
                 const baseDir = `./${spaceKey}-${baseFolderSuffix}`;
 
-                // Get ticket ID from environment or scan for existing folders
-                let ticketKey = process.env.JIRA_TICKET_ID || '';
-
-                // If no ticket ID in env, try to find existing ticket folder
-                if (!ticketKey && fs.existsSync(baseDir)) {
-                    const folders = fs.readdirSync(baseDir).filter(f => {
-                        const fullPath = `${baseDir}/${f}`;
-                        return fs.statSync(fullPath).isDirectory() && f.includes(`-${ticketFolderSuffix}`);
-                    });
-                    if (folders.length > 0) {
-                        // Use the first ticket folder found
-                        const folderName = folders[0];
-                        ticketKey = folderName.replace(`-${ticketFolderSuffix}`, '');
-                        console.log(`ℹ️  Using existing ticket folder: ${folderName}`);
-                    }
-                }
-
-                if (!ticketKey) {
-                    ticketKey = 'UNKNOWN';
-                    console.log('⚠️  No JIRA_TICKET_ID found, using UNKNOWN');
-                }
-
-                const ticketDir = `${baseDir}/${ticketKey}-${ticketFolderSuffix}`;
-
                 // Check if CURRENT_ANALYSIS_PATH is set in environment
                 let tmpDir = '';
                 const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
 
                 if (currentAnalysisPath) {
-                    // Use the analysis path from environment variable
-                    tmpDir = `${ticketDir}/${currentAnalysisPath}`;
+                    // Use the analysis path directly under base folder (skip ticket folder level)
+                    tmpDir = `${baseDir}/${currentAnalysisPath}`;
                     if (!fs.existsSync(tmpDir)) {
                         fs.mkdirSync(tmpDir, { recursive: true });
                         console.log(`✅ Created analysis folder from CURRENT_ANALYSIS_PATH: ${tmpDir}`);
@@ -335,7 +315,32 @@ async function main(): Promise<void> {
                         console.log(`ℹ️  Using existing analysis folder from CURRENT_ANALYSIS_PATH: ${currentAnalysisPath}`);
                     }
                 } else {
-                    // Fallback: Check for existing timestamp folders or create new one
+                    // Create traditional 3-level structure
+                    // Get ticket ID from environment or scan for existing folders
+                    let ticketKey = process.env.JIRA_TICKET_ID || '';
+
+                    // If no ticket ID in env, try to find existing ticket folder
+                    if (!ticketKey && fs.existsSync(baseDir)) {
+                        const folders = fs.readdirSync(baseDir).filter(f => {
+                            const fullPath = `${baseDir}/${f}`;
+                            return fs.statSync(fullPath).isDirectory() && f.includes(`-${ticketFolderSuffix}`);
+                        });
+                        if (folders.length > 0) {
+                            // Use the first ticket folder found
+                            const folderName = folders[0];
+                            ticketKey = folderName.replace(`-${ticketFolderSuffix}`, '');
+                            console.log(`ℹ️  Using existing ticket folder: ${folderName}`);
+                        }
+                    }
+
+                    if (!ticketKey) {
+                        ticketKey = 'UNKNOWN';
+                        console.log('⚠️  No JIRA_TICKET_ID found, using UNKNOWN');
+                    }
+
+                    const ticketDir = `${baseDir}/${ticketKey}-${ticketFolderSuffix}`;
+
+                    // Check for existing timestamp folders or create new one
                     if (fs.existsSync(ticketDir)) {
                         // Look for existing timestamp folders - match pattern with suffix
                         const timestampPattern = new RegExp(`^\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-${timestampFolderSuffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
