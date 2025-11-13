@@ -283,6 +283,9 @@ runs:
         INDEXER_BATCH_SIZE=50
         CHUNK_SIZE=1000
         CHUNK_OVERLAP=200
+        
+        # Claude Runner Configuration
+        CLAUDE_VERBOSE_MODE=true
         EOF
         echo "✅ Environment configuration created"
 
@@ -378,6 +381,63 @@ runs:
         echo "✅ All changes committed and pushed to branch: $BRANCH_NAME"
         echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
         echo "has_changes=true" >> $GITHUB_OUTPUT
+
+    - name: Step 5 - Create Pull Request
+      id: create_pr
+      if: steps.commit_tests.outputs.has_changes == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        cd ${{ github.action_path }}/repo
+
+        BRANCH_NAME="${{ steps.commit_tests.outputs.branch_name }}"
+        TARGET_BRANCH="${{ inputs.target_branch }}"
+
+        echo "🔀 Creating Pull Request..."
+        echo "   From: $BRANCH_NAME"
+        echo "   To: $TARGET_BRANCH"
+
+        # Create PR using GitHub CLI
+        PR_URL=$(gh pr create \
+          --base "$TARGET_BRANCH" \
+          --head "$BRANCH_NAME" \
+          --title "test: Unit tests for ${{ inputs.jira_ticket_id }}" \
+          --body "## 🤖 AI-Generated Unit Tests
+
+        This PR contains comprehensive unit test cases generated using AI based on:
+        - **JIRA Ticket**: [${{ inputs.jira_ticket_id }}](${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }})
+        - **Confluence Documentation**: ${{ steps.upload_confluence.outputs.confluence_url }}
+
+        ### 📋 What's Included
+        - Unit test cases aligned with JIRA requirements
+        - Test coverage for all acceptance criteria
+        - Edge case and integration test scenarios
+
+        ### 🔍 Review Checklist
+        - [ ] Verify tests cover all requirements from JIRA ticket
+        - [ ] Check test assertions are meaningful
+        - [ ] Ensure proper test structure and naming
+        - [ ] Review edge cases and error scenarios
+
+        ### 📊 Analysis Report
+        Full analysis report available in Confluence: ${{ steps.upload_confluence.outputs.confluence_url }}
+
+        ---
+
+        🤖 Generated via GitHub Actions
+        Target Branch: \`$TARGET_BRANCH\`" \
+          --label "automated" \
+          --label "unit-tests" \
+          --label "ai-generated" 2>&1)
+
+        if [ $? -eq 0 ]; then
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          echo "✅ Pull Request created: $PR_URL"
+        else
+          echo "⚠️  Failed to create PR: $PR_URL"
+          echo "pr_url=" >> $GITHUB_OUTPUT
+        fi
 
     - name: Step 6 - Generate Final Report
       shell: bash
