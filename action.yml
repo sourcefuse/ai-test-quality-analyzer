@@ -434,6 +434,7 @@ runs:
         echo "✅ Data fetched successfully"
 
     - name: Step 2 - Fetch Confluence with RAG
+      if: inputs.use_postgres_vector_db == 'true'
       shell: bash
       run: |
         cd ${{ github.action_path }}
@@ -441,7 +442,7 @@ runs:
         npm run fetch-confluence-rag
         echo "✅ Confluence RAG data fetched successfully"
 
-    - name: Step 2.5 - List Analysis Folder Contents
+    - name: Step 2.5. - List Analysis Folder Contents
       shell: bash
       run: |
         cd ${{ github.action_path }}
