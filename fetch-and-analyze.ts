@@ -675,6 +675,7 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
                             model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
                             provider: (process.env.EMBEDDING_PROVIDER as 'openai' | 'openrouter') || 'openai',
                             concurrency: getOptionalEnvAsNumber('EMBEDDING_CONCURRENCY', 20),
+                            silentMode: silentMode,
                         });
                         const vectorService = new PostgresVectorService({
                             host: process.env.DATABASE_HOST || 'localhost',

@@ -12,6 +12,7 @@ export interface EmbeddingConfig {
   model?: string;
   provider?: 'openai' | 'openrouter';
   concurrency?: number;
+  silentMode?: boolean;
 }
 
 /**
@@ -106,8 +107,8 @@ export class EmbeddingService {
           const embedding = await this.generateEmbedding(item.text);
           results[item.index] = embedding;
 
-          // Progress indicator
-          if ((item.index + 1) % 10 === 0) {
+          // Progress indicator (respect silent mode)
+          if (!this.config.silentMode && (item.index + 1) % 10 === 0) {
             console.log(`   Generated ${item.index + 1}/${texts.length} embeddings`);
           }
         } catch (error) {
