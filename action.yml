@@ -347,7 +347,7 @@ runs:
         CONFLUENCE_TICKET_PAGE_SUFFIX=Via-AI
 
         # RAG System Configuration (PostgreSQL + pgvector)
-        USE_POSTGRES_VECTOR_DB=false
+        USE_POSTGRES_VECTOR_DB=true
         DATABASE_HOST=${{ inputs.database_host }}
         DATABASE_PORT=${{ inputs.database_port }}
         DATABASE_NAME=${{ inputs.database_name }}
@@ -374,6 +374,27 @@ runs:
         echo "🔄 Fetching JIRA ticket and Confluence pages..."
         npm run start
         echo "✅ Data fetched successfully"
+        
+    - name: Step 1.5 - List Analysis Folder Contents
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        echo "📂 Listing analysis folder contents..."
+
+        SPACE_KEY="${{ inputs.confluence_space_key }}"
+        BASE_FOLDER_SUFFIX="${{ inputs.base_folder_suffix }}"
+        ANALYSIS_PATH="${{ env.CURRENT_ANALYSIS_PATH }}"
+
+        ANALYSIS_FOLDER="${SPACE_KEY}-${BASE_FOLDER_SUFFIX}/${ANALYSIS_PATH}"
+
+        if [ -d "$ANALYSIS_FOLDER" ]; then
+          echo "✅ Analysis folder: $ANALYSIS_FOLDER"
+          ls -alh "$ANALYSIS_FOLDER"
+        else
+          echo "❌ Analysis folder not found: $ANALYSIS_FOLDER"
+          echo "🔍 Checking base directory..."
+          ls -alh "${SPACE_KEY}-${BASE_FOLDER_SUFFIX}" || echo "Base directory not found"
+        fi
         exit 1
 
     - name: Step 2 - Create Requirements document
