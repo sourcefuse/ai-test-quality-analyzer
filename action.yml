@@ -143,6 +143,10 @@ inputs:
     description: 'OpenAI API key for embeddings (required if USE_POSTGRES_VECTOR_DB is enabled)'
     required: false
     default: ''
+  use_postgres_vector_db:
+    description: 'Enable PostgreSQL Vector Database with pgvector for RAG-based Confluence fetching (true/false)'
+    required: false
+    default: 'true'
 
 outputs:
   test_quality_score:
@@ -378,7 +382,7 @@ runs:
         CONFLUENCE_TICKET_PAGE_SUFFIX=Via-AI
 
         # RAG System Configuration (PostgreSQL + pgvector)
-        USE_POSTGRES_VECTOR_DB=true
+        USE_POSTGRES_VECTOR_DB=${{ inputs.use_postgres_vector_db }}
         DATABASE_HOST=${{ inputs.database_host }}
         DATABASE_PORT=${{ inputs.database_port }}
         DATABASE_NAME=${{ inputs.database_name }}
