@@ -306,6 +306,7 @@ runs:
         ANTHROPIC_MODEL:          ${{ inputs.anthropic_model }}
         AWS_ACCESS_KEY_ID:        ${{ inputs.aws_access_key_bedrock }}
         AWS_SECRET_ACCESS_KEY:    ${{ inputs.aws_secret_key_bedrock }}
+        CLAUDE_VERBOSE_MODE:      "true"
       run: |
         cd ${{ github.action_path }}
         echo "📋 Creating requirements document from JIRA and Confluence..."
