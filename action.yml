@@ -167,6 +167,15 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Set analysis path
+      id: set_analysis_path
+      shell: bash
+      run: |
+        ANALYSIS_PATH="$(date +'%Y-%m-%d-%H-%M-%S')-Via-AI"
+        echo "CURRENT_ANALYSIS_PATH=$ANALYSIS_PATH" >> $GITHUB_ENV
+        echo "analysis_path=$ANALYSIS_PATH" >> $GITHUB_OUTPUT
+        echo "✅ Analysis path set: $ANALYSIS_PATH"
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
@@ -321,7 +330,7 @@ runs:
         SANITIZE_PG_DATA=false
 
         # Analysis Configuration
-        CURRENT_ANALYSIS_PATH=$(echo $(date +'%Y-%m-%d-%H-%M-%S')-Via-AI)
+        CURRENT_ANALYSIS_PATH=${{ env.CURRENT_ANALYSIS_PATH }}
         SAVE_TO_FILE=${{ inputs.save_to_file }}
 
         # File Names Configuration
