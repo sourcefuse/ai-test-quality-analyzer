@@ -68,7 +68,9 @@ export class EmbeddingService {
     try {
       // Skip empty or very short text
       if (!text || text.trim().length < 10) {
-        console.warn('⚠️  Skipping embedding generation for empty or very short text');
+        if (!this.config.silentMode) {
+          console.warn('⚠️  Skipping embedding generation for empty or very short text');
+        }
         return [];
       }
 
