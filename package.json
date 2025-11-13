@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "main": "dist/fetch-and-analyze.js",
   "scripts": {
+    "claude": "ts-node claude-runner.ts",
     "start": "npx ts-node fetch-and-analyze.ts",
     "upload-requirements": "npx ts-node upload-requirements-to-confluence.ts",
-    "create-requirement-doc": "claude --print --dangerously-skip-permissions < prompts/create-requirement.md",
-    "analyze-test-quality": "claude --print --dangerously-skip-permissions < prompts/analyze-test-quality.md",
+    "create-requirement-doc": "npm run claude prompts/create-requirement.md",
+    "analyze-test-quality": "npm run claude prompts/analyze-test-quality.md",
     "process:jira": "npx ts-node process-jira-with-rag-search.ts"
   },
   "keywords": [],
