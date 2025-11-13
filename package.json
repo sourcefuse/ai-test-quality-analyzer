@@ -4,8 +4,10 @@
   "main": "dist/fetch-and-analyze.js",
   "scripts": {
     "start": "ts-node fetch-and-analyze.ts",
-    "create-requirement-doc": "claude --print --dangerously-skip-permissions < prompts/create-requirement.md",
-    "generate-unit-testcases": "claude --print --dangerously-skip-permissions < prompts/generate-unit-testcases.md",
+    "claude": "ts-node claude-runner.ts",
+    "fetch-confluence-rag": "npx ts-node process-jira-with-rag-search.ts",
+    "create-requirement-doc": "npm run claude prompts/create-requirement.md",
+    "generate-unit-testcases": "npm run claude prompts/generate-unit-testcases.md",
     "upload-requirements": "ts-node upload-requirements-to-confluence.ts",
     "build": "tsc",
     "test": "echo \"No tests yet\""
