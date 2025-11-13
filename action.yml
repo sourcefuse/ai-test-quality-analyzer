@@ -180,7 +180,7 @@ runs:
         npm install -g @anthropic-ai/claude-code
 
     - name: Setup PostgreSQL Database
-      if: inputs.docker_username != '' && inputs.docker_password != ''
+      if: inputs.docker_username != '' && inputs.docker_password != '' && inputs.database_host != ''
       shell: bash
       run: |
         echo "🐘 Setting up PostgreSQL database..."
@@ -208,7 +208,7 @@ runs:
         docker ps | grep postgres-pgvector
 
     - name: Test PostgreSQL Database Connection
-      if: inputs.docker_username != '' && inputs.docker_password != ''
+      if: inputs.docker_username != '' && inputs.docker_password != '' && inputs.database_host != ''
       shell: bash
       run: |
         echo "🔍 Testing PostgreSQL database connection..."
@@ -229,7 +229,6 @@ runs:
         echo ""
         echo "✅ Database connection test complete!"
         echo "🛑 Exiting workflow for testing purposes..."
-        exit 1
 
     - name: Docker login and start Presidio services
       if: inputs.docker_username != '' && inputs.docker_password != ''
@@ -340,11 +339,11 @@ runs:
 
         # RAG System Configuration (PostgreSQL + pgvector)
         USE_POSTGRES_VECTOR_DB=false
-        DATABASE_HOST=localhost
-        DATABASE_PORT=5432
-        DATABASE_NAME=
-        DATABASE_USER=
-        DATABASE_PASSWORD=
+        DATABASE_HOST=${{ inputs.database_host }}
+        DATABASE_PORT=${{ inputs.database_port }}
+        DATABASE_NAME=${{ inputs.database_name }}
+        DATABASE_USER=${{ inputs.database_user }}
+        DATABASE_PASSWORD=${{ inputs.database_password }}
 
         # OpenAI Embeddings Configuration
         EMBEDDING_PROVIDER=openai
@@ -366,6 +365,7 @@ runs:
         echo "🔄 Fetching JIRA ticket and Confluence pages..."
         npm run start
         echo "✅ Data fetched successfully"
+        exit 1
 
     - name: Step 2 - Create Requirements document
       if: inputs.claude_code_use_bedrock == '1'
