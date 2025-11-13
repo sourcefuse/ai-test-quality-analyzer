@@ -120,7 +120,8 @@ async function main() {
     let outputDir = '';
 
     if (currentAnalysisPath) {
-      outputDir = `${ticketDir}/${currentAnalysisPath}`;
+      // Use 2-level structure: {BASE}/{CURRENT_ANALYSIS_PATH} (skip ticket folder level)
+      outputDir = `${baseDir}/${currentAnalysisPath}`;
     } else {
       // Find the latest timestamp folder
       if (fs.existsSync(ticketDir)) {
