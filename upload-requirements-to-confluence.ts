@@ -176,22 +176,38 @@ async function main(): Promise<void> {
             console.log(`   ${scoreIcon} Score: ${testQualityScore}/10 (Threshold: ${minimumThreshold}/10)`);
         }
 
-        // Create Confluence page hierarchy based on folder structure
-        const confluenceRootSuffix = process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Quality-Check-Via-AI';
+        // Create Confluence page hierarchy: Root → Ticket → Timestamp
+        const confluenceRootSuffix = process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Generate-Unit-Tests-Via-AI';
+        const confluenceTicketSuffix = process.env.CONFLUENCE_TICKET_PAGE_SUFFIX || 'UT-Via-AI';
+        const confluenceTimestampSuffix = process.env.CONFLUENCE_TIMESTAMP_PAGE_SUFFIX || 'UT-Via-AI';
 
         // Step 1: Create/Get root page
         const rootPageTitle = `${spaceKey}-${confluenceRootSuffix}`;
-        console.log(`\n📄 Step 1/2: Creating/Getting root page: ${rootPageTitle}`);
+        console.log(`\n📄 Step 1/3: Creating/Getting root page: ${rootPageTitle}`);
         const rootPageResponse = await confluenceService.createPage({
             title: rootPageTitle,
-            content: `<p>This page contains AI-generated quality check reports for ${spaceKey} space.</p>`,
+            content: `<p>This page contains AI-generated unit test reports for ${spaceKey} space.</p>`,
             spaceKey: spaceKey,
         });
         console.log(`   ✅ Root page ID: ${rootPageResponse.pageId}`);
 
-        // Step 2: Create/Update analysis page (use timestamp as page title directly under root)
-        const analysisPageTitle = timestampFolderName;
-        console.log(`\n📄 Step 2/2: Creating/Updating analysis page: ${analysisPageTitle}`);
+        // Step 2: Create/Get ticket page
+        const ticketPageTitle = `${ticketKey}-${confluenceTicketSuffix}`;
+        console.log(`\n📄 Step 2/3: Creating/Getting ticket page: ${ticketPageTitle}`);
+        const ticketPageResponse = await confluenceService.createPage({
+            title: ticketPageTitle,
+            content: `<p>Unit test reports for ticket ${ticketKey}.</p>`,
+            spaceKey: spaceKey,
+            parentId: rootPageResponse.pageId,
+        });
+        console.log(`   ✅ Ticket page ID: ${ticketPageResponse.pageId}`);
+
+        // Step 3: Create/Update analysis page (timestamp with suffix)
+        // Extract timestamp part from CURRENT_ANALYSIS_PATH (e.g., "2025-11-13-19-26-55-Via-AI" → "2025-11-13-19-26-55")
+        const timestampMatch = timestampFolderName.match(/^(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})/);
+        const timestampPart = timestampMatch ? timestampMatch[1] : timestampFolderName;
+        const analysisPageTitle = `${timestampPart}-${confluenceTimestampSuffix}`;
+        console.log(`\n📄 Step 3/3: Creating/Updating analysis page: ${analysisPageTitle}`);
 
         // Format score badge (using variables already defined above)
         let scoreBadge = '';
@@ -247,14 +263,15 @@ ${scoreBadge}
             title: analysisPageTitle,
             content: confluenceContent,
             spaceKey: spaceKey,
-            parentId: rootPageResponse.pageId,
+            parentId: ticketPageResponse.pageId,
         });
         console.log(`   ✅ Analysis page ID: ${analysisPageResponse.pageId}`);
 
         console.log('\n✅ Confluence Upload Complete!');
         console.log(`   Root Page: ${rootPageTitle}`);
-        console.log(`   Analysis Page: ${analysisPageTitle} (under root)`);
-        console.log(`   Ticket: ${ticketKey}`);
+        console.log(`   Ticket Page: ${ticketPageTitle}`);
+        console.log(`   Analysis Page: ${analysisPageTitle}`);
+        console.log(`   Hierarchy: ${rootPageTitle} → ${ticketPageTitle} → ${analysisPageTitle}`);
         console.log(`   Files Uploaded: ${filesData.map(f => f.name).join(', ')}`);
         console.log(`   Note: Confluence.md was excluded from upload`);
         if (analysisPageResponse.url) {
