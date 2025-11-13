@@ -159,6 +159,58 @@ runs:
         npm install
         npm install -g @anthropic-ai/claude-code
 
+    - name: Setup PostgreSQL Database
+      if: inputs.docker_username != '' && inputs.docker_password != ''
+      shell: bash
+      run: |
+        echo "🐘 Setting up PostgreSQL database..."
+
+        # Pull PostgreSQL image with pgvector pre-installed
+        echo "📥 Pulling PostgreSQL + pgvector image..."
+        docker pull ankane/pgvector:latest
+
+        # Start PostgreSQL container
+        echo "🚀 Starting PostgreSQL container..."
+        docker run -d \
+          --name postgres-pgvector \
+          -e POSTGRES_USER="${{ secrets.UT_QUALITY_DATABASE_USER || 'postgres' }}" \
+          -e POSTGRES_PASSWORD="${{ secrets.UT_QUALITY_DATABASE_PASSWORD || 'admin' }}" \
+          -e POSTGRES_DB="${{ secrets.UT_QUALITY_DATABASE_NAME || 'postgres-pgvector' }}" \
+          -p 5432:5432 \
+          ankane/pgvector:latest
+
+        # Wait for PostgreSQL to be ready
+        echo "⏳ Waiting for PostgreSQL to be ready..."
+        sleep 10
+
+        # Verify PostgreSQL is running
+        echo "✅ PostgreSQL setup complete"
+        docker ps | grep postgres-pgvector
+
+    - name: Test PostgreSQL Database Connection
+      if: inputs.docker_username != '' && inputs.docker_password != ''
+      shell: bash
+      run: |
+        echo "🔍 Testing PostgreSQL database connection..."
+
+        # Wait a bit more for PostgreSQL to fully initialize
+        echo "⏳ Waiting for PostgreSQL to fully initialize..."
+        sleep 5
+
+        # Test connection and run sample queries
+        echo "📊 Running sample queries..."
+        docker exec postgres-pgvector psql -U "${{ secrets.UT_QUALITY_DATABASE_USER || 'postgres' }}" -d "${{ secrets.UT_QUALITY_DATABASE_NAME || 'postgres-pgvector' }}" -c "SELECT version();"
+
+        echo ""
+        echo "📦 Checking pgvector extension..."
+        docker exec postgres-pgvector psql -U "${{ secrets.UT_QUALITY_DATABASE_USER || 'postgres' }}" -d "${{ secrets.UT_QUALITY_DATABASE_NAME || 'postgres-pgvector' }}" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+        docker exec postgres-pgvector psql -U "${{ secrets.UT_QUALITY_DATABASE_USER || 'postgres' }}" -d "${{ secrets.UT_QUALITY_DATABASE_NAME || 'postgres-pgvector' }}" -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
+
+        echo ""
+        echo "✅ Database connection test complete!"
+        echo "🛑 Exiting workflow for testing purposes..."
+        exit 1
+
     - name: Docker login and start Presidio services
       if: inputs.docker_username != '' && inputs.docker_password != ''
       shell: bash
