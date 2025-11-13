@@ -233,23 +233,132 @@ export class PostgresVectorService {
       documentId,
     ]);
 
-    // Insert new chunks with 1-day expiry
-    for (const chunk of chunks) {
-      // Skip chunks with empty or invalid embeddings
+    // Filter out chunks with empty or invalid embeddings
+    const validChunks = chunks.filter(chunk => {
       if (!chunk.embedding || chunk.embedding.length === 0) {
         console.warn(`Skipping chunk with empty embedding for document ${documentId}`);
-        continue;
+        return false;
       }
+      return true;
+    });
 
+    if (validChunks.length === 0) {
+      return;
+    }
+
+    // Bulk insert all chunks in a single query
+    const values: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    for (const chunk of validChunks) {
       const embeddingString = `[${chunk.embedding.join(',')}]`;
 
-      await this.pool.query(
-        `
-        INSERT INTO document_chunks (document_id, text, embedding, metadata, expires_at)
-        VALUES ($1, $2, $3::vector, $4, CURRENT_TIMESTAMP + INTERVAL '1 day')
-      `,
-        [documentId, chunk.text, embeddingString, JSON.stringify(chunk.metadata)],
+      values.push(
+        `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}::vector, $${paramIndex + 3}, CURRENT_TIMESTAMP + INTERVAL '1 day')`
       );
+
+      params.push(
+        documentId,
+        chunk.text,
+        embeddingString,
+        JSON.stringify(chunk.metadata)
+      );
+
+      paramIndex += 4;
+    }
+
+    // Single bulk insert
+    await this.pool.query(
+      `INSERT INTO document_chunks (document_id, text, embedding, metadata, expires_at)
+       VALUES ${values.join(', ')}`,
+      params
+    );
+  }
+
+  /**
+   * Bulk upsert multiple documents and their chunks in a transaction
+   * More efficient than individual upserts when processing multiple documents
+   * @param documents - Array of documents with their chunks
+   * @returns Array of document IDs
+   */
+  async bulkUpsertDocumentsWithChunks(
+    documents: Array<{
+      pageId: string;
+      title: string;
+      content: string;
+      url: string;
+      projectKey?: string;
+      chunks: DocumentChunk[];
+    }>
+  ): Promise<number[]> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    const client = await this.pool.connect();
+    const documentIds: number[] = [];
+
+    try {
+      // Start transaction
+      await client.query('BEGIN');
+
+      for (const doc of documents) {
+        // Upsert document
+        const docResult = await client.query<{id: number}>(
+          `INSERT INTO confluence_documents (project_key, page_id, title, content, url, last_modified, expires_at)
+           VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day')
+           ON CONFLICT (page_id) DO UPDATE SET
+             project_key = EXCLUDED.project_key,
+             title = EXCLUDED.title,
+             content = EXCLUDED.content,
+             url = EXCLUDED.url,
+             last_modified = CURRENT_TIMESTAMP,
+             expires_at = CURRENT_TIMESTAMP + INTERVAL '1 day'
+           RETURNING id`,
+          [doc.projectKey, doc.pageId, doc.title, doc.content, doc.url]
+        );
+
+        const documentId = docResult.rows[0].id;
+        documentIds.push(documentId);
+
+        // Delete existing chunks
+        await client.query('DELETE FROM document_chunks WHERE document_id = $1', [documentId]);
+
+        // Filter valid chunks
+        const validChunks = doc.chunks.filter(chunk => chunk.embedding && chunk.embedding.length > 0);
+
+        if (validChunks.length > 0) {
+          // Bulk insert chunks
+          const values: string[] = [];
+          const params: any[] = [];
+          let paramIndex = 1;
+
+          for (const chunk of validChunks) {
+            const embeddingString = `[${chunk.embedding.join(',')}]`;
+            values.push(
+              `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}::vector, $${paramIndex + 3}, CURRENT_TIMESTAMP + INTERVAL '1 day')`
+            );
+            params.push(documentId, chunk.text, embeddingString, JSON.stringify(chunk.metadata));
+            paramIndex += 4;
+          }
+
+          await client.query(
+            `INSERT INTO document_chunks (document_id, text, embedding, metadata, expires_at)
+             VALUES ${values.join(', ')}`,
+            params
+          );
+        }
+      }
+
+      // Commit transaction
+      await client.query('COMMIT');
+
+      return documentIds;
+    } catch (error) {
+      // Rollback on error
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
   }
 

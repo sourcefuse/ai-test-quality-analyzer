@@ -155,40 +155,24 @@ export class ConfluenceIndexerService {
     );
     console.log(`   ✅ Generated ${embeddings.length} embeddings`);
 
-    // 4. Save to database
+    // 4. Save to database using bulk upsert
     console.log('   🔄 Saving to database...');
-    for (let i = 0; i < pages.length; i++) {
-      try {
-        const page = pages[i];
-        const pageChunks = allChunks.filter(
-          c => c.metadata.pageId === page.id,
-        );
+    try {
+      // Prepare all documents for bulk upsert
+      const documentsToUpsert = pages.map(page => {
+        const pageChunks = allChunks.filter(c => c.metadata.pageId === page.id);
 
         if (pageChunks.length === 0) {
           console.log(`   ⚠️  No chunks for: ${page.title}`);
-          continue;
+          return null;
         }
 
         // Find embeddings for this page
-        const startIdx = allChunks.findIndex(
-          c => c.metadata.pageId === page.id,
-        );
-        const pageEmbeddings = embeddings.slice(
-          startIdx,
-          startIdx + pageChunks.length,
-        );
+        const startIdx = allChunks.findIndex(c => c.metadata.pageId === page.id);
+        const pageEmbeddings = embeddings.slice(startIdx, startIdx + pageChunks.length);
 
         // Strip HTML from content before saving
         const cleanContent = this.stripHtml(page.content);
-
-        // Upsert document
-        const documentId = await this.vectorService.upsertDocument(
-          page.id,
-          page.title,
-          cleanContent,
-          page.url || '',
-          this.projectKey,
-        );
 
         // Prepare chunks with embeddings
         const chunksWithEmbeddings = pageChunks.map((chunk, idx) => ({
@@ -197,19 +181,36 @@ export class ConfluenceIndexerService {
           metadata: chunk.metadata,
         }));
 
-        // Upsert chunks
-        await this.vectorService.upsertChunks(documentId, chunksWithEmbeddings);
+        return {
+          pageId: page.id,
+          title: page.title,
+          content: cleanContent,
+          url: page.url || '',
+          projectKey: this.projectKey,
+          chunks: chunksWithEmbeddings,
+        };
+      }).filter(doc => doc !== null) as Array<{
+        pageId: string;
+        title: string;
+        content: string;
+        url: string;
+        projectKey?: string;
+        chunks: any[];
+      }>;
 
-        stats.totalChunks += pageChunks.length;
+      // Bulk upsert all documents in a single transaction
+      await this.vectorService.bulkUpsertDocumentsWithChunks(documentsToUpsert);
 
-        console.log(
-          `   ✅ Saved: ${page.title.substring(0, 50)} (${pageChunks.length} chunks)`,
-        );
-      } catch (error) {
-        const errorMsg = `Failed to process page ${pages[i].title}: ${error}`;
-        console.error(`   ❌ ${errorMsg}`);
-        stats.errors.push(errorMsg);
+      // Update stats
+      for (const doc of documentsToUpsert) {
+        stats.totalChunks += doc.chunks.length;
+        console.log(`   ✅ Saved: ${doc.title.substring(0, 50)} (${doc.chunks.length} chunks)`);
       }
+
+    } catch (error) {
+      const errorMsg = `Failed to bulk save pages: ${error}`;
+      console.error(`   ❌ ${errorMsg}`);
+      stats.errors.push(errorMsg);
     }
   }
 
