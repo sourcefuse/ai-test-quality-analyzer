@@ -216,29 +216,6 @@ runs:
         echo "✅ PostgreSQL setup complete"
         docker ps | grep postgres-pgvector
 
-    - name: Test PostgreSQL Database Connection
-      if: inputs.docker_username != '' && inputs.docker_password != '' && inputs.database_host != ''
-      shell: bash
-      run: |
-        echo "🔍 Testing PostgreSQL database connection..."
-
-        # Wait a bit more for PostgreSQL to fully initialize
-        echo "⏳ Waiting for PostgreSQL to fully initialize..."
-        sleep 5
-
-        # Test connection and run sample queries
-        echo "📊 Running sample queries..."
-        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "SELECT version();"
-
-        echo ""
-        echo "📦 Checking pgvector extension..."
-        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "CREATE EXTENSION IF NOT EXISTS vector;"
-        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
-
-        echo ""
-        echo "✅ Database connection test complete!"
-        echo "🛑 Exiting workflow for testing purposes..."
-
     - name: Docker login and start Presidio services
       if: inputs.docker_username != '' && inputs.docker_password != ''
       shell: bash
@@ -257,7 +234,61 @@ runs:
         echo "⏳ Waiting for services to be ready..."
         sleep 10
 
-        echo "✅ Presidio services started successfully"
+        echo "🔍 Testing Presidio services availability..."
+
+        # Wait up to 60 seconds for Presidio Analyzer to be ready
+        MAX_WAIT=60
+        ELAPSED=0
+        ANALYZER_READY=false
+
+        while [ $ELAPSED -lt $MAX_WAIT ]; do
+          if curl -s -X POST http://localhost:5002/analyze \
+            -H "Content-Type: application/json" \
+            -d '{"text":"test","language":"en"}' \
+            --max-time 5 > /dev/null 2>&1; then
+            ANALYZER_READY=true
+            echo "✅ Presidio Analyzer is ready (took ${ELAPSED}s)"
+            break
+          fi
+          echo "   ⏳ Waiting for Presidio Analyzer... (${ELAPSED}s/${MAX_WAIT}s)"
+          sleep 5
+          ELAPSED=$((ELAPSED + 5))
+        done
+
+        if [ "$ANALYZER_READY" = false ]; then
+          echo "⚠️  Presidio Analyzer did not respond within ${MAX_WAIT}s - PII detection will use regex fallback"
+        fi
+
+        # Wait up to 60 seconds for Presidio Anonymizer to be ready
+        ELAPSED=0
+        ANONYMIZER_READY=false
+
+        while [ $ELAPSED -lt $MAX_WAIT ]; do
+          if curl -s -X POST http://localhost:5001/anonymize \
+            -H "Content-Type: application/json" \
+            -d '{"text":"test","anonymizers":{}}' \
+            --max-time 5 > /dev/null 2>&1; then
+            ANONYMIZER_READY=true
+            echo "✅ Presidio Anonymizer is ready (took ${ELAPSED}s)"
+            break
+          fi
+          echo "   ⏳ Waiting for Presidio Anonymizer... (${ELAPSED}s/${MAX_WAIT}s)"
+          sleep 5
+          ELAPSED=$((ELAPSED + 5))
+        done
+
+        if [ "$ANONYMIZER_READY" = false ]; then
+          echo "⚠️  Presidio Anonymizer did not respond within ${MAX_WAIT}s - PII detection will use regex fallback"
+        fi
+
+        if [ "$ANALYZER_READY" = true ] && [ "$ANONYMIZER_READY" = true ]; then
+          echo "✅ All Presidio services are ready and responding"
+        else
+          echo "⚠️  Some Presidio services are not ready - application will use regex-based PII detection"
+        fi
+
+        echo ""
+        echo "📊 Presidio containers status:"
         docker ps | grep presidio
 
     - name: Skip Presidio setup notification
@@ -366,6 +397,29 @@ runs:
         
         EOF
         echo "✅ Environment configuration created"
+
+    - name: Test PostgreSQL Database Connection
+      if: inputs.docker_username != '' && inputs.docker_password != '' && inputs.database_host != ''
+      shell: bash
+      run: |
+        echo "🔍 Testing PostgreSQL database connection..."
+
+        # Wait a bit more for PostgreSQL to fully initialize
+        echo "⏳ Waiting for PostgreSQL to fully initialize..."
+        sleep 5
+
+        # Test connection and run sample queries
+        echo "📊 Running sample queries..."
+        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "SELECT version();"
+
+        echo ""
+        echo "📦 Checking pgvector extension..."
+        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+        docker exec postgres-pgvector psql -U "${{ inputs.database_user }}" -d "${{ inputs.database_name }}" -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
+
+        echo ""
+        echo "✅ Database connection test complete!"
+        echo "🛑 Exiting workflow for testing purposes..."
 
     - name: Step 1 - Fetch JIRA and Confluence data
       shell: bash
