@@ -284,8 +284,6 @@ runs:
         CHUNK_SIZE=1000
         CHUNK_OVERLAP=200
         
-        # Claude Runner Configuration
-        CLAUDE_VERBOSE_MODE=true
         EOF
         echo "✅ Environment configuration created"
 

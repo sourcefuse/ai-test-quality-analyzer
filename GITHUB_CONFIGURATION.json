@@ -137,6 +137,46 @@
         "example": "sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         "sensitive": true,
         "reason": "OpenAI API credentials for embeddings generation"
+      },
+      {
+        "name": "UT_QUALITY_DATABASE_HOST",
+        "env_var": "DATABASE_HOST",
+        "description": "PostgreSQL database host (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "example": "localhost",
+        "sensitive": false,
+        "reason": "Database connection configuration"
+      },
+      {
+        "name": "UT_QUALITY_DATABASE_PORT",
+        "env_var": "DATABASE_PORT",
+        "description": "PostgreSQL database port (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "example": "5432",
+        "sensitive": false,
+        "reason": "Database connection configuration"
+      },
+      {
+        "name": "UT_QUALITY_DATABASE_NAME",
+        "env_var": "DATABASE_NAME",
+        "description": "PostgreSQL database name (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "example": "postgres-pgvector",
+        "sensitive": false,
+        "reason": "Database name configuration"
+      },
+      {
+        "name": "UT_QUALITY_DATABASE_USER",
+        "env_var": "DATABASE_USER",
+        "description": "PostgreSQL database user (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "example": "postgres",
+        "sensitive": true,
+        "reason": "Database authentication credentials"
+      },
+      {
+        "name": "UT_QUALITY_DATABASE_PASSWORD",
+        "env_var": "DATABASE_PASSWORD",
+        "description": "PostgreSQL database password (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "example": "your-secure-password",
+        "sensitive": true,
+        "reason": "Database authentication credentials"
       }
     ]
   },
@@ -205,6 +245,15 @@
         "default": "1",
         "sensitive": false,
         "reason": "Feature flag, not sensitive"
+      },
+      {
+        "name": "UT_QUALITY_USE_POSTGRES_VECTOR_DB",
+        "env_var": "USE_POSTGRES_VECTOR_DB",
+        "description": "Enable PostgreSQL Vector Database with pgvector for RAG-based Confluence fetching (true/false)",
+        "example": "false",
+        "default": "false",
+        "sensitive": false,
+        "reason": "Feature flag, not sensitive"
       }
     ]
   },
@@ -261,7 +310,12 @@
       "anthropic_model": "${{ secrets.UT_QUALITY_ANTHROPIC_MODEL }}",
       "docker_username": "${{ secrets.UT_QUALITY_DOCKER_USERNAME }}",
       "docker_password": "${{ secrets.UT_QUALITY_DOCKER_PASSWORD }}",
-      "openai_api_key": "${{ secrets.UT_QUALITY_OPENAI_API_KEY }}"
+      "openai_api_key": "${{ secrets.UT_QUALITY_OPENAI_API_KEY }}",
+      "database_host": "${{ secrets.UT_QUALITY_DATABASE_HOST }}",
+      "database_port": "${{ secrets.UT_QUALITY_DATABASE_PORT }}",
+      "database_name": "${{ secrets.UT_QUALITY_DATABASE_NAME }}",
+      "database_user": "${{ secrets.UT_QUALITY_DATABASE_USER }}",
+      "database_password": "${{ secrets.UT_QUALITY_DATABASE_PASSWORD }}"
     },
     "variables_example": {
       "jira_project_key": "${{ vars.UT_QUALITY_JIRA_PROJECT_KEY || 'BB' }}",
@@ -269,7 +323,8 @@
       "confluence_upload_space_key": "${{ vars.UT_QUALITY_CONFLUENCE_UPLOAD_SPACE_KEY || '' }}",
       "minimum_score": "${{ vars.UT_QUALITY_MINIMUM_SCORE || '1.0' }}",
       "upload_to_confluence": "${{ vars.UT_QUALITY_UPLOAD_TO_CONFLUENCE || 'true' }}",
-      "claude_code_use_bedrock": "${{ vars.UT_QUALITY_CLAUDE_CODE_USE_BEDROCK || '1' }}"
+      "claude_code_use_bedrock": "${{ vars.UT_QUALITY_CLAUDE_CODE_USE_BEDROCK || '1' }}",
+      "use_postgres_vector_db": "${{ vars.UT_QUALITY_USE_POSTGRES_VECTOR_DB || 'false' }}"
     }
   },
   "setup_instructions": {
