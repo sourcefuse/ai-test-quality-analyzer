@@ -58,6 +58,11 @@ export class PostgresVectorService {
     try {
       console.log('🔧 Initializing PostgreSQL connection...');
 
+      // Determine SSL configuration based on host
+      // For localhost connections, disable SSL; for remote connections, use SSL with self-signed cert support
+      const isLocalhost = this.config.host === 'localhost' || this.config.host === '127.0.0.1';
+      const sslConfig = isLocalhost ? false : { rejectUnauthorized: false };
+
       this.pool = new Pool({
         host: this.config.host,
         port: this.config.port,
@@ -65,9 +70,7 @@ export class PostgresVectorService {
         user: this.config.user,
         password: this.config.password,
         max: this.config.max,
-        ssl: {
-          rejectUnauthorized: false,
-        },
+        ssl: sslConfig,
       });
 
       // Test connection
@@ -96,6 +99,7 @@ export class PostgresVectorService {
     await client.query(`
       CREATE TABLE IF NOT EXISTS confluence_documents (
         id SERIAL PRIMARY KEY,
+        project_key VARCHAR(50),
         page_id VARCHAR(255) UNIQUE NOT NULL,
         title VARCHAR(500) NOT NULL,
         content TEXT,
@@ -105,6 +109,21 @@ export class PostgresVectorService {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 day')
       )
+    `);
+
+    // Add project_key column if it doesn't exist (for existing tables)
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'confluence_documents'
+          AND column_name = 'project_key'
+        ) THEN
+          ALTER TABLE confluence_documents
+          ADD COLUMN project_key VARCHAR(50);
+        END IF;
+      END $$;
     `);
 
     // Add expires_at column if it doesn't exist (for existing tables)
@@ -167,6 +186,7 @@ export class PostgresVectorService {
    * @param title - Page title
    * @param content - Page content
    * @param url - Page URL
+   * @param projectKey - JIRA project key (optional)
    * @returns Document ID
    */
   async upsertDocument(
@@ -174,14 +194,16 @@ export class PostgresVectorService {
     title: string,
     content: string,
     url: string,
+    projectKey?: string,
   ): Promise<number> {
     if (!this.pool) throw new Error('Database not initialized');
 
     const result = await this.pool.query<{id: number}>(
       `
-      INSERT INTO confluence_documents (page_id, title, content, url, last_modified, expires_at)
-      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day')
+      INSERT INTO confluence_documents (project_key, page_id, title, content, url, last_modified, expires_at)
+      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day')
       ON CONFLICT (page_id) DO UPDATE SET
+        project_key = EXCLUDED.project_key,
         title = EXCLUDED.title,
         content = EXCLUDED.content,
         url = EXCLUDED.url,
@@ -189,7 +211,7 @@ export class PostgresVectorService {
         expires_at = CURRENT_TIMESTAMP + INTERVAL '1 day'
       RETURNING id
     `,
-      [pageId, title, content, url],
+      [projectKey, pageId, title, content, url],
     );
 
     return result.rows[0].id;
@@ -295,6 +317,25 @@ export class PostgresVectorService {
 
     const result = await this.pool.query<{count: string}>(
       'SELECT COUNT(*) as count FROM confluence_documents',
+    );
+
+    return parseInt(result.rows[0].count);
+  }
+
+  /**
+   * Get count of non-expired documents for a specific project key
+   * @param projectKey - JIRA project key
+   * @returns Number of non-expired documents for the project
+   */
+  async getDocumentCountByProjectKey(projectKey: string): Promise<number> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    const result = await this.pool.query<{count: string}>(
+      `SELECT COUNT(*) as count
+       FROM confluence_documents
+       WHERE project_key = $1
+       AND expires_at > CURRENT_TIMESTAMP`,
+      [projectKey],
     );
 
     return parseInt(result.rows[0].count);

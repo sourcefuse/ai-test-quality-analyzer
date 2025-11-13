@@ -38,6 +38,7 @@ export class ConfluenceIndexerService {
   private readonly piiDetector?: HybridPIIDetectorService;
   private readonly chunkSize: number;
   private readonly chunkOverlap: number;
+  private readonly projectKey?: string;
 
   /**
    * Constructor
@@ -47,6 +48,7 @@ export class ConfluenceIndexerService {
    * @param chunkSize - Size of text chunks (default: 1000)
    * @param chunkOverlap - Overlap between chunks (default: 200)
    * @param piiDetector - Optional PII detector for sanitizing data before storage
+   * @param projectKey - Optional JIRA project key to associate with documents
    */
   constructor(
     confluenceService: ConfluenceService,
@@ -55,6 +57,7 @@ export class ConfluenceIndexerService {
     chunkSize: number = 1000,
     chunkOverlap: number = 200,
     piiDetector?: HybridPIIDetectorService,
+    projectKey?: string,
   ) {
     this.confluenceService = confluenceService;
     this.embeddingService = embeddingService;
@@ -62,6 +65,7 @@ export class ConfluenceIndexerService {
     this.chunkSize = chunkSize;
     this.chunkOverlap = chunkOverlap;
     this.piiDetector = piiDetector;
+    this.projectKey = projectKey;
   }
 
   /**
@@ -183,6 +187,7 @@ export class ConfluenceIndexerService {
           page.title,
           cleanContent,
           page.url || '',
+          this.projectKey,
         );
 
         // Prepare chunks with embeddings
@@ -212,9 +217,10 @@ export class ConfluenceIndexerService {
    * Index a Confluence space
    * @param spaceKey - Confluence space key
    * @param batchSize - Number of pages to process in each batch
+   * @param maxPages - Maximum number of pages to fetch (0 or undefined means all)
    * @returns Index statistics
    */
-  async indexSpace(spaceKey: string, batchSize: number = 10): Promise<IndexStats> {
+  async indexSpace(spaceKey: string, batchSize: number = 10, maxPages?: number): Promise<IndexStats> {
     const startTime = Date.now();
     const stats: IndexStats = {
       spaceKey,
@@ -231,6 +237,7 @@ export class ConfluenceIndexerService {
       const result = await this.confluenceService.listPages({
         spaceKey,
         expand: ['body.storage'],
+        maxPages: maxPages,
       });
 
       const pages = result.pages.map((p: any) => ({
