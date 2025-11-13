@@ -39,6 +39,7 @@ export class ConfluenceIndexerService {
   private readonly chunkSize: number;
   private readonly chunkOverlap: number;
   private readonly projectKey?: string;
+  private readonly silentMode: boolean;
 
   /**
    * Constructor
@@ -49,6 +50,7 @@ export class ConfluenceIndexerService {
    * @param chunkOverlap - Overlap between chunks (default: 200)
    * @param piiDetector - Optional PII detector for sanitizing data before storage
    * @param projectKey - Optional JIRA project key to associate with documents
+   * @param silentMode - Suppress detailed logging (default: false)
    */
   constructor(
     confluenceService: ConfluenceService,
@@ -58,6 +60,7 @@ export class ConfluenceIndexerService {
     chunkOverlap: number = 200,
     piiDetector?: HybridPIIDetectorService,
     projectKey?: string,
+    silentMode: boolean = false,
   ) {
     this.confluenceService = confluenceService;
     this.embeddingService = embeddingService;
@@ -66,6 +69,7 @@ export class ConfluenceIndexerService {
     this.chunkOverlap = chunkOverlap;
     this.piiDetector = piiDetector;
     this.projectKey = projectKey;
+    this.silentMode = silentMode;
   }
 
   /**
@@ -204,7 +208,9 @@ export class ConfluenceIndexerService {
       // Update stats
       for (const doc of documentsToUpsert) {
         stats.totalChunks += doc.chunks.length;
-        console.log(`   ✅ Saved: ${doc.title.substring(0, 50)} (${doc.chunks.length} chunks)`);
+        if (!this.silentMode) {
+          console.log(`   ✅ Saved: ${doc.title.substring(0, 50)} (${doc.chunks.length} chunks)`);
+        }
       }
 
     } catch (error) {

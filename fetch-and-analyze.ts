@@ -731,6 +731,7 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
                                 chunkOverlap,
                                 sanitizePgData ? piiDetector : undefined, // pass piiDetector only if enabled
                                 projectKey, // pass project key from env
+                                silentMode, // pass silent mode flag
                             );
 
                             // Index the space
