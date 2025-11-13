@@ -200,7 +200,7 @@ runs:
 
         # Pull PostgreSQL image with pgvector pre-installed
         echo "📥 Pulling PostgreSQL + pgvector image..."
-        docker pull ankane/pgvector:latest
+        docker pull ankane/pgvector:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
 
         # Start PostgreSQL container
         echo "🚀 Starting PostgreSQL container..."
@@ -228,8 +228,8 @@ runs:
         echo "${{ inputs.docker_password }}" | docker login -u "${{ inputs.docker_username }}" --password-stdin docker.io
 
         echo "📥 Pulling Presidio Docker images..."
-        docker pull mcr.microsoft.com/presidio-analyzer:latest
-        docker pull mcr.microsoft.com/presidio-anonymizer:latest
+        docker pull mcr.microsoft.com/presidio-analyzer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+        docker pull mcr.microsoft.com/presidio-anonymizer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
 
         echo "🚀 Starting Presidio services..."
         docker run -d -p 5001:3000 --name presidio-anonymizer mcr.microsoft.com/presidio-anonymizer:latest
