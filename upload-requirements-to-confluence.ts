@@ -34,22 +34,26 @@ function loadEnvironment(): void {
  * Get analysis folder path using environment variables
  */
 function getAnalysisFolder(): string {
-    const spaceKey = process.env.CONFLUENCE_SPACE_KEY || 'BB';
-    const ticketId = process.env.JIRA_TICKET_ID;
-    const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
-    const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
-    const ticketFolderSuffix = process.env.TICKET_FOLDER_SUFFIX || 'Via-AI';
+    // Use ANALYSIS_FOLDER if set, otherwise construct from individual parts
+    let analysisFolder = process.env.ANALYSIS_FOLDER;
 
-    if (!ticketId) {
-        throw new Error('JIRA_TICKET_ID environment variable is required');
+    if (!analysisFolder) {
+        const spaceKey = process.env.CONFLUENCE_SPACE_KEY || 'BB';
+        const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
+        const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
+
+        if (!currentAnalysisPath) {
+            throw new Error('CURRENT_ANALYSIS_PATH or ANALYSIS_FOLDER environment variable is required');
+        }
+
+        // Construct 2-level path: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}
+        analysisFolder = `./${spaceKey}-${baseFolderSuffix}/${currentAnalysisPath}`;
+    } else {
+        // Prepend ./ if not already present
+        if (!analysisFolder.startsWith('./') && !analysisFolder.startsWith('/')) {
+            analysisFolder = `./${analysisFolder}`;
+        }
     }
-
-    if (!currentAnalysisPath) {
-        throw new Error('CURRENT_ANALYSIS_PATH environment variable is required');
-    }
-
-    // Construct the full path: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}
-    const analysisFolder = `./${spaceKey}-${baseFolderSuffix}/${ticketId}-${ticketFolderSuffix}/${currentAnalysisPath}`;
 
     // Verify the folder exists
     if (!fs.existsSync(analysisFolder)) {
@@ -115,72 +119,35 @@ async function main(): Promise<void> {
             console.log(`   Email: ${confluenceConfig.email}`);
             console.log(`   Space: ${confluenceConfig.spaceKey}`);
         }
-        const jiraFileName = process.env.JIRA_FILE_NAME || 'Jira.md';
-        const requirementsFileName = process.env.REQUIREMENTS_FILE_NAME || 'Requirements.md';
-        const requirementsRagFileName = 'Requirements-Rag.md';
-        const analysisReportFileName = process.env.ANALYSIS_REPORT_FILE_NAME || 'AnalysisReport.md';
-        const piiDetectionReportFileName = 'PII-Detection-Report.md';
+        // Define files to upload in sequence (Confluence.md is excluded)
+        const filesToUpload = [
+            {name: process.env.JIRA_FILE_NAME || 'Jira.md', title: 'JIRA Ticket Details'},
+            {name: process.env.CONFLUENCE_RAG_FILE_NAME || 'Confluence-Rag.md', title: 'Confluence Pages (RAG)'},
+            {name: 'Requirements-Rag.md', title: 'Requirements Analysis'},
+            {name: 'PII-Detection-Report.md', title: 'PII Detection Report'},
+        ];
 
-        const jiraFilePath = `${analysisFolder}/${jiraFileName}`;
-        const requirementsFilePath = `${analysisFolder}/${requirementsFileName}`;
-        const requirementsRagFilePath = `${analysisFolder}/${requirementsRagFileName}`;
-        const analysisReportFilePath = `${analysisFolder}/${analysisReportFileName}`;
-        const piiDetectionReportFilePath = `${analysisFolder}/${piiDetectionReportFileName}`;
+        // Check which files exist and read them
+        console.log('\n📖 Checking and reading files...');
+        const filesData: Array<{name: string; title: string; content: string}> = [];
 
-        // Check if files exist
-        const jiraExists = fs.existsSync(jiraFilePath);
-        const requirementsExists = fs.existsSync(requirementsFilePath);
-        const requirementsRagExists = fs.existsSync(requirementsRagFilePath);
-        const analysisReportExists = fs.existsSync(analysisReportFilePath);
-        const piiDetectionReportExists = fs.existsSync(piiDetectionReportFilePath);
-
-        // Prioritize Requirements.md, fallback to Requirements-Rag.md
-        const useRagRequirements = !requirementsExists && requirementsRagExists;
-        const finalRequirementsPath = useRagRequirements ? requirementsRagFilePath : requirementsFilePath;
-        const finalRequirementsFileName = useRagRequirements ? requirementsRagFileName : requirementsFileName;
-        const finalRequirementsExists = useRagRequirements ? requirementsRagExists : requirementsExists;
-
-        if (useRagRequirements) {
-            console.log(`ℹ️  Using ${requirementsRagFileName} (${requirementsFileName} not found)`);
-        }
-
-        if (!jiraExists) {
-            console.log(`⚠️  Warning: ${jiraFileName} not found: ${jiraFilePath}`);
-        }
-        if (!finalRequirementsExists) {
-            console.log(`⚠️  Warning: ${finalRequirementsFileName} not found: ${finalRequirementsPath}`);
-        }
-        if (!analysisReportExists) {
-            console.log(`⚠️  Warning: ${analysisReportFileName} not found: ${analysisReportFilePath}`);
-        }
-        if (!piiDetectionReportExists) {
-            console.log(`⚠️  Warning: ${piiDetectionReportFileName} not found: ${piiDetectionReportFilePath}`);
+        for (const file of filesToUpload) {
+            const filePath = `${analysisFolder}/${file.name}`;
+            if (fs.existsSync(filePath)) {
+                const content = fs.readFileSync(filePath, 'utf-8');
+                filesData.push({name: file.name, title: file.title, content});
+                console.log(`   ✅ ${file.name} read successfully (${(content.length / 1024).toFixed(2)} KB)`);
+            } else {
+                console.log(`   ⚠️  ${file.name} not found - skipping`);
+            }
         }
 
         // At least one file must exist
-        if (!jiraExists && !finalRequirementsExists && !analysisReportExists) {
-            throw new Error(`No analysis files (${jiraFileName}, ${finalRequirementsFileName}, ${analysisReportFileName}) found in the analysis folder`);
+        if (filesData.length === 0) {
+            throw new Error(`No analysis files found in ${analysisFolder}. Expected: ${filesToUpload.map(f => f.name).join(', ')}`);
         }
 
-        // Read files
-        console.log('\n📖 Reading files...');
-        const jiraContent = jiraExists ? fs.readFileSync(jiraFilePath, 'utf-8') : '';
-        const requirementsContent = finalRequirementsExists ? fs.readFileSync(finalRequirementsPath, 'utf-8') : '';
-        const analysisReportContent = analysisReportExists ? fs.readFileSync(analysisReportFilePath, 'utf-8') : '';
-        const piiDetectionReportContent = piiDetectionReportExists ? fs.readFileSync(piiDetectionReportFilePath, 'utf-8') : '';
-
-        if (jiraContent) {
-            console.log(`   ✅ ${jiraFileName} read successfully (${(jiraContent.length / 1024).toFixed(2)} KB)`);
-        }
-        if (requirementsContent) {
-            console.log(`   ✅ ${finalRequirementsFileName} read successfully (${(requirementsContent.length / 1024).toFixed(2)} KB)`);
-        }
-        if (analysisReportContent) {
-            console.log(`   ✅ ${analysisReportFileName} read successfully (${(analysisReportContent.length / 1024).toFixed(2)} KB)`);
-        }
-        if (piiDetectionReportContent) {
-            console.log(`   ✅ ${piiDetectionReportFileName} read successfully (${(piiDetectionReportContent.length / 1024).toFixed(2)} KB)`);
-        }
+        console.log(`\n✅ Found ${filesData.length} file(s) to upload`)
 
         const confluenceService = new ConfluenceService(confluenceConfig);
         confluenceService.validateConfig();
@@ -272,48 +239,20 @@ ${branchInfo}
 ${scoreBadge}
 <hr />`;
 
-        // Add JIRA content if available
-        if (jiraContent) {
+        // Add all uploaded files in sequence
+        filesData.forEach((file, index) => {
             confluenceContent += `
-<h2>1. JIRA Ticket Details</h2>
+<h2>${index + 1}. ${file.title}</h2>
 <ac:structured-macro ac:name="code">
 <ac:parameter ac:name="language">markdown</ac:parameter>
-<ac:plain-text-body><![CDATA[${jiraContent}]]></ac:plain-text-body>
-</ac:structured-macro>
-<hr />`;
-        }
-
-        // Add Requirements content if available
-        if (requirementsContent) {
-            confluenceContent += `
-<h2>2. Requirements Analysis</h2>
-<ac:structured-macro ac:name="code">
-<ac:parameter ac:name="language">markdown</ac:parameter>
-<ac:plain-text-body><![CDATA[${requirementsContent}]]></ac:plain-text-body>
-</ac:structured-macro>
-<hr />`;
-        }
-
-        // Add Analysis Report content if available
-        if (analysisReportContent) {
-            confluenceContent += `
-<h2>3. Test Cases Quality Analysis</h2>
-<ac:structured-macro ac:name="code">
-<ac:parameter ac:name="language">markdown</ac:parameter>
-<ac:plain-text-body><![CDATA[${analysisReportContent}]]></ac:plain-text-body>
-</ac:structured-macro>
-<hr />`;
-        }
-
-        // Add PII Detection Report content if available
-        if (piiDetectionReportContent) {
-            confluenceContent += `
-<h2>4. PII Detection Report</h2>
-<ac:structured-macro ac:name="code">
-<ac:parameter ac:name="language">markdown</ac:parameter>
-<ac:plain-text-body><![CDATA[${piiDetectionReportContent}]]></ac:plain-text-body>
+<ac:plain-text-body><![CDATA[${file.content}]]></ac:plain-text-body>
 </ac:structured-macro>`;
-        }
+
+            // Add separator if not the last file
+            if (index < filesData.length - 1) {
+                confluenceContent += '\n<hr />';
+            }
+        });
 
         const analysisPageResponse = await confluenceService.createPage({
             title: analysisPageTitle,
@@ -327,7 +266,8 @@ ${scoreBadge}
         console.log(`   Root Page: ${rootPageTitle}`);
         console.log(`   Ticket Page: ${ticketPageTitle}`);
         console.log(`   Analysis Page: ${analysisPageTitle}`);
-        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, requirementsContent && finalRequirementsFileName, analysisReportContent && analysisReportFileName, piiDetectionReportContent && piiDetectionReportFileName].filter(Boolean).join(', ')}`);
+        console.log(`   Files Uploaded: ${filesData.map(f => f.name).join(', ')}`);
+        console.log(`   Note: Confluence.md was excluded from upload`);
         if (analysisPageResponse.url) {
             console.log(`   URL: ${analysisPageResponse.url}`);
         }

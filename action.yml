@@ -466,9 +466,9 @@ runs:
         npm run create-requirement-doc
         echo "✅ Requirements document created"
 
-        # echo "🔍 Generating unit test cases..."
-        # npm run generate-unit-testcases
-        # echo "✅ Unit test cases generated successfully"
+        echo "🔍 Generating unit test cases..."
+        npm run generate-unit-testcases
+        echo "✅ Unit test cases generated successfully"
 
     - name: Step 3.5 - List Analysis Folder Contents
       shell: bash
@@ -490,7 +490,6 @@ runs:
           echo "🔍 Checking base directory..."
           ls -alh "${SPACE_KEY}-${BASE_FOLDER_SUFFIX}" || echo "Base directory not found"
         fi
-        exit 1
 
     - name: Step 4 - Commit and Push Generated Tests
       id: commit_tests
