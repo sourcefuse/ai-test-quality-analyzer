@@ -194,9 +194,9 @@ runs:
         cd ${{ github.action_path }}
         echo "📥 Cloning repository for test analysis..."
 
-        # Use head_ref for PRs (gives branch name like BB-2244), ref_name for other events
-        BRANCH="${{ github.head_ref || github.ref_name }}"
-        echo "Branch to clone: $BRANCH"
+        # Use JIRA project key as branch name (e.g., Omnia, BB)
+        BRANCH="${{ inputs.jira_project_key }}"
+        echo "Branch to clone: $BRANCH (from JIRA project key)"
 
         mkdir -p repo
         cd repo
