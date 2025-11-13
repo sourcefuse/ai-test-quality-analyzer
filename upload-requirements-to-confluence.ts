@@ -119,17 +119,20 @@ async function main(): Promise<void> {
         const requirementsFileName = process.env.REQUIREMENTS_FILE_NAME || 'Requirements.md';
         const requirementsRagFileName = 'Requirements-Rag.md';
         const analysisReportFileName = process.env.ANALYSIS_REPORT_FILE_NAME || 'AnalysisReport.md';
+        const piiDetectionReportFileName = 'PII-Detection-Report.md';
 
         const jiraFilePath = `${analysisFolder}/${jiraFileName}`;
         const requirementsFilePath = `${analysisFolder}/${requirementsFileName}`;
         const requirementsRagFilePath = `${analysisFolder}/${requirementsRagFileName}`;
         const analysisReportFilePath = `${analysisFolder}/${analysisReportFileName}`;
+        const piiDetectionReportFilePath = `${analysisFolder}/${piiDetectionReportFileName}`;
 
         // Check if files exist
         const jiraExists = fs.existsSync(jiraFilePath);
         const requirementsExists = fs.existsSync(requirementsFilePath);
         const requirementsRagExists = fs.existsSync(requirementsRagFilePath);
         const analysisReportExists = fs.existsSync(analysisReportFilePath);
+        const piiDetectionReportExists = fs.existsSync(piiDetectionReportFilePath);
 
         // Prioritize Requirements.md, fallback to Requirements-Rag.md
         const useRagRequirements = !requirementsExists && requirementsRagExists;
@@ -150,6 +153,9 @@ async function main(): Promise<void> {
         if (!analysisReportExists) {
             console.log(`⚠️  Warning: ${analysisReportFileName} not found: ${analysisReportFilePath}`);
         }
+        if (!piiDetectionReportExists) {
+            console.log(`⚠️  Warning: ${piiDetectionReportFileName} not found: ${piiDetectionReportFilePath}`);
+        }
 
         // At least one file must exist
         if (!jiraExists && !finalRequirementsExists && !analysisReportExists) {
@@ -161,6 +167,7 @@ async function main(): Promise<void> {
         const jiraContent = jiraExists ? fs.readFileSync(jiraFilePath, 'utf-8') : '';
         const requirementsContent = finalRequirementsExists ? fs.readFileSync(finalRequirementsPath, 'utf-8') : '';
         const analysisReportContent = analysisReportExists ? fs.readFileSync(analysisReportFilePath, 'utf-8') : '';
+        const piiDetectionReportContent = piiDetectionReportExists ? fs.readFileSync(piiDetectionReportFilePath, 'utf-8') : '';
 
         if (jiraContent) {
             console.log(`   ✅ ${jiraFileName} read successfully (${(jiraContent.length / 1024).toFixed(2)} KB)`);
@@ -170,6 +177,9 @@ async function main(): Promise<void> {
         }
         if (analysisReportContent) {
             console.log(`   ✅ ${analysisReportFileName} read successfully (${(analysisReportContent.length / 1024).toFixed(2)} KB)`);
+        }
+        if (piiDetectionReportContent) {
+            console.log(`   ✅ ${piiDetectionReportFileName} read successfully (${(piiDetectionReportContent.length / 1024).toFixed(2)} KB)`);
         }
 
         const confluenceService = new ConfluenceService(confluenceConfig);
@@ -291,6 +301,17 @@ ${scoreBadge}
 <ac:structured-macro ac:name="code">
 <ac:parameter ac:name="language">markdown</ac:parameter>
 <ac:plain-text-body><![CDATA[${analysisReportContent}]]></ac:plain-text-body>
+</ac:structured-macro>
+<hr />`;
+        }
+
+        // Add PII Detection Report content if available
+        if (piiDetectionReportContent) {
+            confluenceContent += `
+<h2>4. PII Detection Report</h2>
+<ac:structured-macro ac:name="code">
+<ac:parameter ac:name="language">markdown</ac:parameter>
+<ac:plain-text-body><![CDATA[${piiDetectionReportContent}]]></ac:plain-text-body>
 </ac:structured-macro>`;
         }
 
@@ -306,7 +327,7 @@ ${scoreBadge}
         console.log(`   Root Page: ${rootPageTitle}`);
         console.log(`   Ticket Page: ${ticketPageTitle}`);
         console.log(`   Analysis Page: ${analysisPageTitle}`);
-        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, requirementsContent && finalRequirementsFileName, analysisReportContent && analysisReportFileName].filter(Boolean).join(', ')}`);
+        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, requirementsContent && finalRequirementsFileName, analysisReportContent && analysisReportFileName, piiDetectionReportContent && piiDetectionReportFileName].filter(Boolean).join(', ')}`);
         if (analysisPageResponse.url) {
             console.log(`   URL: ${analysisPageResponse.url}`);
         }
