@@ -483,26 +483,25 @@ runs:
 
         ANALYSIS_FOLDER="${SPACE_KEY}-${BASE_FOLDER_SUFFIX}/${ANALYSIS_PATH}"
 
-        echo "🔍 Creating analysis folder if it doesn't exist..."
-        mkdir -p "$ANALYSIS_FOLDER"
+        # echo "🔍 Creating analysis folder if it doesn't exist..."
+        # mkdir -p "$ANALYSIS_FOLDER"
 
         
-        echo "# Confluence RAG Content" > "$ANALYSIS_FOLDER/Confluence-Rag.md"
-        echo "This is test content for Confluence RAG." >> "$ANALYSIS_FOLDER/Confluence-Rag.md"
+        # echo "# Confluence RAG Content" > "$ANALYSIS_FOLDER/Confluence-Rag.md"
+        # echo "This is test content for Confluence RAG." >> "$ANALYSIS_FOLDER/Confluence-Rag.md"
         
-        echo "# Confluence Content" > "$ANALYSIS_FOLDER/Confluence.md"
-        echo "This is test content for Confluence." >> "$ANALYSIS_FOLDER/Confluence.md"
+        # echo "# Confluence Content" > "$ANALYSIS_FOLDER/Confluence.md"
+        # echo "This is test content for Confluence." >> "$ANALYSIS_FOLDER/Confluence.md"
         
-        echo "# JIRA Content" > "$ANALYSIS_FOLDER/Jira.md"
-        echo "This is test content for JIRA ticket." >> "$ANALYSIS_FOLDER/Jira.md"
+        # echo "# JIRA Content" > "$ANALYSIS_FOLDER/Jira.md"
+        # echo "This is test content for JIRA ticket." >> "$ANALYSIS_FOLDER/Jira.md"
         
-        echo "# PII Detection Report" > "$ANALYSIS_FOLDER/PII-Detection-Report.md"
-        echo "This is test content for PII detection." >> "$ANALYSIS_FOLDER/PII-Detection-Report.md"
+        # echo "# PII Detection Report" > "$ANALYSIS_FOLDER/PII-Detection-Report.md"
+        # echo "This is test content for PII detection." >> "$ANALYSIS_FOLDER/PII-Detection-Report.md"
         
-        echo "# Requirements RAG" > "$ANALYSIS_FOLDER/Requirements-Rag.md"
-        echo "This is test content for Requirements RAG." >> "$ANALYSIS_FOLDER/Requirements-Rag.md"
+        # echo "# Requirements RAG" > "$ANALYSIS_FOLDER/Requirements-Rag.md"
+        # echo "This is test content for Requirements RAG." >> "$ANALYSIS_FOLDER/Requirements-Rag.md"
         
-          
         if [ -d "$ANALYSIS_FOLDER" ]; then
           echo "✅ Analysis folder: $ANALYSIS_FOLDER"
           ls -alh "$ANALYSIS_FOLDER"

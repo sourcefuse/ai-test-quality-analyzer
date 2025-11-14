@@ -239,7 +239,6 @@ async function main(): Promise<void> {
 <p><strong>Generated:</strong> ${new Date().toISOString()}</p>
 <p><strong>Ticket:</strong> ${ticketKey}</p>
 <p><strong>Space:</strong> ${spaceKey}</p>
-<p><strong>Analysis Path:</strong> ${timestampFolderName}</p>
 ${branchInfo}
 ${scoreBadge}
 <hr />`;
