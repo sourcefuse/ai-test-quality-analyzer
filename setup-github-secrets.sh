@@ -74,6 +74,24 @@ echo ""
 # Load .env file
 source "$ENV_FILE"
 
+# Check for prefix configuration
+if [ -z "$SECRET_PREFIX" ]; then
+    echo -e "${YELLOW}⚠️  SECRET_PREFIX not set in .env, using no prefix for secrets${NC}"
+    SECRET_PREFIX=""
+fi
+
+if [ -z "$VARIABLE_PREFIX" ]; then
+    echo -e "${YELLOW}⚠️  VARIABLE_PREFIX not set in .env, using no prefix for variables${NC}"
+    VARIABLE_PREFIX=""
+fi
+
+if [ -n "$SECRET_PREFIX" ] || [ -n "$VARIABLE_PREFIX" ]; then
+    echo -e "${BLUE}📌 Prefix Configuration:${NC}"
+    [ -n "$SECRET_PREFIX" ] && echo -e "   Secrets: ${GREEN}${SECRET_PREFIX}${NC}"
+    [ -n "$VARIABLE_PREFIX" ] && echo -e "   Variables: ${GREEN}${VARIABLE_PREFIX}${NC}"
+    echo ""
+fi
+
 # Function to read value from .env
 get_env_value() {
     local var_name=$1
@@ -130,18 +148,21 @@ while IFS= read -r line; do
 
     VALUE=$(get_env_value "$ENV_VAR")
 
+    # Apply prefix to secret name
+    PREFIXED_SECRET_NAME="${SECRET_PREFIX}${SECRET_NAME}"
+
     SECRETS_COUNT=$((SECRETS_COUNT + 1))
 
     if [ -z "$VALUE" ]; then
-        echo -e "${YELLOW}⚠️  Skipping $SECRET_NAME: $ENV_VAR not found in .env${NC}"
+        echo -e "${YELLOW}⚠️  Skipping $PREFIXED_SECRET_NAME: $ENV_VAR not found in .env${NC}"
         SECRETS_FAILED=$((SECRETS_FAILED + 1))
     else
-        echo -e "${BLUE}   Setting secret: $SECRET_NAME${NC}"
-        if echo "$VALUE" | gh secret set "$SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
-            echo -e "${GREEN}   ✅ $SECRET_NAME set successfully${NC}"
+        echo -e "${BLUE}   Setting secret: $PREFIXED_SECRET_NAME${NC}"
+        if echo "$VALUE" | gh secret set "$PREFIXED_SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
+            echo -e "${GREEN}   ✅ $PREFIXED_SECRET_NAME set successfully${NC}"
             SECRETS_SUCCESS=$((SECRETS_SUCCESS + 1))
         else
-            echo -e "${RED}   ❌ Failed to set $SECRET_NAME${NC}"
+            echo -e "${RED}   ❌ Failed to set $PREFIXED_SECRET_NAME${NC}"
             SECRETS_FAILED=$((SECRETS_FAILED + 1))
         fi
     fi
@@ -169,18 +190,21 @@ while IFS= read -r line; do
         VALUE="$DEFAULT_VALUE"
     fi
 
+    # Apply prefix to variable name
+    PREFIXED_VAR_NAME="${VARIABLE_PREFIX}${VAR_NAME}"
+
     VARS_COUNT=$((VARS_COUNT + 1))
 
     if [ -z "$VALUE" ] || [ "$VALUE" == "null" ]; then
-        echo -e "${YELLOW}⚠️  Skipping $VAR_NAME: No value or default available${NC}"
+        echo -e "${YELLOW}⚠️  Skipping $PREFIXED_VAR_NAME: No value or default available${NC}"
         VARS_FAILED=$((VARS_FAILED + 1))
     else
-        echo -e "${BLUE}   Setting variable: $VAR_NAME = $VALUE${NC}"
-        if gh variable set "$VAR_NAME" --body "$VALUE" --repo "$REPO_NAME" 2>/dev/null; then
-            echo -e "${GREEN}   ✅ $VAR_NAME set successfully${NC}"
+        echo -e "${BLUE}   Setting variable: $PREFIXED_VAR_NAME = $VALUE${NC}"
+        if gh variable set "$PREFIXED_VAR_NAME" --body "$VALUE" --repo "$REPO_NAME" 2>/dev/null; then
+            echo -e "${GREEN}   ✅ $PREFIXED_VAR_NAME set successfully${NC}"
             VARS_SUCCESS=$((VARS_SUCCESS + 1))
         else
-            echo -e "${RED}   ❌ Failed to set $VAR_NAME${NC}"
+            echo -e "${RED}   ❌ Failed to set $PREFIXED_VAR_NAME${NC}"
             VARS_FAILED=$((VARS_FAILED + 1))
         fi
     fi
