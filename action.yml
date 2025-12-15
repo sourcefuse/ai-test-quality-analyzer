@@ -374,3 +374,31 @@ runs:
         echo "" >> $GITHUB_STEP_SUMMARY
 
         echo "📄 **Full report available in job artifacts**" >> $GITHUB_STEP_SUMMARY
+
+    - name: Fail if score below threshold
+      if: steps.check_score.outputs.passed == 'false'
+      shell: bash
+      run: |
+        SCORE="${{ steps.extract_score.outputs.score }}"
+        THRESHOLD="${{ inputs.minimum_score }}"
+
+        echo ""
+        echo "════════════════════════════════════════════════════════════"
+        echo "❌ TEST QUALITY CHECK FAILED"
+        echo "════════════════════════════════════════════════════════════"
+        echo ""
+        echo "📊 Score: ${SCORE}/10"
+        echo "🎯 Required: ${THRESHOLD}/10"
+        echo "📉 Gap: $(awk -v threshold="$THRESHOLD" -v score="$SCORE" 'BEGIN { printf "%.1f", threshold - score }') points"
+        echo ""
+        echo "⚠️  This PR cannot be merged until test quality improves."
+        echo ""
+        echo "📋 Next Steps:"
+        echo "  1. Review the analysis report in GitHub Actions artifacts"
+        echo "  2. Check Confluence for detailed feedback"
+        echo "  3. Add missing test coverage (especially error scenarios)"
+        echo "  4. Ensure test quality meets minimum standards"
+        echo ""
+        echo "════════════════════════════════════════════════════════════"
+        echo ""
+        exit 1
