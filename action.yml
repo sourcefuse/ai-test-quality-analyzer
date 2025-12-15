@@ -588,28 +588,68 @@ runs:
           echo "✅ Results uploaded to Confluence"
         fi
 
-    - name: Step 6 - Generate Final Report
+    - name: Generate summary
       shell: bash
       run: |
-        echo "=================================================="
-        echo "         🎉 UNIT TEST GENERATION COMPLETE"
-        echo "=================================================="
-        echo ""
-        echo "📋 JIRA Ticket: ${{ inputs.jira_ticket_id }}"
-        echo "🔗 JIRA Link: ${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }}"
-        echo ""
-        echo "📄 Confluence Documentation:"
-        echo "   ${{ steps.upload_confluence.outputs.confluence_url }}"
-        echo ""
-        echo "🌿 Generated Branch:"
-        echo "   Name: ${{ steps.commit_tests.outputs.branch_name }}"
-        echo "   URL: ${{ steps.commit_tests.outputs.branch_url }}"
-        echo ""
-        echo "📝 Next Steps:"
-        echo "   1. Review the generated tests in the branch"
-        echo "   2. Create a Pull Request manually if needed"
-        echo "   3. Check Confluence for detailed analysis report"
-        echo ""
-        echo "=================================================="
-        echo "         ✅ All tasks completed successfully!"
-        echo "=================================================="
+        cd ${{ github.action_path }}
+        BRANCH_NAME="${{ steps.commit_tests.outputs.branch_name }}"
+        BRANCH_URL="${{ steps.commit_tests.outputs.branch_url }}"
+        CONFLUENCE_URL="${{ steps.upload_confluence.outputs.confluence_url }}"
+        ANALYSIS_FOLDER="${{ env.ANALYSIS_FOLDER }}"
+
+        echo "## 🎉 Unit Test Generation Complete" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**JIRA Ticket:** ${{ inputs.jira_ticket_id }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Target Branch:** ${{ inputs.target_branch }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "✅ **Status:** Tests generated and pushed successfully" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### 🌿 Generated Branch" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch Name:** \`$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch URL:** [View Branch]($BRANCH_URL)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        # Add JIRA link
+        echo "- **JIRA Ticket:** [${{ inputs.jira_ticket_id }}](${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }})" >> $GITHUB_STEP_SUMMARY
+
+        # Add PR link if available
+        if [ -n "${{ github.event.pull_request.html_url }}" ]; then
+          echo "- **Pull Request:** [${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Add Confluence link if upload was successful
+        if [ -n "$CONFLUENCE_URL" ]; then
+          echo "- **Confluence Report:** [View Analysis Report](${CONFLUENCE_URL})" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Add Generated Branch link
+        echo "- **Generated Tests:** [View Branch]($BRANCH_URL)" >> $GITHUB_STEP_SUMMARY
+
+        # Add GitHub Actions artifacts link
+        echo "- **GitHub Artifacts:** [Download Reports](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### 📁 Analysis Folder" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "$ANALYSIS_FOLDER" >> $GITHUB_STEP_SUMMARY
+        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### 📝 Next Steps" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "1. 🔍 Review the generated tests in the branch" >> $GITHUB_STEP_SUMMARY
+        echo "2. 🔀 Create a Pull Request to merge into \`${{ inputs.target_branch }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "3. 📊 Check Confluence for detailed analysis report" >> $GITHUB_STEP_SUMMARY
+        echo "4. ✅ Run tests locally to verify functionality" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "🤖 _Generated via GitHub Actions - Unit Test Generation Workflow_" >> $GITHUB_STEP_SUMMARY
