@@ -179,6 +179,13 @@ Write a comprehensive analysis report to `AnalysisReport.md` file in the SAME fo
 ### Coverage Breakdown by Requirement
 [List each CODE LOGIC requirement and whether it has tests - don't list UI text changes]
 
+### Key Issues (for GitHub Summary)
+- [Bullet point 1: Most critical coverage gap]
+- [Bullet point 2: Second critical gap]
+- [Bullet point 3: Any other important coverage issues]
+- [Bullet point 4: Percentage or statistics if relevant]
+- [Bullet point 5: Impact summary]
+
 **Score: X/3**
 **Justification:** [Explain the score based on code logic coverage. Mention if deductions were avoided for UI/text changes that don't need unit tests.]
 
@@ -187,10 +194,14 @@ Write a comprehensive analysis report to `AnalysisReport.md` file in the SAME fo
 ## Test Quality Assessment (X/2 points)
 
 ### Code Structure
-- [Analysis of AAA pattern usage]
-- [Analysis of test naming conventions]
-- [Analysis of test isolation]
-- [Analysis of mocking/stubbing]
+[Analysis paragraph]
+
+### Key Issues (for GitHub Summary)
+- [Bullet point 1: AAA pattern issues if any]
+- [Bullet point 2: Test naming issues if any]
+- [Bullet point 3: Test isolation issues if any]
+- [Bullet point 4: Mocking/stubbing issues if any]
+- [Bullet point 5: Overall quality summary]
 
 **Score: X/2**
 **Justification:** [Explain the score]
@@ -211,6 +222,13 @@ Write a comprehensive analysis report to `AnalysisReport.md` file in the SAME fo
 ### Error Scenarios Missing
 [List error scenarios that should be tested]
 
+### Key Issues (for GitHub Summary)
+- [Bullet point 1: Most critical missing edge case]
+- [Bullet point 2: Missing error scenarios]
+- [Bullet point 3: Missing timeout/integration tests if relevant]
+- [Bullet point 4: Missing concurrent operation tests if relevant]
+- [Bullet point 5: Overall edge case coverage summary]
+
 **Score: X/2**
 **Justification:** [Explain the score]
 
@@ -223,6 +241,13 @@ Write a comprehensive analysis report to `AnalysisReport.md` file in the SAME fo
 
 ### Positive vs Negative Testing
 [Balance between positive and negative test cases]
+
+### Key Issues (for GitHub Summary)
+- [Bullet point 1: Weak assertion issues]
+- [Bullet point 2: Positive/negative test ratio]
+- [Bullet point 3: What assertions are verifying vs what they should verify]
+- [Bullet point 4: Missing validation checks]
+- [Bullet point 5: Overall assertion quality summary]
 
 **Score: X/1.5**
 **Justification:** [Explain the score]
@@ -239,6 +264,13 @@ Write a comprehensive analysis report to `AnalysisReport.md` file in the SAME fo
 
 ### Test Utilities
 [Analysis of helper functions and utilities]
+
+### Key Issues (for GitHub Summary)
+- [Bullet point 1: Organization strengths or issues]
+- [Bullet point 2: Setup/teardown quality]
+- [Bullet point 3: Test utilities usage]
+- [Bullet point 4: Code duplication or helpers needed]
+- [Bullet point 5: Overall maintainability summary]
 
 **Score: X/1.5**
 **Justification:** [Explain the score]

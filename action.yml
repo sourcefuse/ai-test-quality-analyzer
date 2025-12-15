@@ -365,15 +365,77 @@ runs:
         echo "- Analysis Report: \`$RESULT_FILE\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        # Extract score breakdown from result file
-        echo "### 📈 Score Breakdown" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-        grep -A 1 "Test Coverage Analysis\|Test Quality Assessment\|Edge Cases & Error Scenarios\|Test Assertions Quality\|Code Organization & Maintainability" "$RESULT_FILE" | grep -E "\([0-9.]+/[0-9.]+ points\)" | head -5 >> $GITHUB_STEP_SUMMARY || echo "Score breakdown not available" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        # Extract detailed score breakdown from result file
+        echo "### 📈 Detailed Score Breakdown" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        echo "📄 **Full report available in job artifacts**" >> $GITHUB_STEP_SUMMARY
+        # Extract Test Coverage section
+        if grep -q "## Test Coverage Analysis" "$RESULT_FILE"; then
+          echo "#### 1. Test Coverage" >> $GITHUB_STEP_SUMMARY
+          COVERAGE_SCORE=$(grep "## Test Coverage Analysis" "$RESULT_FILE" | grep -oE "\([0-9.]+/[0-9.]+ points\)" | head -1)
+          echo "**Score:** $COVERAGE_SCORE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          # Extract key points (lines starting with - under this section until next ##)
+          sed -n '/## Test Coverage Analysis/,/^## /p' "$RESULT_FILE" | grep "^- " | head -5 >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Extract Test Quality section
+        if grep -q "## Test Quality Assessment" "$RESULT_FILE"; then
+          echo "#### 2. Test Quality" >> $GITHUB_STEP_SUMMARY
+          QUALITY_SCORE=$(grep "## Test Quality Assessment" "$RESULT_FILE" | grep -oE "\([0-9.]+/[0-9.]+ points\)" | head -1)
+          echo "**Score:** $QUALITY_SCORE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          sed -n '/## Test Quality Assessment/,/^## /p' "$RESULT_FILE" | grep "^- " | head -5 >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Extract Edge Cases section
+        if grep -q "## Edge Cases & Error Scenarios" "$RESULT_FILE"; then
+          echo "#### 3. Edge Cases & Error Scenarios" >> $GITHUB_STEP_SUMMARY
+          EDGE_SCORE=$(grep "## Edge Cases & Error Scenarios" "$RESULT_FILE" | grep -oE "\([0-9.]+/[0-9.]+ points\)" | head -1)
+          echo "**Score:** $EDGE_SCORE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          sed -n '/## Edge Cases & Error Scenarios/,/^## /p' "$RESULT_FILE" | grep "^- " | head -5 >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Extract Test Assertions section
+        if grep -q "## Test Assertions Quality" "$RESULT_FILE"; then
+          echo "#### 4. Test Assertions" >> $GITHUB_STEP_SUMMARY
+          ASSERTIONS_SCORE=$(grep "## Test Assertions Quality" "$RESULT_FILE" | grep -oE "\([0-9.]+/[0-9.]+ points\)" | head -1)
+          echo "**Score:** $ASSERTIONS_SCORE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          sed -n '/## Test Assertions Quality/,/^## /p' "$RESULT_FILE" | grep "^- " | head -5 >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Extract Code Organization section
+        if grep -q "## Code Organization & Maintainability" "$RESULT_FILE"; then
+          echo "#### 5. Code Organization & Maintainability" >> $GITHUB_STEP_SUMMARY
+          ORG_SCORE=$(grep "## Code Organization & Maintainability" "$RESULT_FILE" | grep -oE "\([0-9.]+/[0-9.]+ points\)" | head -1)
+          echo "**Score:** $ORG_SCORE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          sed -n '/## Code Organization & Maintainability/,/^## /p' "$RESULT_FILE" | grep "^- " | head -5 >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        # Extract Critical Gaps or Main Issues if available
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if grep -q "### Critical Gaps\|### Main Issues\|### Weaknesses" "$RESULT_FILE"; then
+          echo "### ⚠️  Critical Issues" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          # Try to extract from different possible section names
+          sed -n '/### Critical Gaps/,/^## /p' "$RESULT_FILE" | grep "^- \|^[0-9]\." | head -10 >> $GITHUB_STEP_SUMMARY 2>/dev/null || \
+          sed -n '/### Main Issues/,/^## /p' "$RESULT_FILE" | grep "^- \|^[0-9]\." | head -10 >> $GITHUB_STEP_SUMMARY 2>/dev/null || \
+          sed -n '/### Weaknesses/,/^## /p' "$RESULT_FILE" | grep "^- \|^[0-9]\." | head -10 >> $GITHUB_STEP_SUMMARY 2>/dev/null
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+
+        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📄 **Full detailed report available in job artifacts**" >> $GITHUB_STEP_SUMMARY
 
     - name: Fail if score below threshold
       if: steps.check_score.outputs.passed == 'false'
