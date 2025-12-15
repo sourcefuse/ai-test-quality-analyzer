@@ -382,6 +382,8 @@ runs:
         SCORE="${{ steps.extract_score.outputs.score }}"
         THRESHOLD="${{ inputs.minimum_score }}"
 
+        GAP=$(awk -v threshold="$THRESHOLD" -v score="$SCORE" 'BEGIN { printf "%.1f", threshold - score }')
+
         echo ""
         echo "════════════════════════════════════════════════════════════"
         echo "❌ TEST QUALITY CHECK FAILED"
@@ -389,7 +391,7 @@ runs:
         echo ""
         echo "📊 Score: ${SCORE}/10"
         echo "🎯 Required: ${THRESHOLD}/10"
-        echo "📉 Gap: $(awk -v threshold="$THRESHOLD" -v score="$SCORE" 'BEGIN { printf "%.1f", threshold - score }') points"
+        echo "📉 Gap: ${GAP} points"
         echo ""
         echo "⚠️  This PR cannot be merged until test quality improves."
         echo ""
@@ -401,4 +403,8 @@ runs:
         echo ""
         echo "════════════════════════════════════════════════════════════"
         echo ""
+
+        # Use GitHub Actions error annotation to make failure visible
+        echo "::error::Test quality score (${SCORE}/10) is below minimum threshold (${THRESHOLD}/10). Gap: ${GAP} points. This PR requires additional test coverage before it can be merged."
+
         exit 1
