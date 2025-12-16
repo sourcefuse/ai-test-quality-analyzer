@@ -3,7 +3,7 @@
     "description": "Sensitive data that must be encrypted. Set these in: Repository Settings → Secrets and variables → Actions → Secrets",
     "required": [
       {
-        "name": "UT_QUALITY_JIRA_URL",
+        "name": "JIRA_URL",
         "env_var": "JIRA_URL",
         "description": "JIRA instance URL (e.g., https://yourcompany.atlassian.net)",
         "example": "https://yourcompany.atlassian.net",
@@ -11,7 +11,7 @@
         "reason": "May contain company-specific domain information"
       },
       {
-        "name": "UT_QUALITY_JIRA_EMAIL",
+        "name": "JIRA_EMAIL",
         "env_var": "JIRA_EMAIL",
         "description": "JIRA user email for authentication",
         "example": "jira-bot@yourcompany.com",
@@ -19,7 +19,7 @@
         "reason": "Contains user credentials"
       },
       {
-        "name": "UT_QUALITY_JIRA_API_TOKEN",
+        "name": "JIRA_API_TOKEN",
         "env_var": "JIRA_API_TOKEN",
         "description": "JIRA API token for authentication",
         "example": "ATBBxxxxxxxxxxxxxxxxxxxxxx",
@@ -27,7 +27,7 @@
         "reason": "API token with full access to JIRA"
       },
       {
-        "name": "UT_QUALITY_CONFLUENCE_URL",
+        "name": "CONFLUENCE_URL",
         "env_var": "CONFLUENCE_URL",
         "description": "Confluence instance URL",
         "example": "https://yourcompany.atlassian.net/wiki",
@@ -35,7 +35,7 @@
         "reason": "May contain company-specific domain information"
       },
       {
-        "name": "UT_QUALITY_CONFLUENCE_EMAIL",
+        "name": "CONFLUENCE_EMAIL",
         "env_var": "CONFLUENCE_EMAIL",
         "description": "Confluence user email for authentication",
         "example": "confluence-bot@yourcompany.com",
@@ -43,7 +43,7 @@
         "reason": "Contains user credentials"
       },
       {
-        "name": "UT_QUALITY_CONFLUENCE_API_TOKEN",
+        "name": "CONFLUENCE_API_TOKEN",
         "env_var": "CONFLUENCE_API_TOKEN",
         "description": "Confluence API token for authentication",
         "example": "ATBBxxxxxxxxxxxxxxxxxxxxxx",
@@ -51,7 +51,7 @@
         "reason": "API token with full access to Confluence"
       },
       {
-        "name": "UT_QUALITY_CONFLUENCE_UPLOAD_URL",
+        "name": "CONFLUENCE_UPLOAD_URL",
         "env_var": "CONFLUENCE_UPLOAD_URL",
         "description": "Confluence instance URL for uploading results (optional - if different from fetch URL)",
         "example": "https://targetcompany.atlassian.net/wiki",
@@ -59,7 +59,7 @@
         "reason": "May contain company-specific domain information"
       },
       {
-        "name": "UT_QUALITY_CONFLUENCE_UPLOAD_EMAIL",
+        "name": "CONFLUENCE_UPLOAD_EMAIL",
         "env_var": "CONFLUENCE_UPLOAD_EMAIL",
         "description": "Confluence user email for uploading results (optional - if different from fetch email)",
         "example": "upload-bot@targetcompany.com",
@@ -67,7 +67,7 @@
         "reason": "Contains user credentials"
       },
       {
-        "name": "UT_QUALITY_CONFLUENCE_UPLOAD_API_TOKEN",
+        "name": "CONFLUENCE_UPLOAD_API_TOKEN",
         "env_var": "CONFLUENCE_UPLOAD_API_TOKEN",
         "description": "Confluence API token for uploading results (optional - if different from fetch token)",
         "example": "ATBBxxxxxxxxxxxxxxxxxxxxxx",
@@ -75,7 +75,7 @@
         "reason": "API token with full access to Confluence"
       },
       {
-        "name": "UT_QUALITY_AWS_REGION_BEDROCK",
+        "name": "AWS_REGION_BEDROCK",
         "env_var": "AWS_REGION_BEDROCK",
         "description": "AWS region for Bedrock service",
         "example": "us-east-2",
@@ -83,7 +83,7 @@
         "reason": "AWS region configuration"
       },
       {
-        "name": "UT_QUALITY_AWS_ACCESS_KEY_BEDROCK",
+        "name": "AWS_ACCESS_KEY_BEDROCK",
         "env_var": "AWS_ACCESS_KEY_BEDROCK",
         "description": "AWS access key for Bedrock authentication",
         "example": "AKIAIOSFODNN7EXAMPLE",
@@ -91,7 +91,7 @@
         "reason": "AWS access credentials"
       },
       {
-        "name": "UT_QUALITY_AWS_SECRET_KEY_BEDROCK",
+        "name": "AWS_SECRET_KEY_BEDROCK",
         "env_var": "AWS_SECRET_KEY_BEDROCK",
         "description": "AWS secret key for Bedrock authentication",
         "example": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
@@ -99,7 +99,7 @@
         "reason": "AWS secret credentials"
       },
       {
-        "name": "UT_QUALITY_AWS_BEDROCK_MODEL",
+        "name": "AWS_BEDROCK_MODEL",
         "env_var": "AWS_BEDROCK_MODEL",
         "description": "AWS Bedrock model identifier",
         "example": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
@@ -107,7 +107,7 @@
         "reason": "Model configuration, not sensitive"
       },
       {
-        "name": "UT_QUALITY_ANTHROPIC_MODEL",
+        "name": "ANTHROPIC_MODEL",
         "env_var": "ANTHROPIC_MODEL",
         "description": "Anthropic model name for Claude",
         "example": "sonnet[1m]",
@@ -115,7 +115,7 @@
         "reason": "Model configuration, not sensitive"
       },
       {
-        "name": "UT_QUALITY_DOCKER_USERNAME",
+        "name": "DOCKER_USERNAME",
         "env_var": "DOCKER_USERNAME",
         "description": "Docker registry username for authentication",
         "example": "dockerhub-user",
@@ -123,7 +123,7 @@
         "reason": "Docker registry credentials"
       },
       {
-        "name": "UT_QUALITY_DOCKER_PASSWORD",
+        "name": "DOCKER_PASSWORD",
         "env_var": "DOCKER_PASSWORD",
         "description": "Docker registry password/token for authentication",
         "example": "dckr_pat_xxxxxxxxxxxxxxxxxxxx",
@@ -131,15 +131,20 @@
         "reason": "Docker registry authentication token"
       },
       {
-        "name": "UT_QUALITY_OPENAI_API_KEY",
+        "name": "OPENAI_API_KEY",
         "env_var": "OPENAI_API_KEY",
-        "description": "OpenAI API key for embeddings (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "description": "OpenAI API key for embeddings - used by both quality check and test generation workflows (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
         "example": "sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         "sensitive": true,
-        "reason": "OpenAI API credentials for embeddings generation"
+        "reason": "OpenAI API credentials for embeddings generation",
+        "workflows": ["quality-check", "generate-tests"],
+        "secret_names": {
+          "quality_check": "UT_QUALITY_OPENAI_API_KEY",
+          "generate_tests": "UT_GENERATE_OPENAI_API_KEY"
+        }
       },
       {
-        "name": "UT_QUALITY_DATABASE_HOST",
+        "name": "DATABASE_HOST",
         "env_var": "DATABASE_HOST",
         "description": "PostgreSQL database host (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
         "example": "localhost",
@@ -147,7 +152,7 @@
         "reason": "Database connection configuration"
       },
       {
-        "name": "UT_QUALITY_DATABASE_PORT",
+        "name": "DATABASE_PORT",
         "env_var": "DATABASE_PORT",
         "description": "PostgreSQL database port (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
         "example": "5432",
@@ -155,7 +160,7 @@
         "reason": "Database connection configuration"
       },
       {
-        "name": "UT_QUALITY_DATABASE_NAME",
+        "name": "DATABASE_NAME",
         "env_var": "DATABASE_NAME",
         "description": "PostgreSQL database name (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
         "example": "postgres-pgvector",
@@ -163,7 +168,7 @@
         "reason": "Database name configuration"
       },
       {
-        "name": "UT_QUALITY_DATABASE_USER",
+        "name": "DATABASE_USER",
         "env_var": "DATABASE_USER",
         "description": "PostgreSQL database user (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
         "example": "postgres",
@@ -171,7 +176,7 @@
         "reason": "Database authentication credentials"
       },
       {
-        "name": "UT_QUALITY_DATABASE_PASSWORD",
+        "name": "DATABASE_PASSWORD",
         "env_var": "DATABASE_PASSWORD",
         "description": "PostgreSQL database password (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
         "example": "your-secure-password",
@@ -184,7 +189,7 @@
     "description": "Non-sensitive configuration values. Set these in: Repository Settings → Secrets and variables → Actions → Variables",
     "optional": [
       {
-        "name": "UT_QUALITY_JIRA_PROJECT_KEY",
+        "name": "JIRA_PROJECT_KEY",
         "env_var": "JIRA_PROJECT_KEY",
         "description": "JIRA project key identifier",
         "example": "BB",
@@ -193,7 +198,7 @@
         "reason": "Public project identifier, not sensitive"
       },
       {
-        "name": "UT_QUALITY_CONFLUENCE_SPACE_KEY",
+        "name": "CONFLUENCE_SPACE_KEY",
         "env_var": "CONFLUENCE_SPACE_KEY",
         "description": "Confluence space key identifier",
         "example": "BB",
@@ -202,7 +207,7 @@
         "reason": "Public space identifier, not sensitive"
       },
       {
-        "name": "UT_QUALITY_CONFLUENCE_UPLOAD_SPACE_KEY",
+        "name": "CONFLUENCE_UPLOAD_SPACE_KEY",
         "env_var": "CONFLUENCE_UPLOAD_SPACE_KEY",
         "description": "Confluence space key for uploading results (optional - if different from fetch space)",
         "example": "TARGET",
@@ -211,7 +216,7 @@
         "reason": "Public space identifier, not sensitive"
       },
       {
-        "name": "UT_QUALITY_MINIMUM_SCORE",
+        "name": "MINIMUM_SCORE",
         "env_var": "MINIMUM_SCORE",
         "description": "Minimum acceptable test quality score (0-10)",
         "example": "1.0",
@@ -220,7 +225,7 @@
         "reason": "Quality threshold configuration, not sensitive"
       },
       {
-        "name": "UT_QUALITY_UPLOAD_TO_CONFLUENCE",
+        "name": "UPLOAD_TO_CONFLUENCE",
         "env_var": "UPLOAD_TO_CONFLUENCE",
         "description": "Whether to upload results to Confluence (true/false)",
         "example": "true",
@@ -229,7 +234,7 @@
         "reason": "Feature flag, not sensitive"
       },
       {
-        "name": "UT_QUALITY_WORKFLOW_RETENTION_DAYS",
+        "name": "WORKFLOW_RETENTION_DAYS",
         "env_var": "WORKFLOW_RETENTION_DAYS",
         "description": "Number of days to retain workflow artifacts",
         "example": "2",
@@ -238,7 +243,7 @@
         "reason": "Retention policy, not sensitive"
       },
       {
-        "name": "UT_QUALITY_CLAUDE_CODE_USE_BEDROCK",
+        "name": "CLAUDE_CODE_USE_BEDROCK",
         "env_var": "CLAUDE_CODE_USE_BEDROCK",
         "description": "Enable AWS Bedrock for Claude (1=enabled, 0=disabled)",
         "example": "1",
@@ -247,7 +252,7 @@
         "reason": "Feature flag, not sensitive"
       },
       {
-        "name": "UT_QUALITY_USE_POSTGRES_VECTOR_DB",
+        "name": "USE_POSTGRES_VECTOR_DB",
         "env_var": "USE_POSTGRES_VECTOR_DB",
         "description": "Enable PostgreSQL Vector Database with pgvector for RAG-based Confluence fetching (true/false)",
         "example": "false",
@@ -293,7 +298,8 @@
     ]
   },
   "usage_in_workflow": {
-    "secrets_example": {
+    "note": "Two types of workflows use different secret prefixes: UT_QUALITY_* for quality check workflow, UT_GENERATE_* for test generation workflow",
+    "secrets_example_quality_check": {
       "jira_url": "${{ secrets.UT_QUALITY_JIRA_URL }}",
       "jira_email": "${{ secrets.UT_QUALITY_JIRA_EMAIL }}",
       "jira_api_token": "${{ secrets.UT_QUALITY_JIRA_API_TOKEN }}",
@@ -317,6 +323,25 @@
       "database_user": "${{ secrets.UT_QUALITY_DATABASE_USER }}",
       "database_password": "${{ secrets.UT_QUALITY_DATABASE_PASSWORD }}"
     },
+    "secrets_example_generate_tests": {
+      "jira_url": "${{ secrets.UT_GENERATE_JIRA_URL }}",
+      "jira_email": "${{ secrets.UT_GENERATE_JIRA_EMAIL }}",
+      "jira_api_token": "${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}",
+      "confluence_url": "${{ secrets.UT_GENERATE_CONFLUENCE_URL }}",
+      "confluence_email": "${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}",
+      "confluence_api_token": "${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}",
+      "aws_region_bedrock": "${{ secrets.UT_GENERATE_AWS_REGION_BEDROCK }}",
+      "aws_access_key_bedrock": "${{ secrets.UT_GENERATE_AWS_ACCESS_KEY_BEDROCK }}",
+      "aws_secret_key_bedrock": "${{ secrets.UT_GENERATE_AWS_SECRET_KEY_BEDROCK }}",
+      "aws_bedrock_model": "${{ secrets.UT_GENERATE_AWS_BEDROCK_MODEL }}",
+      "anthropic_model": "${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}",
+      "openai_api_key": "${{ secrets.UT_GENERATE_OPENAI_API_KEY }}",
+      "database_host": "${{ secrets.UT_GENERATE_DATABASE_HOST }}",
+      "database_port": "${{ secrets.UT_GENERATE_DATABASE_PORT }}",
+      "database_name": "${{ secrets.UT_GENERATE_DATABASE_NAME }}",
+      "database_user": "${{ secrets.UT_GENERATE_DATABASE_USER }}",
+      "database_password": "${{ secrets.UT_GENERATE_DATABASE_PASSWORD }}"
+    },
     "variables_example": {
       "jira_project_key": "${{ vars.UT_QUALITY_JIRA_PROJECT_KEY || 'BB' }}",
       "confluence_space_key": "${{ vars.UT_QUALITY_CONFLUENCE_SPACE_KEY || 'BB' }}",
@@ -328,13 +353,19 @@
     }
   },
   "setup_instructions": {
+    "important_note": "⚠️ Each secret needs TWO entries with different prefixes: UT_QUALITY_* for quality check workflow and UT_GENERATE_* for test generation workflow. For example, OPENAI_API_KEY needs both UT_QUALITY_OPENAI_API_KEY and UT_GENERATE_OPENAI_API_KEY.",
     "secrets": [
       "1. Go to your repository on GitHub",
       "2. Navigate to Settings → Secrets and variables → Actions",
       "3. Click on 'Secrets' tab",
       "4. Click 'New repository secret'",
-      "5. Add each secret from the 'required' list above",
-      "6. Click 'Add secret' to save"
+      "5. Add each secret from the 'required' list above with BOTH prefixes:",
+      "   - UT_QUALITY_* (for quality check workflow)",
+      "   - UT_GENERATE_* (for test generation workflow)",
+      "6. Example: For JIRA_URL, create:",
+      "   - UT_QUALITY_JIRA_URL",
+      "   - UT_GENERATE_JIRA_URL",
+      "7. Click 'Add secret' to save each one"
     ],
     "variables": [
       "1. Go to your repository on GitHub",
