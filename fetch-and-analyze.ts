@@ -215,30 +215,7 @@ async function main(): Promise<void> {
             console.log('   Set these variables in .env to test ticket retrieval');
         }
 
-        // Example 2: Search for issues by JQL
-        if (jiraConfig.projectKey) {
-            console.log(`\n🔍 Example: Searching for issues in project ${jiraConfig.projectKey}...`);
-            console.log('-'.repeat(60));
-
-            const jql = `project = '${jiraConfig.projectKey}' ORDER BY created DESC`;
-            const searchResults = await jiraService.searchIssues({
-                jql,
-                maxResults: 5,
-                fields: ['key', 'summary', 'status'],
-            });
-
-            console.log(`\n✅ Found ${searchResults.total} total issue(s)`);
-            console.log(`   Showing first ${searchResults.issues.length} issue(s):\n`);
-
-            for (const issue of searchResults.issues) {
-                const summary = issue.fields?.summary || 'No summary';
-                console.log(`   - ${issue.key}: ${summary}`);
-            }
-        } else {
-            console.log('\n⚠️  Skipping search - JIRA_PROJECT_KEY not set');
-        }
-
-        // Example 3: Confluence Integration
+        // Confluence Integration
         console.log('\n\n' + '='.repeat(60));
         console.log('CONFLUENCE INTEGRATION TESTS');
         console.log('='.repeat(60));
