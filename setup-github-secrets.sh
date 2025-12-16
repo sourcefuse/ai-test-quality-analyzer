@@ -74,23 +74,28 @@ echo ""
 # Load .env file
 source "$ENV_FILE"
 
-# Check for prefix configuration
-if [ -z "$SECRET_PREFIX" ]; then
-    echo -e "${YELLOW}⚠️  SECRET_PREFIX not set in .env, using no prefix for secrets${NC}"
-    SECRET_PREFIX=""
+# Define both secret prefixes (for quality check and test generation workflows)
+SECRET_PREFIXES=("UT_QUALITY_" "UT_GENERATE_")
+
+# Check for custom prefix configuration (optional override)
+if [ -n "$SECRET_PREFIX" ]; then
+    echo -e "${YELLOW}⚠️  Using custom SECRET_PREFIX from .env: ${SECRET_PREFIX}${NC}"
+    SECRET_PREFIXES=("$SECRET_PREFIX")
 fi
 
 if [ -z "$VARIABLE_PREFIX" ]; then
-    echo -e "${YELLOW}⚠️  VARIABLE_PREFIX not set in .env, using no prefix for variables${NC}"
-    VARIABLE_PREFIX=""
+    echo -e "${YELLOW}⚠️  VARIABLE_PREFIX not set in .env, using default prefixes${NC}"
+    VARIABLE_PREFIX="UT_QUALITY_"
 fi
 
-if [ -n "$SECRET_PREFIX" ] || [ -n "$VARIABLE_PREFIX" ]; then
-    echo -e "${BLUE}📌 Prefix Configuration:${NC}"
-    [ -n "$SECRET_PREFIX" ] && echo -e "   Secrets: ${GREEN}${SECRET_PREFIX}${NC}"
-    [ -n "$VARIABLE_PREFIX" ] && echo -e "   Variables: ${GREEN}${VARIABLE_PREFIX}${NC}"
-    echo ""
-fi
+echo -e "${BLUE}📌 Prefix Configuration:${NC}"
+echo -e "   Secrets will be created with prefixes: ${GREEN}${SECRET_PREFIXES[@]}${NC}"
+echo -e "   Variables will use prefix: ${GREEN}${VARIABLE_PREFIX}${NC}"
+echo ""
+echo -e "${YELLOW}ℹ️  Note: Secrets will be created with BOTH prefixes to support both workflows:${NC}"
+echo -e "   - UT_QUALITY_* (for quality check workflow)"
+echo -e "   - UT_GENERATE_* (for test generation workflow)"
+echo ""
 
 # Function to read value from .env
 get_env_value() {
@@ -148,15 +153,21 @@ while IFS= read -r line; do
 
     VALUE=$(get_env_value "$ENV_VAR")
 
-    # Apply prefix to secret name
-    PREFIXED_SECRET_NAME="${SECRET_PREFIX}${SECRET_NAME}"
-
-    SECRETS_COUNT=$((SECRETS_COUNT + 1))
-
     if [ -z "$VALUE" ]; then
-        echo -e "${YELLOW}⚠️  Skipping $PREFIXED_SECRET_NAME: $ENV_VAR not found in .env${NC}"
-        SECRETS_FAILED=$((SECRETS_FAILED + 1))
-    else
+        echo -e "${YELLOW}⚠️  Skipping $SECRET_NAME: $ENV_VAR not found in .env${NC}"
+        for PREFIX in "${SECRET_PREFIXES[@]}"; do
+            SECRETS_COUNT=$((SECRETS_COUNT + 1))
+            SECRETS_FAILED=$((SECRETS_FAILED + 1))
+        done
+        echo ""
+        continue
+    fi
+
+    # Create secret with EACH prefix (for both workflows)
+    for PREFIX in "${SECRET_PREFIXES[@]}"; do
+        PREFIXED_SECRET_NAME="${PREFIX}${SECRET_NAME}"
+        SECRETS_COUNT=$((SECRETS_COUNT + 1))
+
         echo -e "${BLUE}   Setting secret: $PREFIXED_SECRET_NAME${NC}"
         if echo "$VALUE" | gh secret set "$PREFIXED_SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
             echo -e "${GREEN}   ✅ $PREFIXED_SECRET_NAME set successfully${NC}"
@@ -165,7 +176,7 @@ while IFS= read -r line; do
             echo -e "${RED}   ❌ Failed to set $PREFIXED_SECRET_NAME${NC}"
             SECRETS_FAILED=$((SECRETS_FAILED + 1))
         fi
-    fi
+    done
     echo ""
 done < <(jq -c '.secrets.required[]' "$CONFIG_FILE")
 
@@ -234,13 +245,24 @@ if [ $VARS_FAILED -gt 0 ]; then
 fi
 echo ""
 
+echo -e "${BLUE}ℹ️  Secret Prefixes Created:${NC}"
+echo "  Each secret was created with BOTH prefixes:"
+echo "  - UT_QUALITY_* (for quality check workflow)"
+echo "  - UT_GENERATE_* (for test generation workflow)"
+echo ""
+
 if [ $SECRETS_FAILED -eq 0 ] && [ $VARS_FAILED -eq 0 ]; then
     echo -e "${GREEN}✅ All secrets and variables configured successfully!${NC}"
     echo ""
     echo -e "${BLUE}Next steps:${NC}"
-    echo "  1. Copy templates/check-unit-testcases.yml to $REPO_NAME/.github/workflows/"
-    echo "  2. Update the action path in the workflow file"
+    echo "  1. Copy appropriate workflow template to $REPO_NAME/.github/workflows/:"
+    echo "     - templates/check-unit-testcases.yml (for quality checks)"
+    echo "     - templates/generate-unit-testcases.yml (for test generation)"
+    echo "  2. Update the action path/version in the workflow file"
     echo "  3. Commit and push to trigger the workflow"
+    echo ""
+    echo -e "${YELLOW}Note:${NC} Database secrets (DATABASE_*) and OPENAI_API_KEY are only"
+    echo "     required if USE_POSTGRES_VECTOR_DB is enabled (default: disabled)"
     echo ""
     exit 0
 else
@@ -249,6 +271,9 @@ else
     echo -e "${BLUE}Please review the warnings above and:${NC}"
     echo "  1. Add missing values to your .env file"
     echo "  2. Re-run this script to update missing secrets/variables"
+    echo ""
+    echo -e "${YELLOW}Note:${NC} Some secrets like DATABASE_* and OPENAI_API_KEY are optional"
+    echo "     and only needed if USE_POSTGRES_VECTOR_DB is enabled"
     echo ""
     exit 1
 fi
