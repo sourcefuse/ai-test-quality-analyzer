@@ -204,6 +204,13 @@ export class JiraService {
   private formatIssueDetails(parentIssue: JiraIssue, subIssues?: JiraIssue[]): string {
     let result = `Jira Story is below in format of title : description\n`;
 
+    // Defensive check for undefined fields
+    if (!parentIssue || !parentIssue.fields) {
+      console.error('⚠️  Invalid JIRA issue structure - missing fields');
+      console.error('   Issue data:', JSON.stringify(parentIssue, null, 2));
+      return 'Error: Unable to format JIRA issue - missing fields data';
+    }
+
     // Format parent issue
     const parentDescription = parentIssue.fields.description
       ? extractParagraphText(parentIssue.fields.description).join('\n')
@@ -216,6 +223,12 @@ export class JiraService {
       result += `\n\nJira sub story is below in format of title : description\n`;
 
       for (const subIssue of subIssues) {
+        // Skip sub-issues with missing fields
+        if (!subIssue || !subIssue.fields) {
+          console.warn('⚠️  Skipping sub-issue with missing fields:', subIssue?.key || 'unknown');
+          continue;
+        }
+
         const subDescription = subIssue.fields.description
           ? extractParagraphText(subIssue.fields.description).join('\n')
           : 'No description provided';
