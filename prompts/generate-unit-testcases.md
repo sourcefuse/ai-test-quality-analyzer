@@ -76,7 +76,9 @@ Glob: "**/__tests__/*.test.tsx"
 - If testing a service, find existing service tests
 - If testing a component, find existing component tests
 
-#### 2. Analyze Test Pattern
+#### 2. Analyze Test Pattern & Method Signatures
+
+**CRITICAL**: Before writing tests, you MUST verify method signatures from source code.
 
 Read 2-3 existing test files and extract:
 
@@ -118,6 +120,35 @@ describe('ServiceName', () => {
 expect(result).to.deepEqual(expected);  // ✅ Chai style
 // Then don't use:
 expect(result).toEqual(expected);  // ❌ Jest style
+```
+
+**⚠️ CRITICAL: LoopBack Testlab Assertion Syntax**:
+```typescript
+// ❌ WRONG - Chai syntax (causes TS2349 error in LoopBack)
+expect(result).to.be.an('array');           // ❌ Arrays
+expect(result).to.be.a('array');            // ❌ Arrays (alternate)
+expect(value).to.be.a('number');            // ❌ Numbers
+expect(value).to.be.a('string');            // ❌ Strings
+expect(value).to.be.an('object');           // ❌ Objects
+expect(controller.create).to.be.a('function'); // ❌ Functions
+
+// ✅ CORRECT - LoopBack testlab syntax
+expect(Array.isArray(result)).to.be.true();        // ✅ Arrays
+expect(typeof value).to.equal('number');            // ✅ Numbers
+expect(typeof value).to.equal('string');            // ✅ Strings
+expect(typeof value).to.equal('object');            // ✅ Objects
+expect(typeof controller.create).to.equal('function'); // ✅ Functions
+```
+
+**Common Patterns to Replace:**
+```typescript
+// SEARCH your generated test file for these FORBIDDEN patterns:
+'.to.be.an('        // ❌ FORBIDDEN
+'.to.be.a('         // ❌ FORBIDDEN
+
+// Replace with:
+'Array.isArray('    // ✅ For arrays
+'typeof'            // ✅ For primitives & functions
 ```
 
 **Async Handling**:
@@ -293,6 +324,20 @@ repository = createStubInstance(Repository);
 
 // ❌ DON'T use different approach
 repository = {create: sinon.stub()} as any;  // WRONG!
+```
+
+**❌ WRONG - Incorrect LoopBack Assertion Syntax (TS2349 Error)**:
+```typescript
+// ❌ These cause TypeScript compilation errors in LoopBack
+expect(result).to.be.an('array');          // TS2349: This expression is not callable
+expect(result).to.be.a('array');           // TS2349: This expression is not callable
+expect(controller.create).to.be.a('function');  // TS2349: This expression is not callable
+expect(value).to.be.a('string');           // TS2349: This expression is not callable
+
+// ✅ CORRECT - Use these instead
+expect(Array.isArray(result)).to.be.true();
+expect(typeof controller.create).to.equal('function');
+expect(typeof value).to.equal('string');
 ```
 
 ### STEP 2: READ REQUIREMENTS
@@ -490,6 +535,12 @@ PATTERN CONSISTENCY (MANDATORY):
 6. Naming: Follow existing naming conventions
 7. Constants: Use same constant naming pattern (UPPER_CASE vs camelCase)
 
+⚠️ CRITICAL FOR LOOPBACK: Assertion Syntax
+- NEVER use: expect(result).to.be.an('array') - causes TS2349 error
+- NEVER use: expect(value).to.be.a('function') - causes TS2349 error
+- ALWAYS use: expect(Array.isArray(result)).to.be.true()
+- ALWAYS use: expect(typeof value).to.equal('function')
+
 QUALITY STANDARDS (MANDATORY - See "TEST QUALITY STANDARDS" section):
 1. Error Coverage: Minimum 25% of tests must cover error scenarios
 2. Test Data: Use realistic UUIDs (not '1', '2', '3')
@@ -501,20 +552,42 @@ QUALITY STANDARDS (MANDATORY - See "TEST QUALITY STANDARDS" section):
 
 Steps:
 1. Read 2-3 existing test files to confirm pattern analysis
-2. Read source file
-3. Add file header comment with JIRA context (match existing header style)
-4. Copy exact import statements from existing tests
-5. Set up test structure matching existing pattern exactly
-6. Create test file at specified path
-7. Write tests covering (in this ratio):
+2. **Read source file and extract ALL method signatures**
+   - For each method to test, note:
+     * Method name
+     * Number of parameters
+     * Parameter types
+     * Return type
+   - Example: `execute(data: Tags[], userId: string, tenantId: string, options?: RequestOptions): Observable<Tags[]>`
+3. **Verify base class signatures** (if applicable)
+   - If class extends a base (e.g., PostAPICommand), check base class method signatures
+   - Commands often have: `execute(payload, headers?, params?, body?)` - 4 parameters!
+4. Add file header comment with JIRA context (match existing header style)
+5. Copy exact import statements from existing tests
+6. Set up test structure matching existing pattern exactly
+7. Create test file at specified path
+8. **Write tests with CORRECT method signatures**:
+   - NEVER guess parameter counts
+   - Pass ALL required parameters (check source code!)
+   - Use proper types (not 'unknown' or 'any')
+   - Example:
+     ```typescript
+     // ❌ WRONG - Missing parameters
+     command.execute(mockData).subscribe()
+
+     // ✅ CORRECT - All parameters provided
+     command.execute(mockData, headers, params, body).subscribe()
+     ```
+9. Write tests covering (in this ratio):
    - Happy path: ~60% of tests
    - Error scenarios: ~25% of tests (MANDATORY MINIMUM)
    - Edge cases: ~15% of tests
-8. Use SAME mocking approach as existing tests
-9. Use SAME assertion style as existing tests
-10. Follow AAA pattern with explicit // Arrange, // Act, // Assert comments
-11. Use realistic UUIDs for all test data
-12. Name all constants (no magic numbers)
+10. Use SAME mocking approach as existing tests
+11. Use SAME assertion style as existing tests
+12. Follow AAA pattern with explicit // Arrange, // Act, // Assert comments
+13. Use realistic UUIDs for all test data
+14. Name all constants (no magic numbers)
+15. **VERIFY: Search generated file for `.to.be.a(` and `.to.be.an(` - MUST be ZERO occurrences**
 
 Error Scenarios to Include:
 - Repository/API failures
@@ -570,6 +643,12 @@ PATTERN CONSISTENCY (MANDATORY):
 7. Constants: Use same constant format already in file (UPPER_CASE vs camelCase)
 8. Variable naming: Match existing variable names (e.g., if file uses 'controller', use 'controller')
 
+⚠️ CRITICAL FOR LOOPBACK: Assertion Syntax
+- NEVER use: expect(result).to.be.an('array') - causes TS2349 error
+- NEVER use: expect(value).to.be.a('function') - causes TS2349 error
+- ALWAYS use: expect(Array.isArray(result)).to.be.true()
+- ALWAYS use: expect(typeof value).to.equal('function')
+
 QUALITY STANDARDS (MANDATORY - See "TEST QUALITY STANDARDS" section):
 1. Error Coverage: Minimum 25% of NEW tests must cover error scenarios
 2. Test Data: Use realistic UUIDs (match format of existing test data)
@@ -581,28 +660,37 @@ QUALITY STANDARDS (MANDATORY - See "TEST QUALITY STANDARDS" section):
 
 Steps:
 1. Read source file
-2. Read existing test file CAREFULLY
-3. Extract pattern from existing test file:
+2. **Read source file and extract method signatures for NEW/MODIFIED methods**
+   - For each new method to test, note:
+     * Method name
+     * Number of parameters
+     * Parameter types
+     * Return type
+   - Check base class if applicable
+3. Read existing test file CAREFULLY
+4. Extract pattern from existing test file:
    - Note exact import statements
    - Note mocking approach used
    - Note assertion style
    - Note variable naming conventions
    - Note constant format
    - Note beforeEach pattern
-4. Update file header comment to add new JIRA context (match existing header format)
-5. Identify which methods are NEW or MODIFIED for this JIRA
-6. ADD test cases ONLY for new/modified methods:
+5. Update file header comment to add new JIRA context (match existing header format)
+6. Identify which methods are NEW or MODIFIED for this JIRA
+7. ADD test cases ONLY for new/modified methods:
    - Happy path: ~60% of new tests
    - Error scenarios: ~25% of new tests (MANDATORY MINIMUM)
    - Edge cases: ~15% of new tests
-7. Use EXACT SAME imports as existing file
-8. Use EXACT SAME mocking approach as existing tests
-9. Use EXACT SAME assertion style as existing tests
-10. Follow EXACT SAME naming conventions
-11. Keep existing valid tests unchanged
-12. Match existing AAA comment style (if used)
-13. Use realistic UUIDs (match existing format)
-14. If file would exceed 1000 lines, suggest splitting
+8. **Write tests with CORRECT method signatures** (verify parameter count and types!)
+9. Use EXACT SAME imports as existing file
+10. Use EXACT SAME mocking approach as existing tests
+11. Use EXACT SAME assertion style as existing tests
+12. Follow EXACT SAME naming conventions
+13. Keep existing valid tests unchanged
+14. Match existing AAA comment style (if used)
+15. Use realistic UUIDs (match existing format)
+16. If file would exceed 1000 lines, suggest splitting
+17. **VERIFY: Search generated file for `.to.be.a(` and `.to.be.an(` - MUST be ZERO occurrences**
 
 Error Scenarios to Include for NEW Methods:
 - Repository/API failures
@@ -650,23 +738,55 @@ Rules:
 ❌ NEVER let file exceed 1000 lines without warning
 ```
 
-### STEP 5: VERIFY
-After sub-agents complete:
+### STEP 5: VERIFY & SELF-CHECK
+
+**CRITICAL**: Before reporting completion, run these verification checks on EACH generated file:
+
+#### A. Pattern Search Verification
+```bash
+# ❌ MUST FIND ZERO OCCURRENCES
+grep -c "\.to\.be\.an(" <test-file>     # Must return: 0
+grep -c "\.to\.be\.a(" <test-file>      # Must return: 0
+grep -c "id: '[0-9]'" <test-file>       # Must return: 0
+grep -c "const.*= [0-9]" <test-file>    # Check if named descriptively
+```
+
+#### B. Manual Verification Checklist
+For EACH test file generated:
+1. ✅ Open the file and search for `.to.be.a(`
+2. ✅ Search for `.to.be.an(`
+3. ✅ Check all method calls have correct parameter counts
+4. ✅ Verify no simple IDs like '1', '2', '3'
+5. ✅ Confirm constants have descriptive names (not ONE_TWENTY)
+6. ✅ Check file size < 1000 lines
+
+#### C. If Errors Found
+**DO NOT report completion!** Instead:
+1. Fix the errors in the generated file
+2. Re-run verification
+3. Only report success after ALL checks pass
+
+#### D. Report Summary
+After sub-agents complete and verification passes:
 - Verify all test files created/updated
 - Report summary with paths and test counts
 - Show which methods were tested
+- **Confirm zero `.to.be.a/an` occurrences**
 
 **Summary Format:**
 ```
 Test Generation Summary:
 ✅ Created: 1 file
   - lock-month-operation.service.unit.ts (full coverage, 40 tests)
+  - Verified: 0 .to.be.a/an errors ✓
 
 ✅ Updated: 2 files
   - locked-month.controller.unit.ts (+7 tests for createBulk())
   - company-financials.service.unit.ts (+3 tests for locked month filtering)
+  - Verified: 0 .to.be.a/an errors ✓
 
 Total: 50 new test cases for BB-XXXX
+Verification: ALL CHECKS PASSED ✓
 ```
 
 ## TEST QUALITY STANDARDS
@@ -721,20 +841,41 @@ it('should handle network timeout errors', done => {
 
 ### 2. Test Data Quality
 
-**❌ BAD - Simple IDs**:
+**⚠️ CRITICAL: NEVER use simple IDs like '1', '2', '3'**
+
+**❌ BAD - Simple IDs (FORBIDDEN)**:
 ```typescript
-const TEST_ID = '1';  // Too simple
-const USER_ID = '123';  // Not realistic
-const TENANT_ID = 'tenant-1';  // Doesn't match production format
+const TEST_ID = '1';  // ❌ NEVER DO THIS
+const USER_ID = '123';  // ❌ FORBIDDEN
+const TENANT_ID = 'tenant-1';  // ❌ NOT ALLOWED
+{id: '1', key: 'value'}  // ❌ WRONG
+{id: '2', key: 'value'}  // ❌ WRONG
 ```
 
-**✅ GOOD - Realistic UUIDs**:
+**✅ GOOD - Realistic UUIDs (MANDATORY)**:
 ```typescript
-// Use UUID v4 format
+// ✅ ALWAYS use UUID v4 format
 const TEST_LOCKED_MONTH_ID = '550e8400-e29b-41d4-a716-446655440000';
 const TEST_TENANT_ID = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 const TEST_USER_ID = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
 const TEST_DEAL_ID = '123e4567-e89b-12d3-a456-426614174000';
+
+// ✅ In test data arrays
+const mockTags: Tags[] = [
+  {id: '550e8400-e29b-41d4-a716-446655440000', key: 'Department', value: 'HR'},
+  {id: '6ba7b810-9dad-11d1-80b4-00c04fd430c8', key: 'Department', value: 'Finance'},
+];
+```
+
+**UUID Generator Reference**:
+```typescript
+// Use these example UUIDs for your tests:
+'550e8400-e29b-41d4-a716-446655440000'
+'6ba7b810-9dad-11d1-80b4-00c04fd430c8'
+'f47ac10b-58cc-4372-a567-0e02b2c3d479'
+'123e4567-e89b-12d3-a456-426614174000'
+'7c9e6679-7425-40de-944b-e07fc1f90ae7'
+'a1b2c3d4-e5f6-4789-a012-b3c4d5e6f7a8'
 ```
 
 **Date Constants**:
@@ -858,24 +999,45 @@ describe('LockedMonthController.createBulk() - BB-18368', () => {
 
 ### 6. Named Constants (No Magic Numbers)
 
-**❌ AVOID Magic Numbers**:
+**⚠️ CRITICAL: Use descriptive constant names, NOT literal number names**
+
+**❌ FORBIDDEN - Literal Number Names**:
 ```typescript
-const ONE_TWENTY_ONE = 121;  // What is this?
-expect(component.items.length).toBe(5);  // Why 5?
-await delay(3000);  // Why 3 seconds?
+const ONE_TWENTY_ONE = 121;  // ❌ NEVER DO THIS - doesn't explain purpose
+const ONE_TWENTY = 120;      // ❌ FORBIDDEN - meaningless name
+const TWO = 2;               // ❌ WRONG - just spelling out the number
+const FIVE = 5;              // ❌ WRONG - no context
+
+// ❌ Magic numbers in assertions
+expect(component.items.length).toBe(5);  // ❌ Why 5?
+expect(result.length).toBe(2);           // ❌ Why 2?
+await delay(3000);                       // ❌ Why 3 seconds?
 ```
 
-**✅ USE Named Constants**:
+**✅ MANDATORY - Descriptive Constant Names**:
 ```typescript
+// ✅ CORRECT - Names describe the PURPOSE
 const MAX_TAG_VALUE_LENGTH = 120;
-const MAX_TAG_VALUE_WITH_BUFFER = MAX_TAG_VALUE_LENGTH + 1;
+const MAX_TAG_VALUE_WITH_BUFFER = MAX_TAG_VALUE_LENGTH + 1;  // 121
 const DEFAULT_ITEMS_COUNT = 5;
+const EXPECTED_TAG_COUNT = 2;
 const NETWORK_TIMEOUT_MS = 3000;
+const MAX_RETRY_ATTEMPTS = 3;
+const STANDARD_PAGE_SIZE = 10;
 
+// ✅ Use descriptive names in tests
 expect(value.length).toBeLessThanOrEqual(MAX_TAG_VALUE_LENGTH);
 expect(component.items.length).toBe(DEFAULT_ITEMS_COUNT);
+expect(result.length).toBe(EXPECTED_TAG_COUNT);
 await delay(NETWORK_TIMEOUT_MS);
 ```
+
+**Naming Rules**:
+1. ✅ Name must describe WHAT the number represents (e.g., MAX_LENGTH, TIMEOUT_MS)
+2. ❌ Name must NOT just spell out the number (e.g., ONE_TWENTY, FIVE)
+3. ✅ Include units in name when relevant (e.g., _MS, _SECONDS, _COUNT)
+4. ✅ Use business/domain terms (e.g., MAX_TAG_VALUE_LENGTH vs LENGTH)
+5. ❌ NEVER use raw numbers in expect() assertions without constants
 
 ### 7. Framework-Specific Best Practices
 
@@ -901,6 +1063,17 @@ it('should commit transaction on success', async () => {
 // ✅ Verify Sinon stub calls
 expect(repository.stubs.create.calledOnce).to.be.true();
 expect(repository.stubs.create.calledWith(expectedData)).to.be.true();
+
+// ⚠️ CRITICAL: Correct assertion syntax for LoopBack testlab
+// ❌ WRONG - Causes TS2349 error
+expect(result).to.be.an('array');
+expect(controller.create).to.be.a('function');
+
+// ✅ CORRECT - Use typeof or type checking functions
+expect(Array.isArray(result)).to.be.true();
+expect(typeof controller.create).to.equal('function');
+expect(typeof value).to.equal('string');
+expect(typeof count).to.equal('number');
 ```
 
 **Angular (UI Tests)**:
@@ -996,18 +1169,45 @@ sinon.useFakeTimers();
 
 Before completing test generation, verify:
 
+**Coverage & Organization:**
 - [ ] ✅ Error scenario coverage ≥ 25%
-- [ ] ✅ All test data uses realistic UUIDs
-- [ ] ✅ AAA pattern with explicit comments
-- [ ] ✅ File size < 1000 lines
-- [ ] ✅ Named constants (no magic numbers)
-- [ ] ✅ File header with JIRA context
-- [ ] ✅ Framework best practices followed
+- [ ] ✅ AAA pattern with explicit comments (Arrange-Act-Assert)
 - [ ] ✅ Tests organized with nested describes
 - [ ] ✅ All public methods tested
+- [ ] ✅ File header with JIRA context
+
+**Method Signatures (CRITICAL):**
+- [ ] ✅ **Verified method signatures from source code**
+- [ ] ✅ **Correct parameter count for ALL methods**
+- [ ] ✅ **Correct parameter types (no 'unknown' or 'any')**
+- [ ] ✅ **Base class methods checked (if applicable)**
+- [ ] ✅ **Command.execute() has correct number of parameters (often 4!)**
+
+**Test Data Quality (CRITICAL):**
+- [ ] ✅ **NO simple IDs like '1', '2', '3' - MUST use UUIDs**
+- [ ] ✅ **ALL IDs follow UUID v4 format (36 chars with hyphens)**
+- [ ] ✅ **NO literal number constant names (ONE_TWENTY, FIVE, etc.)**
+- [ ] ✅ **ALL constants have descriptive names (MAX_TAG_VALUE_LENGTH)**
+- [ ] ✅ **NO magic numbers in expect() - use named constants**
+
+**File Size:**
+- [ ] ✅ File size < 1000 lines
+- [ ] ✅ If >1000 lines, split into multiple feature-based files
+
+**Framework-Specific (LoopBack):**
+- [ ] ✅ **CRITICAL: NO `.to.be.a()` or `.to.be.an()` syntax**
+- [ ] ✅ **Use `typeof` or `Array.isArray()` instead**
 - [ ] ✅ Transaction testing (if applicable)
-- [ ] ✅ Observable testing with done() (Angular)
-- [ ] ✅ fixture.detectChanges() used (Angular)
+
+**Framework-Specific (Angular):**
+- [ ] ✅ Observable testing with done() callback
+- [ ] ✅ fixture.detectChanges() called after state changes
+- [ ] ✅ NoopAnimationsModule imported
+
+**Framework Best Practices:**
+- [ ] ✅ Framework best practices followed
+- [ ] ✅ Imports match existing test patterns
+- [ ] ✅ Mocking approach matches existing tests
 
 ## FRAMEWORK-SPECIFIC TEMPLATES
 
@@ -1036,6 +1236,39 @@ import * as sinon from 'sinon';
 describe('ComponentName', () => {
   it('should do something', () => {
     expect(result).to.equal('expected');
+  });
+});
+```
+
+**LoopBack + Testlab (Mocha + Chai wrapper):**
+```typescript
+import {expect, createStubInstance, StubbedInstanceWithSinonAccessor} from '@loopback/testlab';
+
+describe('ControllerName', () => {
+  let controller: ControllerName;
+  let repository: StubbedInstanceWithSinonAccessor<Repository>;
+
+  beforeEach(() => {
+    repository = createStubInstance(Repository);
+    controller = new ControllerName(repository);
+  });
+
+  it('should create item successfully', async () => {
+    // Arrange
+    repository.stubs.create.resolves(mockData);
+
+    // Act
+    const result = await controller.create(input);
+
+    // Assert
+    expect(result).to.deepEqual(mockData);
+    expect(repository.stubs.create.calledOnce).to.be.true();
+
+    // ⚠️ CRITICAL: DO NOT USE .to.be.a() or .to.be.an()
+    // ❌ WRONG: expect(result).to.be.an('array');
+    // ✅ CORRECT:
+    expect(Array.isArray(result)).to.be.true();
+    expect(typeof controller.create).to.equal('function');
   });
 });
 ```
@@ -1184,6 +1417,112 @@ Glob: "**/SOWEditForm.{tsx,jsx}"       → Found: components/SOWEditForm.tsx
    - Test: Form disable logic when SOW is invalid
 ```
 
+## ⚠️ REAL-WORLD ERROR PREVENTION CHECKLIST
+
+**These errors were found in actual AI-generated tests. You MUST avoid ALL of them:**
+
+### 🔴 TypeScript Compilation Errors (TS2349) - **22 instances found**
+```typescript
+// ❌ FORBIDDEN - Causes compilation failure
+expect(result).to.be.an('array')           // Found 8 times
+expect(value).to.be.a('number')            // Found 4 times
+expect(value).to.be.an('object')           // Found 1 time
+expect(fn).to.be.a('function')             // Found 9 times
+
+// ✅ REQUIRED - Always use these
+expect(Array.isArray(result)).to.be.true()
+expect(typeof value).to.equal('number')
+expect(typeof value).to.equal('object')
+expect(typeof fn).to.equal('function')
+```
+
+### 🔴 Method Signature Errors (TS2554) - **Multiple instances**
+```typescript
+// ❌ WRONG - Missing required parameters
+command.execute(mockData).subscribe()      // Expected 4 arguments, got 1
+
+// ✅ CORRECT - Verify signature from source code first
+// Check base class: PostAPICommand.execute(payload, headers?, params?, body?)
+command.execute(mockData, undefined, undefined, undefined).subscribe()
+```
+
+### 🔴 Type Assignment Errors (TS2345) - **Multiple instances**
+```typescript
+// ❌ WRONG - Using 'unknown' type
+const result: unknown = await service.getData();
+expect(result.id).toBe('123');  // Error: 'result' is of type 'unknown'
+
+// ✅ CORRECT - Proper type assertion
+const result = await service.getData() as DataType;
+expect(result.id).toBe('123');
+```
+
+### 🔴 Simple ID Usage - **Found in ALL 7 UI test files**
+```typescript
+// ❌ FORBIDDEN
+{id: '1', key: 'Department', value: 'HR'}
+{id: '2', key: 'Location', value: 'NY'}
+const TEST_ID = '1';
+
+// ✅ REQUIRED
+{id: '550e8400-e29b-41d4-a716-446655440000', key: 'Department', value: 'HR'}
+{id: '6ba7b810-9dad-11d1-80b4-00c04fd430c8', key: 'Location', value: 'NY'}
+const TEST_ID = '550e8400-e29b-41d4-a716-446655440000';
+```
+
+### 🔴 Poor Constant Naming - **Found in production tests**
+```typescript
+// ❌ FORBIDDEN
+const ONE_TWENTY_ONE = 121;  // Meaningless
+const ONE_TWENTY = 120;      // Just spelling number
+const TWO = 2;               // No context
+
+// ✅ REQUIRED
+const MAX_TAG_VALUE_LENGTH = 120;
+const MAX_TAG_VALUE_WITH_BUFFER = 121;
+const EXPECTED_RESULT_COUNT = 2;
+```
+
+### 🔴 Magic Numbers - **58 instances found in UI tests**
+```typescript
+// ❌ FORBIDDEN
+expect(result.length).toBe(2);
+expect(items.length).toBe(5);
+expect(count).toBe(3);
+
+// ✅ REQUIRED
+const EXPECTED_RESULT_COUNT = 2;
+const DEFAULT_ITEMS_COUNT = 5;
+const MAX_RETRY_COUNT = 3;
+expect(result.length).toBe(EXPECTED_RESULT_COUNT);
+expect(items.length).toBe(DEFAULT_ITEMS_COUNT);
+expect(count).toBe(MAX_RETRY_COUNT);
+```
+
+### ✅ BEFORE YOU COMPLETE: MANDATORY SELF-CHECK
+
+Run these commands on EVERY generated test file:
+
+```bash
+# 1. Check for TS2349 errors (MUST BE ZERO)
+grep -c "\.to\.be\.an(" test-file.ts    # Must return: 0
+grep -c "\.to\.be\.a(" test-file.ts     # Must return: 0
+
+# 2. Check for simple IDs (MUST BE ZERO)
+grep -c "id: '[0-9]'" test-file.ts      # Must return: 0
+grep -c "id: \"[0-9]\"" test-file.ts    # Must return: 0
+
+# 3. Check for poor constants
+grep "const.*= [0-9]" test-file.ts      # Review each - must have descriptive names
+
+# 4. Verify file size
+wc -l test-file.ts                       # Must be < 1000
+```
+
+**If ANY check fails: FIX before reporting completion!**
+
+---
+
 ## 🚀 START NOW
 
 1. Detect framework from `repo/package.json`
@@ -1193,4 +1532,6 @@ Glob: "**/SOWEditForm.{tsx,jsx}"       → Found: components/SOWEditForm.tsx
 5. **VERIFY FILES** implement requirements
 6. **CREATE WHITELIST** with CREATE/UPDATE mode
 7. Launch sub-agents in parallel (one message, multiple Task calls)
-8. Verify and report with summary
+8. **RUN MANDATORY SELF-CHECK** on all generated files
+9. **FIX any errors found** during self-check
+10. Verify and report with summary (ONLY after all checks pass)
