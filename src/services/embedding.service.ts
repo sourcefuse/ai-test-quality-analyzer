@@ -79,6 +79,13 @@ export class EmbeddingService {
         input: text,
       });
 
+      // Defensive check for undefined response structure
+      if (!response || !response.data || !response.data[0] || !response.data[0].embedding) {
+        console.error('⚠️  Invalid embedding response structure');
+        console.error('   Response:', JSON.stringify(response, null, 2));
+        return [];
+      }
+
       return response.data[0].embedding;
     } catch (error) {
       console.error('❌ Error generating embedding:', error);
