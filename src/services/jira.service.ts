@@ -97,11 +97,28 @@ export class JiraService {
 
       console.log(`✅ Found ${response.data.issues?.length || 0} issue(s)`);
 
+      // JIRA Cloud API v3 uses different pagination format
+      // Old format: total, maxResults, startAt
+      // New format: nextPageToken, isLast
+      const hasNewPaginationFormat = 'nextPageToken' in response.data || 'isLast' in response.data;
+
+      // For new format, if we have issues, estimate total based on what we know
+      // If isLast=true, total = issues.length, otherwise we don't know exact total
+      let total = response.data.total;
+      if (hasNewPaginationFormat && total === undefined) {
+        if (response.data.isLast) {
+          total = (startAt || 0) + (response.data.issues?.length || 0);
+        } else {
+          // We don't know the exact total, use issues length as minimum
+          total = response.data.issues?.length || 0;
+        }
+      }
+
       return {
         issues: response.data.issues || [],
-        total: response.data.total || 0,
+        total: total || 0,
         startAt: response.data.startAt || 0,
-        maxResults: response.data.maxResults || 0,
+        maxResults: response.data.maxResults || (maxResults || this.config.maxResult || JIRA_DEFAULTS.MAX_RESULTS),
         expand: response.data.expand,
       };
     } catch (error) {
