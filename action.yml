@@ -561,31 +561,51 @@ runs:
         # Create new branch
         echo "Creating new branch: $BRANCH_NAME"
         git checkout -b "$BRANCH_NAME"
-        
+
         # Add all changes
         git add .
-        
-        # Commit all changes
-        git commit -m "test: generate unit tests for ${{ inputs.jira_ticket_id }}
 
-        Generated comprehensive unit test cases using AI based on JIRA requirements and Confluence documentation.
+        # Check if there are changes to commit
+        if git diff --cached --quiet; then
+          echo ""
+          echo "=========================================="
+          echo "🎉 CONGRATULATIONS!"
+          echo "=========================================="
+          echo ""
+          echo "✅ All unit test cases are already properly created!"
+          echo "✅ The codebase has complete test coverage for this ticket."
+          echo ""
+          echo "📋 JIRA Ticket: ${{ inputs.jira_ticket_id }}"
+          echo "🎯 No new tests required - feature is production-ready!"
+          echo ""
+          echo "=========================================="
+          echo ""
+          echo "branch_name=" >> $GITHUB_OUTPUT
+          echo "branch_url=" >> $GITHUB_OUTPUT
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        else
+          # Commit all changes
+          git commit -m "test: generate unit tests for ${{ inputs.jira_ticket_id }}
 
-        JIRA Ticket: ${{ inputs.jira_ticket_id }}
-        Target Branch: ${{ inputs.target_branch }}
+          Generated comprehensive unit test cases using AI based on JIRA requirements and Confluence documentation.
 
-        🤖 Generated via GitHub Actions"
+          JIRA Ticket: ${{ inputs.jira_ticket_id }}
+          Target Branch: ${{ inputs.target_branch }}
 
-        # Push to remote
-        echo "⬆️  Pushing branch to remote..."
-        git push -u origin "$BRANCH_NAME"
+          🤖 Generated via GitHub Actions"
 
-        # Generate branch URL
-        BRANCH_URL="https://github.com/${{ github.repository }}/tree/$BRANCH_NAME"
+          # Push to remote
+          echo "⬆️  Pushing branch to remote..."
+          git push -u origin "$BRANCH_NAME"
 
-        echo "✅ All changes committed and pushed to branch: $BRANCH_NAME"
-        echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
-        echo "branch_url=$BRANCH_URL" >> $GITHUB_OUTPUT
-        echo "has_changes=true" >> $GITHUB_OUTPUT
+          # Generate branch URL
+          BRANCH_URL="https://github.com/${{ github.repository }}/tree/$BRANCH_NAME"
+
+          echo "✅ All changes committed and pushed to branch: $BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "branch_url=$BRANCH_URL" >> $GITHUB_OUTPUT
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+        fi
 
     - name: Step 5 - Upload to Confluence with Branch URL
       id: upload_confluence
