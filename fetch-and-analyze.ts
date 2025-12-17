@@ -711,10 +711,30 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
                                 silentMode, // pass silent mode flag
                             );
 
-                            // Index the space
+                            // Fetch Jira issue for smart filtering if ticket ID is available
+                            let jiraIssueForFilter = undefined;
+                            const ticketId = process.env.JIRA_TICKET_ID;
+                            if (ticketId) {
+                                try {
+                                    console.log(`\n🎫 Fetching Jira ticket for smart filtering: ${ticketId}`);
+                                    const ticketDetails = await jiraService.getTicketDetails({ticketId, includeSubTasks: false});
+                                    jiraIssueForFilter = ticketDetails.issue;
+                                    console.log(`✅ Jira ticket fetched: ${jiraIssueForFilter.fields.summary}`);
+                                } catch (error) {
+                                    console.log(`⚠️  Could not fetch Jira ticket for filtering: ${error}`);
+                                    console.log(`   Continuing without smart filter...`);
+                                }
+                            }
+
+                            // Index the space with smart filter
                             console.log(`\n📚 Indexing Confluence space: ${confluenceConfig.spaceKey}`);
                             console.log(`   Max pages to fetch: ${maxPages > 0 ? maxPages : 'All'}`);
-                            const stats = await indexerService.indexSpace(confluenceConfig.spaceKey, batchSize, maxPages > 0 ? maxPages : undefined);
+                            const stats = await indexerService.indexSpace(
+                                confluenceConfig.spaceKey,
+                                batchSize,
+                                maxPages > 0 ? maxPages : undefined,
+                                jiraIssueForFilter  // Pass Jira issue for smart filtering
+                            );
 
                             console.log('\n✅ PostgreSQL Vector DB indexing complete!');
                             console.log(`   Space: ${stats.spaceKey}`);

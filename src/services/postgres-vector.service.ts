@@ -141,6 +141,54 @@ export class PostgresVectorService {
       END $$;
     `);
 
+    // Add smart filter columns for tracking relevance and filtering metadata
+    await client.query(`
+      DO $$
+      BEGIN
+        -- Add ticket_id column
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'confluence_documents'
+          AND column_name = 'ticket_id'
+        ) THEN
+          ALTER TABLE confluence_documents
+          ADD COLUMN ticket_id VARCHAR(50);
+        END IF;
+
+        -- Add relevance_score column
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'confluence_documents'
+          AND column_name = 'relevance_score'
+        ) THEN
+          ALTER TABLE confluence_documents
+          ADD COLUMN relevance_score DECIMAL(5,3);
+        END IF;
+
+        -- Add matched_by array column
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'confluence_documents'
+          AND column_name = 'matched_by'
+        ) THEN
+          ALTER TABLE confluence_documents
+          ADD COLUMN matched_by TEXT[];
+        END IF;
+
+        -- Add filter_metadata JSONB column
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'confluence_documents'
+          AND column_name = 'filter_metadata'
+        ) THEN
+          ALTER TABLE confluence_documents
+          ADD COLUMN filter_metadata JSONB;
+        END IF;
+      END $$;
+    `);
+
+    console.log('   ✅ Smart filter columns created/verified');
+
     // Create document_chunks table with vector column
     await client.query(`
       CREATE TABLE IF NOT EXISTS document_chunks (
@@ -187,6 +235,10 @@ export class PostgresVectorService {
    * @param content - Page content
    * @param url - Page URL
    * @param projectKey - JIRA project key (optional)
+   * @param ticketId - JIRA ticket ID (optional)
+   * @param relevanceScore - Smart filter relevance score (optional)
+   * @param matchedBy - Array of match strategies (optional)
+   * @param filterMetadata - Smart filter metadata (optional)
    * @returns Document ID
    */
   async upsertDocument(
@@ -195,23 +247,45 @@ export class PostgresVectorService {
     content: string,
     url: string,
     projectKey?: string,
+    ticketId?: string,
+    relevanceScore?: number,
+    matchedBy?: string[],
+    filterMetadata?: any,
   ): Promise<number> {
     if (!this.pool) throw new Error('Database not initialized');
 
     const result = await this.pool.query<{id: number}>(
       `
-      INSERT INTO confluence_documents (project_key, page_id, title, content, url, last_modified, expires_at)
-      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day')
+      INSERT INTO confluence_documents (
+        project_key, page_id, title, content, url,
+        ticket_id, relevance_score, matched_by, filter_metadata,
+        last_modified, expires_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day')
       ON CONFLICT (page_id) DO UPDATE SET
         project_key = EXCLUDED.project_key,
         title = EXCLUDED.title,
         content = EXCLUDED.content,
         url = EXCLUDED.url,
+        ticket_id = EXCLUDED.ticket_id,
+        relevance_score = EXCLUDED.relevance_score,
+        matched_by = EXCLUDED.matched_by,
+        filter_metadata = EXCLUDED.filter_metadata,
         last_modified = CURRENT_TIMESTAMP,
         expires_at = CURRENT_TIMESTAMP + INTERVAL '1 day'
       RETURNING id
     `,
-      [projectKey, pageId, title, content, url],
+      [
+        projectKey,
+        pageId,
+        title,
+        content,
+        url,
+        ticketId || null,
+        relevanceScore || null,
+        matchedBy || null,
+        filterMetadata ? JSON.stringify(filterMetadata) : null,
+      ],
     );
 
     return result.rows[0].id;
@@ -289,6 +363,10 @@ export class PostgresVectorService {
       content: string;
       url: string;
       projectKey?: string;
+      ticketId?: string;
+      relevanceScore?: number;
+      matchedBy?: string[];
+      filterMetadata?: any;
       chunks: DocumentChunk[];
     }>
   ): Promise<number[]> {
@@ -304,17 +382,35 @@ export class PostgresVectorService {
       for (const doc of documents) {
         // Upsert document
         const docResult = await client.query<{id: number}>(
-          `INSERT INTO confluence_documents (project_key, page_id, title, content, url, last_modified, expires_at)
-           VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day')
+          `INSERT INTO confluence_documents (
+             project_key, page_id, title, content, url,
+             ticket_id, relevance_score, matched_by, filter_metadata,
+             last_modified, expires_at
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day')
            ON CONFLICT (page_id) DO UPDATE SET
              project_key = EXCLUDED.project_key,
              title = EXCLUDED.title,
              content = EXCLUDED.content,
              url = EXCLUDED.url,
+             ticket_id = EXCLUDED.ticket_id,
+             relevance_score = EXCLUDED.relevance_score,
+             matched_by = EXCLUDED.matched_by,
+             filter_metadata = EXCLUDED.filter_metadata,
              last_modified = CURRENT_TIMESTAMP,
              expires_at = CURRENT_TIMESTAMP + INTERVAL '1 day'
            RETURNING id`,
-          [doc.projectKey, doc.pageId, doc.title, doc.content, doc.url]
+          [
+            doc.projectKey,
+            doc.pageId,
+            doc.title,
+            doc.content,
+            doc.url,
+            doc.ticketId || null,
+            doc.relevanceScore || null,
+            doc.matchedBy || null,
+            doc.filterMetadata ? JSON.stringify(doc.filterMetadata) : null,
+          ]
         );
 
         const documentId = docResult.rows[0].id;
@@ -533,6 +629,83 @@ export class PostgresVectorService {
     }
 
     return {documents: documentsDeleted, chunks: chunksDeleted};
+  }
+
+  /**
+   * Get documents by ticket ID
+   * @param ticketId - JIRA ticket ID
+   * @returns Array of documents for the ticket
+   */
+  async getDocumentsByTicketId(ticketId: string): Promise<any[]> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    const result = await this.pool.query(
+      `SELECT
+        id, page_id, title, url, project_key,
+        relevance_score, matched_by, filter_metadata,
+        created_at, last_modified
+      FROM confluence_documents
+      WHERE ticket_id = $1
+      AND expires_at > CURRENT_TIMESTAMP
+      ORDER BY relevance_score DESC NULLS LAST`,
+      [ticketId],
+    );
+
+    return result.rows;
+  }
+
+  /**
+   * Get high-scoring documents above a threshold
+   * @param ticketId - JIRA ticket ID
+   * @param minScore - Minimum relevance score (default: 0.5)
+   * @returns Array of high-scoring documents
+   */
+  async getHighScoringDocuments(
+    ticketId: string,
+    minScore: number = 0.5,
+  ): Promise<any[]> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    const result = await this.pool.query(
+      `SELECT
+        id, page_id, title, url, project_key,
+        relevance_score, matched_by, filter_metadata
+      FROM confluence_documents
+      WHERE ticket_id = $1
+      AND relevance_score >= $2
+      AND expires_at > CURRENT_TIMESTAMP
+      ORDER BY relevance_score DESC`,
+      [ticketId, minScore],
+    );
+
+    return result.rows;
+  }
+
+  /**
+   * Get documents by match strategy
+   * @param ticketId - JIRA ticket ID
+   * @param matchType - Match strategy type
+   * @returns Array of documents that matched using the specified strategy
+   */
+  async getDocumentsByMatchType(
+    ticketId: string,
+    matchType: 'ticketId' | 'keywords' | 'title' | 'labels' | 'components',
+  ): Promise<any[]> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    const result = await this.pool.query(
+      `SELECT
+        id, page_id, title, url, project_key,
+        relevance_score, matched_by, filter_metadata
+      FROM confluence_documents
+      WHERE ticket_id = $1
+      AND $2 = ANY(matched_by)
+      AND expires_at > CURRENT_TIMESTAMP
+      ORDER BY relevance_score DESC`,
+      [ticketId, matchType],
+    );
+
+    return result.rows;
   }
 
   /**

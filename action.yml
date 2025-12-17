@@ -408,7 +408,18 @@ runs:
         INDEXER_BATCH_SIZE=50
         CHUNK_SIZE=1000
         CHUNK_OVERLAP=200
-        
+
+        # Smart Filter Configuration
+        USE_SMART_FILTER=true
+        SMART_FILTER_MAX_PAGES=30
+        SMART_FILTER_MIN_SCORE=0.3
+        SMART_FILTER_USE_KEYWORDS=true
+        SMART_FILTER_USE_TITLE=true
+        SMART_FILTER_USE_LABELS=true
+        SMART_FILTER_USE_COMPONENTS=true
+        SMART_FILTER_DEBUG=false
+        CHECK_PG_BEFORE_CONFLUENCE_FETCH=true
+
         EOF
         echo "✅ Environment configuration created"
 
