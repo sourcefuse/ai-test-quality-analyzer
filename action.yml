@@ -495,7 +495,7 @@ runs:
         # Calculate total cost
         TOTAL_COST=$(echo "$COST1 + $COST2" | bc)
         echo "TOTAL_CLAUDE_COST=$TOTAL_COST" >> $GITHUB_ENV
-        echo "💰 Total Claude Cost: \$$TOTAL_COST"
+        echo "💰 Total Claude Cost: \$$TOTAL_COST (Model: ${{ inputs.anthropic_model }})"
 
     - name: Step 3.5 - List Analysis Folder Contents
       shell: bash
@@ -692,6 +692,8 @@ runs:
         echo "" >> $GITHUB_STEP_SUMMARY
 
         echo "### 💰 Claude Usage Cost" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Model:** ${{ inputs.anthropic_model }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "| Step | Cost |" >> $GITHUB_STEP_SUMMARY
         echo "|------|------|" >> $GITHUB_STEP_SUMMARY
