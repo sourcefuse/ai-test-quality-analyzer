@@ -464,12 +464,27 @@ runs:
       run: |
         cd ${{ github.action_path }}
         echo "📋 Creating requirements document from JIRA and Confluence..."
-        npm run create-requirement-doc
-        echo "✅ Requirements document created"
+
+        # Capture output from create-requirement-doc and extract cost
+        OUTPUT1=$(npm run create-requirement-doc 2>&1)
+        echo "$OUTPUT1"
+        COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | sed 's/.*Cost: \$\([0-9.]*\).*/\1/')
+        echo "COST_REQUIREMENT=$COST1" >> $GITHUB_ENV
+        echo "✅ Requirements document created (Cost: \$$COST1)"
 
         echo "🔍 Generating unit test cases..."
-        npm run generate-unit-testcases
-        echo "✅ Unit test cases generated successfully"
+
+        # Capture output from generate-unit-testcases and extract cost
+        OUTPUT2=$(npm run generate-unit-testcases 2>&1)
+        echo "$OUTPUT2"
+        COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | sed 's/.*Cost: \$\([0-9.]*\).*/\1/')
+        echo "COST_GENERATION=$COST2" >> $GITHUB_ENV
+        echo "✅ Unit test cases generated successfully (Cost: \$$COST2)"
+
+        # Calculate total cost
+        TOTAL_COST=$(echo "$COST1 + $COST2" | bc)
+        echo "TOTAL_CLAUDE_COST=$TOTAL_COST" >> $GITHUB_ENV
+        echo "💰 Total Claude Cost: \$$TOTAL_COST"
 
     - name: Step 3.5 - List Analysis Folder Contents
       shell: bash
@@ -596,6 +611,9 @@ runs:
         BRANCH_URL="${{ steps.commit_tests.outputs.branch_url }}"
         CONFLUENCE_URL="${{ steps.upload_confluence.outputs.confluence_url }}"
         ANALYSIS_FOLDER="${{ env.ANALYSIS_FOLDER }}"
+        COST_REQUIREMENT="${{ env.COST_REQUIREMENT }}"
+        COST_GENERATION="${{ env.COST_GENERATION }}"
+        TOTAL_CLAUDE_COST="${{ env.TOTAL_CLAUDE_COST }}"
 
         echo "## 🎉 Unit Test Generation Complete" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -640,6 +658,15 @@ runs:
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
         echo "$ANALYSIS_FOLDER" >> $GITHUB_STEP_SUMMARY
         echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "### 💰 Claude Usage Cost" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Step | Cost |" >> $GITHUB_STEP_SUMMARY
+        echo "|------|------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Requirements Generation | \$${COST_REQUIREMENT:-0.00} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Test Cases Generation | \$${COST_GENERATION:-0.00} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Total** | **\$${TOTAL_CLAUDE_COST:-0.00}** |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         echo "### 📝 Next Steps" >> $GITHUB_STEP_SUMMARY
