@@ -347,3 +347,10 @@ This project is licensed under the ISC License - see the [LICENSE](LICENSE) file
 **Created by** [Vishal Gupta](https://github.com/vishalgupta2)
 
 **Maintained by** [SourceFuse](https://github.com/sourcefuse)
+## Recent Updates
+
+### v1.0.1 - JIRA Cloud API v3 Support
+- Fixed issue where JIRA search results showed "0 total issues"
+- Added support for new JIRA Cloud API v3 pagination format (nextPageToken/isLast)
+- Maintains backward compatibility with old pagination format (total/maxResults/startAt)
+
