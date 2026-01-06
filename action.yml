@@ -544,8 +544,9 @@ runs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-        # Create branch name from ticket ID
-        BRANCH_NAME="${{ inputs.jira_ticket_id }}-via-ai-$(date +%Y-%m-%d-%H-%M-%S)"
+        # Create branch name from ticket ID (trim whitespace)
+        TICKET_ID=$(echo "${{ inputs.jira_ticket_id }}" | xargs)
+        BRANCH_NAME="${TICKET_ID}-via-ai-$(date +%Y-%m-%d-%H-%M-%S)"
         echo "Preparing branch: $BRANCH_NAME"
 
         # Delete branch if it exists on remote
