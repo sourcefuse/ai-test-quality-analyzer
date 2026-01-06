@@ -661,8 +661,13 @@ runs:
         echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        # Add JIRA link
-        JIRA_LINK="${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }}"
+        # Add JIRA link (ensure absolute URL)
+        JIRA_BASE="${{ inputs.jira_url }}"
+        # Add https:// if not present
+        if [[ ! "$JIRA_BASE" =~ ^https?:// ]]; then
+          JIRA_BASE="https://${JIRA_BASE}"
+        fi
+        JIRA_LINK="${JIRA_BASE}/browse/${{ inputs.jira_ticket_id }}"
         echo "- **JIRA Ticket:** [${{ inputs.jira_ticket_id }}](${JIRA_LINK})" >> $GITHUB_STEP_SUMMARY
 
         # Add PR link if available
