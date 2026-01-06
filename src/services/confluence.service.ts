@@ -378,7 +378,9 @@ export class ConfluenceService {
       return {
         pageId: response.id,
         pageTitle: response.title,
-        url: response._links?.webui,
+        url: response._links?.webui
+          ? `${this.config.host}${response._links.webui}`
+          : undefined,
       };
     } catch (error: any) {
       console.error('❌ Error creating Confluence page:', error);
@@ -398,9 +400,12 @@ export class ConfluenceService {
 
         if (existingPageId) {
           console.log(`   ✅ Using existing page ID: ${existingPageId}`);
+          // Construct URL from page ID
+          const pageUrl = `${this.config.host}/wiki/spaces/${request.spaceKey}/pages/${existingPageId}`;
           return {
             pageId: existingPageId,
             pageTitle: request.title,
+            url: pageUrl,
           };
         }
 

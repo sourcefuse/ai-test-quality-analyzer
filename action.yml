@@ -95,10 +95,6 @@ inputs:
   aws_secret_key_bedrock:
     description: 'AWS secret key for Bedrock authentication'
     required: true
-  aws_bedrock_model:
-    description: 'AWS Bedrock model identifier'
-    required: false
-    default: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
   anthropic_model:
     description: 'Anthropic model name for Claude'
     required: false
@@ -622,8 +618,8 @@ runs:
         OUTPUT=$(npm run upload-requirements 2>&1)
         echo "$OUTPUT"
 
-        # Extract Confluence URL from output
-        CONFLUENCE_URL="${{ inputs.confluence_url }}/wiki$(echo "$OUTPUT" | grep -oP 'URL: \K.*' | head -1)"
+        # Extract Confluence URL from output (now returns full URL from service)
+        CONFLUENCE_URL="$(echo "$OUTPUT" | grep -oP 'URL: \K.*' | head -1)"
 
         if [ -n "$CONFLUENCE_URL" ]; then
           echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
@@ -665,7 +661,8 @@ runs:
         echo "" >> $GITHUB_STEP_SUMMARY
 
         # Add JIRA link
-        echo "- **JIRA Ticket:** [${{ inputs.jira_ticket_id }}](${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }})" >> $GITHUB_STEP_SUMMARY
+        JIRA_LINK="${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }}"
+        echo "- **JIRA Ticket:** [${{ inputs.jira_ticket_id }}](${JIRA_LINK})" >> $GITHUB_STEP_SUMMARY
 
         # Add PR link if available
         if [ -n "${{ github.event.pull_request.html_url }}" ]; then
@@ -676,12 +673,6 @@ runs:
         if [ -n "$CONFLUENCE_URL" ]; then
           echo "- **Confluence Report:** [View Analysis Report](${CONFLUENCE_URL})" >> $GITHUB_STEP_SUMMARY
         fi
-
-        # Add Generated Branch link
-        echo "- **Generated Tests:** [View Branch]($BRANCH_URL)" >> $GITHUB_STEP_SUMMARY
-
-        # Add GitHub Actions artifacts link
-        echo "- **GitHub Artifacts:** [Download Reports](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         echo "### 📁 Analysis Folder" >> $GITHUB_STEP_SUMMARY
