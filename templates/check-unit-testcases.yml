@@ -71,25 +71,40 @@ jobs:
 
       - name: Extract JIRA ticket from branch or PR
         id: extract_ticket
+        env:
+          # 🔒 Security: Use env vars to prevent command injection
+          # Never use ${{ }} directly in bash scripts with untrusted input
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+          PR_TITLE_RAW: ${{ github.event.pull_request.title }}
+          MANUAL_TICKET_ID: ${{ github.event.inputs.jira_ticket_id }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           TICKET_ID=""
 
           # Extract from branch name (e.g., feature/BB-15690-upgrade-ag-grid)
-          if [[ "${{ github.head_ref || github.ref_name }}" =~ ([A-Z]+-[0-9]+) ]]; then
+          # ✅ SAFE: Using environment variable instead of direct interpolation
+          if [[ "$BRANCH_NAME" =~ ([A-Z]+-[0-9]+) ]]; then
             TICKET_ID="${BASH_REMATCH[1]}"
           fi
 
           # Extract from PR title
-          if [ -z "$TICKET_ID" ] && [ "${{ github.event_name }}" == "pull_request" ]; then
-            PR_TITLE="${{ github.event.pull_request.title }}"
-            if [[ "$PR_TITLE" =~ ([A-Z]+-[0-9]+) ]]; then
+          # ✅ SAFE: Using environment variable instead of direct interpolation
+          if [ -z "$TICKET_ID" ] && [ "$EVENT_NAME" == "pull_request" ]; then
+            if [[ "$PR_TITLE_RAW" =~ ([A-Z]+-[0-9]+) ]]; then
               TICKET_ID="${BASH_REMATCH[1]}"
             fi
           fi
 
           # Use manual input
-          if [ -z "$TICKET_ID" ] && [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            TICKET_ID="${{ github.event.inputs.jira_ticket_id }}"
+          # ✅ SAFE: Using environment variable instead of direct interpolation
+          if [ -z "$TICKET_ID" ] && [ "$EVENT_NAME" == "workflow_dispatch" ]; then
+            # Additional validation for manual input
+            if [[ "$MANUAL_TICKET_ID" =~ ^[A-Z]+-[0-9]+$ ]]; then
+              TICKET_ID="$MANUAL_TICKET_ID"
+            else
+              echo "⚠️ Warning: Invalid JIRA ticket format: $MANUAL_TICKET_ID"
+              echo "Expected format: PROJECT-NUMBER (e.g., BB-1234)"
+            fi
           fi
 
           # Fallback
@@ -97,6 +112,10 @@ jobs:
             echo "⚠️ Warning: Could not extract JIRA ticket ID"
             TICKET_ID="UNKNOWN"
           fi
+
+          # ✅ SAFE: Sanitize output before writing to GITHUB_OUTPUT
+          # Only allow alphanumeric, hyphen, and underscore
+          TICKET_ID=$(echo "$TICKET_ID" | tr -cd 'A-Z0-9-_')
 
           echo "ticket_id=$TICKET_ID" >> $GITHUB_OUTPUT
           echo "📋 Using JIRA Ticket: $TICKET_ID"
