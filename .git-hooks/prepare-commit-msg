@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Prepare Commit Message Hook
+# Prevents adding Claude/AI as co-author in commits
+#
+# This hook ensures that AI-generated code commits don't include
+# Claude or AI assistants as co-authors on GitHub
+
+COMMIT_MSG_FILE=$1
+COMMIT_SOURCE=$2
+
+# Colors for output
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color
+
+# Read the commit message
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Patterns to detect Claude/AI co-authorship
+declare -a AI_PATTERNS=(
+    "Co-authored-by:.*Claude"
+    "Co-Authored-By:.*Claude"
+    "Co-authored-by:.*noreply@anthropic.com"
+    "Co-Authored-By:.*noreply@anthropic.com"
+    "Co-authored-by:.*AI"
+    "Co-authored-by:.*ChatGPT"
+    "Co-authored-by:.*OpenAI"
+    "Co-authored-by:.*Copilot"
+)
+
+# Check for AI co-authorship patterns
+AI_FOUND=0
+for pattern in "${AI_PATTERNS[@]}"; do
+    if echo "$COMMIT_MSG" | grep -qiE "$pattern"; then
+        AI_FOUND=1
+        break
+    fi
+done
+
+if [ $AI_FOUND -eq 1 ]; then
+    echo -e "${YELLOW}⚠️  Removing AI co-authorship from commit message...${NC}" >&2
+
+    # Remove lines containing AI co-authorship
+    CLEANED_MSG=$(echo "$COMMIT_MSG" | grep -viE "Co-authored-by:.*(Claude|noreply@anthropic.com|ChatGPT|OpenAI|Copilot)")
+
+    # Write cleaned message back
+    echo "$CLEANED_MSG" > "$COMMIT_MSG_FILE"
+
+    echo -e "${GREEN}✅ Commit message cleaned - AI co-authorship removed${NC}" >&2
+fi
+
+exit 0

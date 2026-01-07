@@ -342,6 +342,25 @@
       "database_user": "${{ secrets.UT_GENERATE_DATABASE_USER }}",
       "database_password": "${{ secrets.UT_GENERATE_DATABASE_PASSWORD }}"
     },
+    "secrets_example_generate_tests": {
+      "jira_url": "${{ secrets.UT_GENERATE_JIRA_URL }}",
+      "jira_email": "${{ secrets.UT_GENERATE_JIRA_EMAIL }}",
+      "jira_api_token": "${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}",
+      "confluence_url": "${{ secrets.UT_GENERATE_CONFLUENCE_URL }}",
+      "confluence_email": "${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}",
+      "confluence_api_token": "${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}",
+      "aws_region_bedrock": "${{ secrets.UT_GENERATE_AWS_REGION_BEDROCK }}",
+      "aws_access_key_bedrock": "${{ secrets.UT_GENERATE_AWS_ACCESS_KEY_BEDROCK }}",
+      "aws_secret_key_bedrock": "${{ secrets.UT_GENERATE_AWS_SECRET_KEY_BEDROCK }}",
+      "aws_bedrock_model": "${{ secrets.UT_GENERATE_AWS_BEDROCK_MODEL }}",
+      "anthropic_model": "${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}",
+      "openai_api_key": "${{ secrets.UT_GENERATE_OPENAI_API_KEY }}",
+      "database_host": "${{ secrets.UT_GENERATE_DATABASE_HOST }}",
+      "database_port": "${{ secrets.UT_GENERATE_DATABASE_PORT }}",
+      "database_name": "${{ secrets.UT_GENERATE_DATABASE_NAME }}",
+      "database_user": "${{ secrets.UT_GENERATE_DATABASE_USER }}",
+      "database_password": "${{ secrets.UT_GENERATE_DATABASE_PASSWORD }}"
+    },
     "variables_example": {
       "jira_project_key": "${{ vars.UT_QUALITY_JIRA_PROJECT_KEY || 'BB' }}",
       "confluence_space_key": "${{ vars.UT_QUALITY_CONFLUENCE_SPACE_KEY || 'BB' }}",
