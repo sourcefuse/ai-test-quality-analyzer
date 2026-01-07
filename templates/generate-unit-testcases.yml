@@ -1,0 +1,173 @@
+##############################################################################
+# Generate Unit Test Cases - Workflow Template
+#
+# This workflow reads JIRA tickets and Confluence documentation, analyzes
+# the repository code, and generates unit test cases using AI.
+#
+# Copy this file to your repository at:
+# .github/workflows/generate-unit-testcases.yml
+#
+# Required Secrets:
+# - UT_GENERATE_JIRA_URL
+# - UT_GENERATE_JIRA_EMAIL
+# - UT_GENERATE_JIRA_API_TOKEN
+# - UT_GENERATE_CONFLUENCE_URL
+# - UT_GENERATE_CONFLUENCE_EMAIL
+# - UT_GENERATE_CONFLUENCE_API_TOKEN
+# - UT_GENERATE_CONFLUENCE_UPLOAD_URL (optional - for separate upload instance)
+# - UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL (optional)
+# - UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN (optional)
+# - UT_GENERATE_AWS_ACCESS_KEY_BEDROCK
+# - UT_GENERATE_AWS_SECRET_KEY_BEDROCK
+# - UT_GENERATE_DOCKER_USERNAME (optional - for Docker registry authentication)
+# - UT_GENERATE_DOCKER_PASSWORD (optional - for Docker registry authentication)
+# - UT_GENERATE_OPENAI_API_KEY (optional - for OpenAI embeddings if RAG enabled)
+#
+# Required Variables:
+# - UT_GENERATE_JIRA_PROJECT_KEY (optional, default: BB)
+# - UT_GENERATE_CONFLUENCE_SPACE_KEY (optional, default: BB)
+# - UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY (optional - for separate upload space)
+#
+# Usage:
+# This workflow must be triggered manually via workflow_dispatch.
+# Provide the JIRA ticket ID (which will also be used as the source branch name).
+# Optionally provide a target branch where generated unit tests should be created (default: main).
+#
+# Flow:
+# 1. Read JIRA ticket and Confluence documentation
+# 2. Analyze repository code from the target branch
+# 3. Generate unit test cases using AI
+# 4. Upload results to Confluence
+# 5. Commit generated tests to {ticket_id}-via-ai branch
+# 6. Create Pull Request targeting the specified branch
+#
+# Inputs:
+# - jira_ticket_id: JIRA ticket ID (used for branch name: {ticket_id}-via-ai)
+# - target_branch: Branch where generated tests should be merged (default: main)
+#
+# Environment Variables Available:
+# - TARGET_BRANCH: Available in all workflow steps for custom logic
+##############################################################################
+
+name: Generate Unit Test Cases Via AI
+
+on:
+  workflow_dispatch:
+    inputs:
+      jira_ticket_id:
+        description: 'JIRA Ticket ID / Branch Name (e.g., BB-15690)'
+        required: true
+        type: string
+      target_branch:
+        description: 'Target branch for generated unit test cases (default: main)'
+        required: false
+        default: 'dev'
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  generate-unit-tests:
+    name: Generate Unit Test Cases
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write      # Required to push commits
+      pull-requests: write # Required to create PRs
+
+    env:
+      TARGET_BRANCH: ${{ github.event.inputs.target_branch || 'main' }}
+      # TARGET_BRANCH is available to all steps in this job
+      # Use ${{ env.TARGET_BRANCH }} to access it in workflow steps
+      # Or use $TARGET_BRANCH in bash scripts
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set JIRA ticket ID and branch
+        id: extract_ticket
+        run: |
+          TICKET_ID="${{ github.event.inputs.jira_ticket_id }}"
+
+          if [ -z "$TICKET_ID" ]; then
+            echo "❌ Error: JIRA ticket ID / Branch name is required"
+            exit 1
+          fi
+
+          echo "ticket_id=$TICKET_ID" >> $GITHUB_OUTPUT
+          echo "📋 Using JIRA Ticket: $TICKET_ID"
+          echo "🌿 Using Branch: $TICKET_ID"
+
+      - name: Generate Unit Test Cases with AI
+        id: generate_tests
+        uses: sourcefuse/ai-test-quality-analyzer@UT-V1.0
+        with:
+          jira_url: ${{ secrets.UT_GENERATE_JIRA_URL }}
+          jira_email: ${{ secrets.UT_GENERATE_JIRA_EMAIL }}
+          jira_api_token: ${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}
+          jira_ticket_id: ${{ steps.extract_ticket.outputs.ticket_id }}
+          jira_project_key: ${{ vars.UT_GENERATE_JIRA_PROJECT_KEY || 'BB' }}
+          confluence_url: ${{ secrets.UT_GENERATE_CONFLUENCE_URL }}
+          confluence_email: ${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}
+          confluence_api_token: ${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}
+          confluence_space_key: ${{ vars.UT_GENERATE_CONFLUENCE_SPACE_KEY || 'BB' }}
+          confluence_upload_url: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_URL }}
+          confluence_upload_email: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL }}
+          confluence_upload_api_token: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN }}
+          confluence_upload_space_key: ${{ vars.UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY }}
+          repository_url: ${{ github.server_url }}/${{ github.repository }}
+          repository_branch: ${{ steps.extract_ticket.outputs.ticket_id }}
+          target_branch: ${{ env.TARGET_BRANCH }}
+          aws_region_bedrock: ${{ secrets.UT_GENERATE_AWS_REGION_BEDROCK }}
+          aws_access_key_bedrock: ${{ secrets.UT_GENERATE_AWS_ACCESS_KEY_BEDROCK }}
+          aws_secret_key_bedrock: ${{ secrets.UT_GENERATE_AWS_SECRET_KEY_BEDROCK }}
+          aws_bedrock_model: ${{ secrets.UT_GENERATE_AWS_BEDROCK_MODEL }}
+          anthropic_model: ${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}
+          claude_code_use_bedrock: ${{ vars.UT_GENERATE_CLAUDE_CODE_USE_BEDROCK || '1' }}
+          docker_username: ${{ secrets.UT_GENERATE_DOCKER_USERNAME }}
+          docker_password: ${{ secrets.UT_GENERATE_DOCKER_PASSWORD }}
+          openai_api_key: ${{ secrets.UT_GENERATE_OPENAI_API_KEY }}
+        continue-on-error: true
+
+      - name: Display Results Summary
+        if: always()
+        shell: bash
+        run: |
+          echo ""
+          echo "========================================"
+          echo "✅ Unit Test Generation Completed"
+          echo "========================================"
+          echo ""
+          echo "📋 JIRA Ticket: ${{ steps.extract_ticket.outputs.ticket_id }}"
+          echo "🌿 Generated Branch: ${{ steps.extract_ticket.outputs.ticket_id }}-via-ai"
+          echo "🎯 Target Branch: ${{ env.TARGET_BRANCH }}"
+          echo ""
+          echo "📁 Analysis Path: ${{ steps.generate_tests.outputs.analysis_path }}"
+          echo "📄 Requirements File: ${{ steps.generate_tests.outputs.requirements_file }}"
+          echo "📊 Result File: ${{ steps.generate_tests.outputs.result_file }}"
+          echo ""
+          echo "🔗 Links:"
+          echo "   • Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ -n "${{ steps.generate_tests.outputs.confluence_url }}" ]; then
+            echo "   • Confluence Report: ${{ steps.generate_tests.outputs.confluence_url }}"
+          fi
+          if [ -n "${{ steps.generate_tests.outputs.pr_url }}" ]; then
+            echo "   • Pull Request: ${{ steps.generate_tests.outputs.pr_url }}"
+          fi
+          echo ""
+          if [ "${{ steps.generate_tests.outputs.branch_name }}" != "" ]; then
+            echo "📝 Generated tests committed to: ${{ steps.generate_tests.outputs.branch_name }}"
+          fi
+          if [ "${{ steps.generate_tests.outputs.pr_action }}" == "created" ]; then
+            echo "🔀 Pull Request created: #${{ steps.generate_tests.outputs.pr_number }}"
+          elif [ "${{ steps.generate_tests.outputs.pr_action }}" == "updated" ]; then
+            echo "🔀 Pull Request updated: #${{ steps.generate_tests.outputs.pr_number }}"
+          fi
+          echo ""
+          echo "🤖 Generated unit test cases are ready for review!"
+          echo "========================================"
