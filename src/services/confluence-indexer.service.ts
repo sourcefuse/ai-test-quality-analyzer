@@ -160,7 +160,6 @@ export class ConfluenceIndexerService {
         );
 
         if (pageChunks.length === 0) {
-          console.log(`   ⚠️  No chunks for: ${page.title}`);
           continue;
         }
 
