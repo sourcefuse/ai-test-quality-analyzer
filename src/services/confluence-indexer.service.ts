@@ -196,16 +196,16 @@ export class ConfluenceIndexerService {
         await this.vectorService.upsertChunks(documentId, chunksWithEmbeddings);
 
         stats.totalChunks += pageChunks.length;
-
-        console.log(
-          `   ✅ Saved: ${page.title.substring(0, 50)} (${pageChunks.length} chunks)`,
-        );
       } catch (error) {
         const errorMsg = `Failed to process page ${pages[i].title}: ${error}`;
         console.error(`   ❌ ${errorMsg}`);
         stats.errors.push(errorMsg);
       }
     }
+
+    // Log summary after all pages saved
+    const savedPages = pages.length - stats.errors.length;
+    console.log(`   ✅ Saved ${savedPages} pages (${stats.totalChunks} chunks) to database`);
   }
 
   /**
