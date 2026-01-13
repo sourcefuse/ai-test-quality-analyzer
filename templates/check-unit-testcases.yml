@@ -156,6 +156,9 @@ jobs:
           aws_bedrock_model: ${{ secrets.UT_QUALITY_AWS_BEDROCK_MODEL }}
           anthropic_model: ${{ secrets.UT_QUALITY_ANTHROPIC_MODEL }}
           claude_code_use_bedrock: ${{ vars.UT_QUALITY_CLAUDE_CODE_USE_BEDROCK || '1' }}
+          docker_username: ${{ secrets.UT_QUALITY_DOCKER_USERNAME }}
+          docker_password: ${{ secrets.UT_QUALITY_DOCKER_PASSWORD }}
+          openai_api_key: ${{ secrets.UT_QUALITY_OPENAI_API_KEY }}
           upload_to_confluence: 'true'
           save_to_file: 'true'
         continue-on-error: true
