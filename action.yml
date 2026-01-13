@@ -575,15 +575,6 @@ runs:
           echo "- **Pull Request:** [${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})" >> $GITHUB_STEP_SUMMARY
         fi
 
-        # Add Confluence link if upload was successful
-        if [ -n "$CONFLUENCE_URL" ]; then
-          echo "- **Confluence Report:** [View Analysis Report](${CONFLUENCE_URL})" >> $GITHUB_STEP_SUMMARY
-        fi
-
-        # Add GitHub Actions artifacts link
-        echo "- **GitHub Artifacts:** [Download Reports](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-
         echo "### 📁 Generated Files" >> $GITHUB_STEP_SUMMARY
         echo "- Requirements: \`${{ steps.extract_paths.outputs.requirements_file }}\`" >> $GITHUB_STEP_SUMMARY
         echo "- Analysis Report: \`$RESULT_FILE\`" >> $GITHUB_STEP_SUMMARY
