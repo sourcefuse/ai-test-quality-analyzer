@@ -313,7 +313,10 @@
       "aws_access_key_bedrock": "${{ secrets.UT_QUALITY_AWS_ACCESS_KEY_BEDROCK }}",
       "aws_secret_key_bedrock": "${{ secrets.UT_QUALITY_AWS_SECRET_KEY_BEDROCK }}",
       "aws_bedrock_model": "${{ secrets.UT_QUALITY_AWS_BEDROCK_MODEL }}",
-      "anthropic_model": "${{ secrets.UT_QUALITY_ANTHROPIC_MODEL }}"
+      "anthropic_model": "${{ secrets.UT_QUALITY_ANTHROPIC_MODEL }}",
+      "docker_username": "${{ secrets.UT_QUALITY_DOCKER_USERNAME }}",
+      "docker_password": "${{ secrets.UT_QUALITY_DOCKER_PASSWORD }}",
+      "openai_api_key": "${{ secrets.UT_QUALITY_OPENAI_API_KEY }}"
     },
     "secrets_example_generate_tests": {
       "jira_url": "${{ secrets.UT_GENERATE_JIRA_URL }}",
