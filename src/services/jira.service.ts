@@ -219,7 +219,7 @@ export class JiraService {
    * @returns Formatted text representation
    */
   private formatIssueDetails(parentIssue: JiraIssue, subIssues?: JiraIssue[]): string {
-    let result = `Jira Story is below in format of title : description\n`;
+    let result = '';
 
     // Defensive check for undefined fields
     if (!parentIssue || !parentIssue.fields) {
@@ -237,7 +237,7 @@ export class JiraService {
 
     // Format sub-tasks if any
     if (subIssues && subIssues.length > 0) {
-      result += `\n\nJira sub story is below in format of title : description\n`;
+      result += `\n\n### Sub-Tasks\n`;
 
       for (const subIssue of subIssues) {
         // Skip sub-issues with missing fields
