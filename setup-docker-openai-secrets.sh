@@ -71,12 +71,8 @@ source "$ENV_FILE"
 # Secret prefix for quality check workflow only
 SECRET_PREFIX="UT_QUALITY_"
 
-# Secrets to add
-declare -A SECRETS=(
-    ["DOCKER_USERNAME"]="Docker registry username for Presidio authentication"
-    ["DOCKER_PASSWORD"]="Docker registry password/token for Presidio authentication"
-    ["OPENAI_API_KEY"]="OpenAI API key for embeddings generation"
-)
+# Secrets to add (simple array - more compatible)
+SECRET_NAMES=("DOCKER_USERNAME" "DOCKER_PASSWORD" "OPENAI_API_KEY")
 
 # Prompt for repository name
 echo -e "${YELLOW}📦 Enter the repository name (format: owner/repo):${NC}"
@@ -119,8 +115,7 @@ SECRETS_COUNT=0
 SECRETS_SUCCESS=0
 SECRETS_FAILED=0
 
-for SECRET_NAME in "${!SECRETS[@]}"; do
-    DESCRIPTION="${SECRETS[$SECRET_NAME]}"
+for SECRET_NAME in "${SECRET_NAMES[@]}"; do
     VALUE="${!SECRET_NAME}"
     PREFIXED_SECRET_NAME="${SECRET_PREFIX}${SECRET_NAME}"
     SECRETS_COUNT=$((SECRETS_COUNT + 1))
