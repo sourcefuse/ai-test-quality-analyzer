@@ -7,6 +7,26 @@ branding:
   color: 'green'
 
 inputs:
+  database_host:
+    description: 'PostgreSQL database host'
+    required: false
+    default: 'localhost'
+  database_port:
+    description: 'PostgreSQL database port'
+    required: false
+    default: '5432'
+  database_name:
+    description: 'PostgreSQL database name'
+    required: false
+    default: 'postgres-pgvector'
+  database_user:
+    description: 'PostgreSQL database user'
+    required: false
+    default: 'postgres'
+  database_password:
+    description: 'PostgreSQL database password'
+    required: false
+    default: 'admin'
   jira_url:
     description: 'JIRA instance URL'
     required: true
@@ -107,6 +127,22 @@ inputs:
     description: 'Confluence space key for uploading results (if different from fetch space)'
     required: false
     default: ''
+  docker_username:
+    description: 'Docker registry username for authentication (optional - required for Presidio PII detection)'
+    required: false
+    default: ''
+  docker_password:
+    description: 'Docker registry password/token for authentication (optional - required for Presidio PII detection)'
+    required: false
+    default: ''
+  openai_api_key:
+    description: 'OpenAI API key for embeddings (required if USE_POSTGRES_VECTOR_DB is enabled)'
+    required: false
+    default: ''
+  use_postgres_vector_db:
+    description: 'Enable PostgreSQL Vector Database with pgvector for RAG-based Confluence fetching (true/false)'
+    required: false
+    default: 'true'
 
 outputs:
   test_quality_score:
@@ -143,6 +179,117 @@ runs:
         npm install
         npm install -g @anthropic-ai/claude-code
 
+    - name: Setup PostgreSQL Database
+      if: inputs.database_host == 'localhost' && inputs.docker_username != '' && inputs.docker_password != ''
+      shell: bash
+      run: |
+        echo "🐘 Setting up PostgreSQL database..."
+
+        # Pull PostgreSQL image with pgvector pre-installed
+        echo "📥 Pulling PostgreSQL + pgvector image..."
+        docker pull ankane/pgvector:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+
+        # Start PostgreSQL container
+        echo "🚀 Starting PostgreSQL container..."
+        docker run -d \
+          --name postgres-pgvector \
+          -e POSTGRES_USER="${{ inputs.database_user }}" \
+          -e POSTGRES_PASSWORD="${{ inputs.database_password }}" \
+          -e POSTGRES_DB="${{ inputs.database_name }}" \
+          -p ${{ inputs.database_port }}:5432 \
+          ankane/pgvector:latest
+
+        # Wait for PostgreSQL to be ready
+        echo "⏳ Waiting for PostgreSQL to be ready..."
+        sleep 10
+
+        # Verify PostgreSQL is running
+        echo "✅ PostgreSQL setup complete"
+        docker ps | grep postgres-pgvector
+
+    - name: Docker login and start Presidio services
+      if: inputs.docker_username != '' && inputs.docker_password != ''
+      shell: bash
+      run: |
+        echo "🐳 Logging in to Docker registry..."
+        echo "${{ inputs.docker_password }}" | docker login -u "${{ inputs.docker_username }}" --password-stdin docker.io
+
+        echo "📥 Pulling Presidio Docker images..."
+        docker pull mcr.microsoft.com/presidio-analyzer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+        docker pull mcr.microsoft.com/presidio-anonymizer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+
+        echo "🚀 Starting Presidio services..."
+        docker run -d -p 5001:3000 --name presidio-anonymizer mcr.microsoft.com/presidio-anonymizer:latest
+        docker run -d -p 5002:3000 --name presidio-analyzer mcr.microsoft.com/presidio-analyzer:latest
+
+        echo "⏳ Waiting for services to be ready..."
+        sleep 10
+
+        echo "🔍 Testing Presidio services availability..."
+
+        # Wait up to 60 seconds for Presidio Analyzer to be ready
+        MAX_WAIT=60
+        ELAPSED=0
+        ANALYZER_READY=false
+
+        while [ $ELAPSED -lt $MAX_WAIT ]; do
+          if curl -s -X POST http://localhost:5002/analyze \
+            -H "Content-Type: application/json" \
+            -d '{"text":"test","language":"en"}' \
+            --max-time 5 > /dev/null 2>&1; then
+            ANALYZER_READY=true
+            echo "✅ Presidio Analyzer is ready (took ${ELAPSED}s)"
+            break
+          fi
+          echo "   ⏳ Waiting for Presidio Analyzer... (${ELAPSED}s/${MAX_WAIT}s)"
+          sleep 5
+          ELAPSED=$((ELAPSED + 5))
+        done
+
+        if [ "$ANALYZER_READY" = false ]; then
+          echo "⚠️  Presidio Analyzer did not respond within ${MAX_WAIT}s - PII detection will use regex fallback"
+        fi
+
+        # Wait up to 60 seconds for Presidio Anonymizer to be ready
+        ELAPSED=0
+        ANONYMIZER_READY=false
+
+        while [ $ELAPSED -lt $MAX_WAIT ]; do
+          if curl -s -X POST http://localhost:5001/anonymize \
+            -H "Content-Type: application/json" \
+            -d '{"text":"test","anonymizers":{}}' \
+            --max-time 5 > /dev/null 2>&1; then
+            ANONYMIZER_READY=true
+            echo "✅ Presidio Anonymizer is ready (took ${ELAPSED}s)"
+            break
+          fi
+          echo "   ⏳ Waiting for Presidio Anonymizer... (${ELAPSED}s/${MAX_WAIT}s)"
+          sleep 5
+          ELAPSED=$((ELAPSED + 5))
+        done
+
+        if [ "$ANONYMIZER_READY" = false ]; then
+          echo "⚠️  Presidio Anonymizer did not respond within ${MAX_WAIT}s - PII detection will use regex fallback"
+        fi
+
+        if [ "$ANALYZER_READY" = true ] && [ "$ANONYMIZER_READY" = true ]; then
+          echo "✅ All Presidio services are ready and responding"
+        else
+          echo "⚠️  Some Presidio services are not ready - application will use regex-based PII detection"
+        fi
+
+        echo ""
+        echo "📊 Presidio containers status:"
+        docker ps | grep presidio
+
+    - name: Skip Presidio setup notification
+      if: inputs.docker_username == '' || inputs.docker_password == ''
+      shell: bash
+      run: |
+        echo "⚠️  Skipping Docker login and Presidio setup"
+        echo "   Docker credentials not provided - PII detection will be disabled"
+        echo "   To enable Presidio services, provide docker_username and docker_password inputs"
+
     - name: Clone repository for analysis
       shell: bash
       run: |
@@ -163,12 +310,18 @@ runs:
       run: |
         cd ${{ github.action_path }}
         cat > .env << EOF
+        # Application Configuration
+        NODE_ENV=production
+
         # JIRA Configuration
         JIRA_URL=${{ inputs.jira_url }}
         JIRA_EMAIL=${{ inputs.jira_email }}
         JIRA_API_TOKEN=${{ inputs.jira_api_token }}
         JIRA_TICKET_ID=${{ inputs.jira_ticket_id }}
         JIRA_PROJECT_KEY=${{ inputs.jira_project_key }}
+        JIRA_FETCH_FIELDS=summary,description,customfield_10000
+        JIRA_MAX_RESULT=100
+        JIRA_FILE_NAME=Jira.md
 
         # Confluence Configuration (for fetching data)
         CONFLUENCE_URL=${{ inputs.confluence_url }}
@@ -176,12 +329,27 @@ runs:
         CONFLUENCE_API_TOKEN=${{ inputs.confluence_api_token }}
         CONFLUENCE_SPACE_KEY=${{ inputs.confluence_space_key }}
         CONFLUENCE_SILENT_MODE=${{ inputs.confluence_silent_mode }}
+        CONFLUENCE_MAX_PAGES=
+        CONFLUENCE_PAGE_LIMIT=50
+        CONFLUENCE_FILE_NAME=Confluence.md
+        CONFLUENCE_RAG_FILE_NAME=Confluence-Rag.md
 
         # Confluence Upload Configuration (for uploading results)
         CONFLUENCE_UPLOAD_URL=${{ inputs.confluence_upload_url }}
         CONFLUENCE_UPLOAD_EMAIL=${{ inputs.confluence_upload_email }}
         CONFLUENCE_UPLOAD_API_TOKEN=${{ inputs.confluence_upload_api_token }}
         CONFLUENCE_UPLOAD_SPACE_KEY=${{ inputs.confluence_upload_space_key }}
+
+        # Docker Configuration
+        DOCKER_USERNAME=${{ inputs.docker_username }}
+        DOCKER_PASSWORD=${{ inputs.docker_password }}
+
+        # Presidio Configuration (PII Detection)
+        PRESIDIO_ANALYZE_URL=http://localhost:5002/analyze
+        PRESIDIO_ANONYMIZE_URL=http://localhost:5001/anonymize
+
+        # Data Sanitization Configuration
+        SANITIZE_PG_DATA=false
 
         # AWS Bedrock Configuration
         AWS_REGION_BEDROCK=${{ inputs.aws_region_bedrock }}
@@ -196,6 +364,40 @@ runs:
         # Analysis Configuration
         CURRENT_ANALYSIS_PATH=$(echo $(date +'%Y%m%d-%H-%M-%S')-Via-AI)
         SAVE_TO_FILE=${{ inputs.save_to_file }}
+
+        # File Names Configuration
+        REQUIREMENTS_FILE_NAME=Requirements.md
+        ANALYSIS_REPORT_FILE_NAME=AnalysisReport.md
+
+        # RAG System Configuration (PostgreSQL + pgvector)
+        USE_POSTGRES_VECTOR_DB=${{ inputs.use_postgres_vector_db }}
+        DATABASE_HOST=${{ inputs.database_host }}
+        DATABASE_PORT=${{ inputs.database_port }}
+        DATABASE_NAME=${{ inputs.database_name }}
+        DATABASE_USER=${{ inputs.database_user }}
+        DATABASE_PASSWORD=${{ inputs.database_password }}
+
+        # OpenAI Embeddings Configuration
+        EMBEDDING_PROVIDER=openai
+        OPENAI_API_KEY=${{ inputs.openai_api_key }}
+
+        # Performance Configuration
+        EMBEDDING_CONCURRENCY=50
+        INDEXER_BATCH_SIZE=50
+        CHUNK_SIZE=1000
+        CHUNK_OVERLAP=200
+
+        # Smart Filter Configuration
+        USE_SMART_FILTER=true
+        SMART_FILTER_MAX_PAGES=30
+        SMART_FILTER_MIN_SCORE=0.3
+        SMART_FILTER_USE_KEYWORDS=true
+        SMART_FILTER_USE_TITLE=true
+        SMART_FILTER_USE_LABELS=true
+        SMART_FILTER_USE_COMPONENTS=true
+        SMART_FILTER_DEBUG=false
+        CHECK_PG_BEFORE_CONFLUENCE_FETCH=true
+
         EOF
         echo "✅ Environment configuration created"
 

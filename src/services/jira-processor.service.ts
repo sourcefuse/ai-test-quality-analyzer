@@ -414,6 +414,7 @@ export class JiraProcessorService {
 
       // Add to content in Confluence.md format
       confluenceContent += `## ${fullDoc.title}\n\n`;
+      confluenceContent += `**URL:** ${fullDoc.url}\n\n`;
       confluenceContent += `${cleanContent}\n\n`;
       confluenceContent += `---\n\n`;
     }
