@@ -152,17 +152,7 @@ async function main(): Promise<void> {
 
             const ticketDetails = await jiraService.getTicketDetails(query);
 
-            console.log('\n✅ Ticket Details Retrieved:');
-            console.log('- Ticket Key:', ticketDetails.issue.key);
-            console.log('- Summary:', ticketDetails.issue.fields.summary);
-            console.log('- Sub-tasks:', ticketDetails.subIssues?.length || 0);
-
-            if (ticketDetails.formattedText) {
-                console.log('\n📝 Formatted Text:');
-                console.log('-'.repeat(60));
-                console.log(ticketDetails.formattedText);
-                console.log('-'.repeat(60));
-            }
+            console.log(`\n✅ Ticket Details Retrieved: ${ticketDetails.issue.key} (${ticketDetails.subIssues?.length || 0} sub-tasks)`);
 
             // Save Jira details to file if SAVE_TO_FILE flag is enabled
             if (process.env.SAVE_TO_FILE === 'true') {
