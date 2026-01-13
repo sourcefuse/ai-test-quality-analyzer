@@ -67,57 +67,76 @@ Some requirements need different types of tests:
 
 ## SCORING CRITERIA (Total: 10 points):
 
-**IMPORTANT**: Adjust scoring based on change type. Don't penalize for missing unit tests when E2E tests or visual testing is more appropriate.
+**CRITICAL**: You MUST follow this exact scoring system. Scores must be CONSISTENT and DETERMINISTIC.
 
-1. **Test Coverage (3 points)** - *Scope: Only requirements needing unit tests*
-   - All critical **code logic** requirements have corresponding tests (3 pts)
-   - Most code logic requirements covered but some missing (2 pts)
-   - Minimal coverage of code logic requirements (1 pt)
-   - No test coverage for code logic changes (0 pts)
+### MANDATORY SCORING RULES:
 
-   **Scoring Notes**:
-   - Only count requirements categorized as "Code Logic Changes" (from Step 3)
-   - Do NOT penalize for missing unit tests on UI text/styling changes
-   - For visual changes, recommend E2E tests instead of deducting points
-   - If all changes are UI/text only, give minimum 2/3 points for basic component tests
+1. **Always use decimal scores** (e.g., 2.5, not "2-3" or "around 2")
+2. **Final Score MUST equal the sum** of all 5 category scores
+3. **Show your calculation** before writing the final score
+4. **Minimum scores apply** when tests exist (see below)
 
-2. **Test Quality (2 points)** - *Based on tests found in scope*
-   - Tests follow AAA pattern (Arrange, Act, Assert) (0.5 pts)
-   - Tests have clear, descriptive names (0.5 pts)
-   - Tests are isolated and independent (0.5 pts)
-   - Tests use proper mocking and stubbing (0.5 pts)
+### MINIMUM SCORE CONSTRAINTS:
 
-   **Scoring Notes**:
-   - Only evaluate tests for files in scope (from Step 2)
-   - Don't penalize for lack of tests in unrelated files
+| Condition | Minimum Total Score |
+|-----------|---------------------|
+| Tests exist and pass | 4.0/10 |
+| Tests exist with good structure | 5.0/10 |
+| Tests cover main requirements | 6.0/10 |
+| No tests found for in-scope files | 1.0-2.0/10 |
 
-3. **Edge Cases & Error Scenarios (2 points)** - *Scope: Only for code logic changes*
-   - Critical edge cases from requirements are tested (1 pt)
-   - Error scenarios and validations are tested (1 pt)
+### CATEGORY SCORING (Total: 10 points):
 
-   **Scoring Notes**:
-   - Focus on business logic edge cases (null checks, boundary conditions, etc.)
-   - For simple changes (1-5 line modifications), be lenient on edge case requirements
-   - Timeout/loading scenarios only if explicitly mentioned in requirements
-   - Don't expect exhaustive error coverage for trivial changes
+**1. Test Coverage (3 points max)** - *Scope: Only requirements needing unit tests*
 
-4. **Test Assertions (1.5 points)** - *Quality over quantity*
-   - Assertions validate expected behavior completely (0.75 pts)
-   - Mix of positive and negative cases where appropriate (0.75 pts)
+| Coverage Level | Score | Criteria |
+|----------------|-------|----------|
+| Excellent | 2.5 - 3.0 | 80%+ of code logic requirements have tests |
+| Good | 2.0 - 2.4 | 60-79% of code logic requirements have tests |
+| Partial | 1.0 - 1.9 | 30-59% of code logic requirements have tests |
+| Minimal | 0.5 - 0.9 | 10-29% of code logic requirements have tests |
+| None | 0.0 - 0.4 | <10% coverage or no tests |
 
-   **Scoring Notes**:
-   - Expect 60% positive / 40% negative mix (not strict 70/30)
-   - For simple getters/setters, positive tests are sufficient
-   - Negative tests critical only for validation logic, API endpoints, error handling
+**Calculation**: Count requirements, count tests, calculate percentage, map to score.
 
-5. **Code Organization & Maintainability (1.5 points)** - *Structure assessment*
-   - Tests are well-organized in describe/it blocks (0.5 pts)
-   - Setup and teardown are properly implemented (0.5 pts)
-   - Test helpers and utilities are used effectively (0.5 pts)
+**2. Test Quality (2 points max)** - *Based on tests found in scope*
 
-   **Scoring Notes**:
-   - This category should rarely score below 1.0/1.5 if tests exist
-   - Basic describe/it structure is sufficient for full points
+| Sub-criteria | Points | How to Score |
+|--------------|--------|--------------|
+| AAA pattern followed | 0.5 | Yes=0.5, Partial=0.25, No=0 |
+| Clear test names | 0.5 | Yes=0.5, Partial=0.25, No=0 |
+| Tests isolated | 0.5 | Yes=0.5, Partial=0.25, No=0 |
+| Proper mocking | 0.5 | Yes=0.5, Partial=0.25, No=0 |
+
+**Calculation**: Add sub-scores. If tests exist, minimum is 0.5.
+
+**3. Edge Cases & Error Scenarios (2 points max)** - *Scope: Only for code logic changes*
+
+| Sub-criteria | Points | How to Score |
+|--------------|--------|--------------|
+| Edge cases tested | 1.0 | All=1.0, Most=0.75, Some=0.5, Few=0.25, None=0 |
+| Error scenarios tested | 1.0 | All=1.0, Most=0.75, Some=0.5, Few=0.25, None=0 |
+
+**Calculation**: Add sub-scores. If tests exist with any error handling, minimum is 0.5.
+
+**4. Test Assertions (1.5 points max)** - *Quality over quantity*
+
+| Sub-criteria | Points | How to Score |
+|--------------|--------|--------------|
+| Assertions complete | 0.75 | Yes=0.75, Partial=0.5, Weak=0.25, None=0 |
+| Positive/negative mix | 0.75 | Good mix=0.75, Mostly positive=0.5, Only positive=0.25 |
+
+**Calculation**: Add sub-scores. If tests have assertions, minimum is 0.5.
+
+**5. Code Organization (1.5 points max)** - *Structure assessment*
+
+| Sub-criteria | Points | How to Score |
+|--------------|--------|--------------|
+| describe/it blocks | 0.5 | Organized=0.5, Partial=0.25, Flat=0 |
+| Setup/teardown | 0.5 | Proper=0.5, Basic=0.25, None=0 |
+| Test utilities | 0.5 | Good=0.5, Some=0.25, None=0 |
+
+**Calculation**: Add sub-scores. If tests exist with any structure, minimum is 0.5.
 
 IMPORTANT OUTPUT FORMAT:
 
@@ -129,7 +148,7 @@ Write a comprehensive analysis report to `AnalysisReport.md` file in the SAME fo
 **JIRA Ticket:** [Extract from Requirements.md if available]
 **Analysis Date:** [Current timestamp]
 **Repository Analyzed:** repo/
-**Total Score:** X/10
+**Total Score:** X.X/10
 
 ---
 
@@ -312,11 +331,36 @@ Write a comprehensive analysis report to `AnalysisReport.md` file in the SAME fo
 
 ---
 
+## Score Calculation (MANDATORY)
+
+**YOU MUST COMPLETE THIS SECTION BEFORE WRITING THE FINAL SCORE**
+
+### Category Scores Breakdown:
+
+| Category | Max | Your Score | Calculation |
+|----------|-----|------------|-------------|
+| 1. Test Coverage | 3.0 | X.X | [X requirements, Y tested, Z% coverage → score] |
+| 2. Test Quality | 2.0 | X.X | [AAA:X + Names:X + Isolated:X + Mocking:X = X.X] |
+| 3. Edge Cases | 2.0 | X.X | [Edge:X + Errors:X = X.X] |
+| 4. Assertions | 1.5 | X.X | [Complete:X + Mix:X = X.X] |
+| 5. Organization | 1.5 | X.X | [Structure:X + Setup:X + Utils:X = X.X] |
+| **TOTAL** | **10.0** | **X.X** | **Sum of above** |
+
+### Validation Checklist:
+- [ ] All 5 categories have scores
+- [ ] Each category score is within its maximum
+- [ ] Total equals sum of category scores
+- [ ] Score uses one decimal place (e.g., 5.5, not 5.50 or 5.523)
+
+---
+
 ## Conclusion
 
 [Final summary paragraph with overall assessment]
 
-**Final Score: X/10**
+**Total Score:** X.X/10
+
+*(This score is the sum of: Coverage X.X + Quality X.X + Edge Cases X.X + Assertions X.X + Organization X.X)*
 
 ---
 

@@ -468,12 +468,33 @@ runs:
           exit 1
         fi
 
-        # Extract the numeric score (e.g., "3.5" from "**Total Score:** 3.5/10")
-        SCORE=$(grep -E "^\*\*Total Score:\*\*|^Total Score:" "$RESULT_FILE" | grep -oE "[0-9]+(\.[0-9]+)?" | head -1)
+        # Method 1: Extract from header "**Total Score:** X.X/10"
+        SCORE=$(grep -E "^\*\*Total Score:\*\*" "$RESULT_FILE" | head -1 | grep -oE "[0-9]+\.[0-9]+" | head -1)
 
+        # Method 2: If not found, try from Score Calculation table (TOTAL row)
+        if [ -z "$SCORE" ]; then
+          echo "   Trying Score Calculation table..."
+          SCORE=$(grep -E "^\| \*\*TOTAL\*\*" "$RESULT_FILE" | grep -oE "[0-9]+\.[0-9]+" | head -1)
+        fi
+
+        # Method 3: If still not found, try any "Total Score:" pattern
+        if [ -z "$SCORE" ]; then
+          echo "   Trying generic Total Score pattern..."
+          SCORE=$(grep -iE "total score.*[0-9]" "$RESULT_FILE" | grep -oE "[0-9]+\.?[0-9]*" | head -1)
+        fi
+
+        # Validate score
         if [ -z "$SCORE" ]; then
           echo "❌ Could not extract score from result file"
+          echo "   Please check the AnalysisReport.md format"
           exit 1
+        fi
+
+        # Validate score is within range (0-10)
+        VALID=$(awk -v score="$SCORE" 'BEGIN { print (score >= 0 && score <= 10) ? "true" : "false" }')
+        if [ "$VALID" != "true" ]; then
+          echo "⚠️  Score $SCORE is outside valid range (0-10), capping..."
+          SCORE=$(awk -v score="$SCORE" 'BEGIN { if (score > 10) print 10; else if (score < 0) print 0; else print score }')
         fi
 
         echo "score=$SCORE" >> $GITHUB_OUTPUT
