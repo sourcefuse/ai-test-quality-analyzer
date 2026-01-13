@@ -75,7 +75,7 @@ export class PresidioService {
       anonymizeUrl: config.anonymizeUrl,
       language: config.language || 'en',
       scoreThreshold: config.scoreThreshold || 0.5,
-      timeout: config.timeout || 5000,
+      timeout: config.timeout || 30000,
     };
   }
 

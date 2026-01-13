@@ -347,6 +347,7 @@ runs:
         # Presidio Configuration (PII Detection)
         PRESIDIO_ANALYZE_URL=http://localhost:5002/analyze
         PRESIDIO_ANONYMIZE_URL=http://localhost:5001/anonymize
+        PRESIDIO_TIMEOUT=30000
 
         # Data Sanitization Configuration
         SANITIZE_PG_DATA=false
