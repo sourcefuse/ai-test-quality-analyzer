@@ -149,7 +149,6 @@ export class ConfluenceIndexerService {
     const embeddings = await this.embeddingService.batchGenerateEmbeddings(
       allChunks.map(c => c.text),
     );
-    console.log(`   ✅ Generated ${embeddings.length} embeddings`);
 
     // 4. Save to database
     console.log('   🔄 Saving to database...');

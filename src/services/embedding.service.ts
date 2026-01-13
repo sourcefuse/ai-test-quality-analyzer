@@ -105,11 +105,6 @@ export class EmbeddingService {
         try {
           const embedding = await this.generateEmbedding(item.text);
           results[item.index] = embedding;
-
-          // Progress indicator
-          if ((item.index + 1) % 10 === 0) {
-            console.log(`   Generated ${item.index + 1}/${texts.length} embeddings`);
-          }
         } catch (error) {
           console.error(`   ❌ Failed to generate embedding for item ${item.index}:`, error);
           results[item.index] = [];
@@ -118,6 +113,10 @@ export class EmbeddingService {
     });
 
     await Promise.all(workers);
+
+    // Log summary after all embeddings generated
+    const successCount = results.filter(r => r.length > 0).length;
+    console.log(`   ✅ Generated ${successCount}/${texts.length} embeddings`);
 
     return results;
   }
