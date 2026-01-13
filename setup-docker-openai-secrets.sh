@@ -68,8 +68,8 @@ echo ""
 # Load .env file
 source "$ENV_FILE"
 
-# Secret prefix for quality check workflow only
-SECRET_PREFIX="UT_QUALITY_"
+# Secret prefixes for both workflows
+SECRET_PREFIXES=("UT_QUALITY_" "UT_GENERATE_")
 
 # Secrets to add (simple array - more compatible)
 SECRET_NAMES=("DOCKER_USERNAME" "DOCKER_PASSWORD" "OPENAI_API_KEY")
@@ -117,24 +117,31 @@ SECRETS_FAILED=0
 
 for SECRET_NAME in "${SECRET_NAMES[@]}"; do
     VALUE="${!SECRET_NAME}"
-    PREFIXED_SECRET_NAME="${SECRET_PREFIX}${SECRET_NAME}"
-    SECRETS_COUNT=$((SECRETS_COUNT + 1))
 
     if [ -z "$VALUE" ]; then
-        echo -e "${YELLOW}⚠️  Skipping $PREFIXED_SECRET_NAME: $SECRET_NAME not found in .env${NC}"
-        SECRETS_FAILED=$((SECRETS_FAILED + 1))
+        echo -e "${YELLOW}⚠️  Skipping $SECRET_NAME: Not found in .env${NC}"
+        for PREFIX in "${SECRET_PREFIXES[@]}"; do
+            SECRETS_COUNT=$((SECRETS_COUNT + 1))
+            SECRETS_FAILED=$((SECRETS_FAILED + 1))
+        done
         echo ""
         continue
     fi
 
-    echo -e "${BLUE}   Setting secret: $PREFIXED_SECRET_NAME${NC}"
-    if echo "$VALUE" | gh secret set "$PREFIXED_SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
-        echo -e "${GREEN}   ✅ $PREFIXED_SECRET_NAME set successfully${NC}"
-        SECRETS_SUCCESS=$((SECRETS_SUCCESS + 1))
-    else
-        echo -e "${RED}   ❌ Failed to set $PREFIXED_SECRET_NAME${NC}"
-        SECRETS_FAILED=$((SECRETS_FAILED + 1))
-    fi
+    # Create secret with EACH prefix (for both workflows)
+    for PREFIX in "${SECRET_PREFIXES[@]}"; do
+        PREFIXED_SECRET_NAME="${PREFIX}${SECRET_NAME}"
+        SECRETS_COUNT=$((SECRETS_COUNT + 1))
+
+        echo -e "${BLUE}   Setting secret: $PREFIXED_SECRET_NAME${NC}"
+        if echo "$VALUE" | gh secret set "$PREFIXED_SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
+            echo -e "${GREEN}   ✅ $PREFIXED_SECRET_NAME set successfully${NC}"
+            SECRETS_SUCCESS=$((SECRETS_SUCCESS + 1))
+        else
+            echo -e "${RED}   ❌ Failed to set $PREFIXED_SECRET_NAME${NC}"
+            SECRETS_FAILED=$((SECRETS_FAILED + 1))
+        fi
+    done
     echo ""
 done
 
@@ -154,10 +161,15 @@ if [ $SECRETS_FAILED -gt 0 ]; then
 fi
 echo ""
 
-echo -e "${BLUE}ℹ️  Secrets Created (UT_QUALITY_ prefix):${NC}"
-echo "  - UT_QUALITY_DOCKER_USERNAME"
-echo "  - UT_QUALITY_DOCKER_PASSWORD"
-echo "  - UT_QUALITY_OPENAI_API_KEY"
+echo -e "${BLUE}ℹ️  Secrets Created:${NC}"
+echo "  Quality Check Workflow (UT_QUALITY_):"
+echo "    - UT_QUALITY_DOCKER_USERNAME"
+echo "    - UT_QUALITY_DOCKER_PASSWORD"
+echo "    - UT_QUALITY_OPENAI_API_KEY"
+echo "  Test Generation Workflow (UT_GENERATE_):"
+echo "    - UT_GENERATE_DOCKER_USERNAME"
+echo "    - UT_GENERATE_DOCKER_PASSWORD"
+echo "    - UT_GENERATE_OPENAI_API_KEY"
 echo ""
 
 if [ $SECRETS_FAILED -eq 0 ]; then
