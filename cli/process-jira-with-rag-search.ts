@@ -90,7 +90,7 @@ async function main() {
 
     // 5. Initialize Hybrid PII Detector
     console.log('\n🔒 Initializing PII Detection...');
-    const HybridPIIDetectorService = (await import('./src/services')).HybridPIIDetectorService;
+    const HybridPIIDetectorService = (await import('../src/services')).HybridPIIDetectorService;
     const piiDetector = new HybridPIIDetectorService();
     const detectionMethod = await piiDetector.initialize();
     const piiStatus = piiDetector.getStatus();

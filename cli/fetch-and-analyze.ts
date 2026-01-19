@@ -643,8 +643,8 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
 
                     try {
                         // Initialize services
-                        const {EmbeddingService, PostgresVectorService, ConfluenceIndexerService} = await import('./src/services');
-                        const {getRequiredEnv, getOptionalEnvAsNumber} = await import('./src/utils/env-validator.util');
+                        const {EmbeddingService, PostgresVectorService, ConfluenceIndexerService} = await import('../src/services');
+                        const {getRequiredEnv, getOptionalEnvAsNumber} = await import('../src/utils/env-validator.util');
 
                         console.log('\n🔧 Initializing services...');
                         const embeddingService = new EmbeddingService({
