@@ -12,14 +12,14 @@ import {
   EmbeddingService,
   PostgresVectorService,
   JiraProcessorService,
-} from './src/services';
-import {JiraConfigDto, ConfluenceConfigDto} from './src/dtos';
+} from '../src/services';
+import {JiraConfigDto, ConfluenceConfigDto} from '../src/dtos';
 import {
   getRequiredEnv,
   getRequiredEnvAsNumber,
   getOptionalEnv,
   getOptionalEnvAsNumber,
-} from './src/utils/env-validator.util';
+} from '../src/utils/env-validator.util';
 
 // Load environment variables
 dotenv.config();
@@ -90,7 +90,7 @@ async function main() {
 
     // 5. Initialize Hybrid PII Detector
     console.log('\n🔒 Initializing PII Detection...');
-    const HybridPIIDetectorService = (await import('./src/services')).HybridPIIDetectorService;
+    const HybridPIIDetectorService = (await import('../src/services')).HybridPIIDetectorService;
     const piiDetector = new HybridPIIDetectorService();
     const detectionMethod = await piiDetector.initialize();
     const piiStatus = piiDetector.getStatus();
