@@ -151,6 +151,22 @@ else
     VARS_FAILED=$((VARS_FAILED + 1))
 fi
 
+echo ""
+echo -e "${BLUE}Step 6: Removing unused secrets...${NC}"
+echo ""
+
+REMOVED_COUNT=0
+
+# Remove AWS_BEDROCK_MODEL (not used in generate workflow)
+SECRET_NAME="${SECRET_PREFIX}AWS_BEDROCK_MODEL"
+echo -e "   Removing: $SECRET_NAME"
+if gh secret delete "$SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
+    echo -e "   ${GREEN}✅ $SECRET_NAME removed${NC}"
+    REMOVED_COUNT=$((REMOVED_COUNT + 1))
+else
+    echo -e "   ${YELLOW}⚠️  $SECRET_NAME not found or already removed${NC}"
+fi
+
 # Summary
 echo ""
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
@@ -159,11 +175,15 @@ echo -e "${BLUE}═════════════════════�
 echo ""
 echo -e "Repository: ${GREEN}$REPO_NAME${NC}"
 echo -e "Secrets created: ${GREEN}$SECRETS_SUCCESS${NC} success, ${RED}$SECRETS_FAILED${NC} failed"
+echo -e "Secrets removed: ${GREEN}$REMOVED_COUNT${NC}"
 echo -e "Variables created: ${GREEN}$VARS_SUCCESS${NC} success, ${RED}$VARS_FAILED${NC} failed"
 echo ""
 echo -e "${BLUE}Created:${NC}"
 echo "  • ${SECRET_PREFIX}ANTHROPIC_BASE_URL (secret)"
 echo "  • ${SECRET_PREFIX}ANTHROPIC_AUTH_TOKEN (secret)"
 echo "  • ${SECRET_PREFIX}AI_TYPE = $AI_TYPE (variable)"
+echo ""
+echo -e "${BLUE}Removed:${NC}"
+echo "  • ${SECRET_PREFIX}AWS_BEDROCK_MODEL (not used in generate workflow)"
 echo ""
 echo -e "${GREEN}Done! 🚀${NC}"
