@@ -522,7 +522,7 @@ runs:
         echo "✅ Data fetched successfully"
 
     - name: Step 2 - Fetch Confluence with RAG
-      if: inputs.use_postgres_vector_db == 'true'
+      if: inputs.use_postgres_vector_db == 'true' && steps.load-cache.outputs.cache_loaded != 'true'
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
@@ -531,6 +531,12 @@ runs:
         echo "🔄 Fetching Confluence data using RAG-based approach..."
         npm run process:jira
         echo "✅ Confluence RAG data fetched successfully"
+
+    - name: Skip Confluence RAG fetch (cache hit)
+      if: inputs.use_postgres_vector_db == 'true' && steps.load-cache.outputs.cache_loaded == 'true'
+      shell: bash
+      run: |
+        echo "✅ Skipping Confluence RAG fetch - data loaded from cache"
 
     - name: Save PostgreSQL data to cache
       if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost' && steps.load-cache.outputs.cache_loaded != 'true'
