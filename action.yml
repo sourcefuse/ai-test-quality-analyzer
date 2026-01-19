@@ -530,24 +530,32 @@ runs:
         echo ""
         echo "✅ Database connection test complete!"
 
+    - name: Get cache date key
+      id: cache-date
+      shell: bash
+      run: |
+        echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
     - name: Restore PostgreSQL data from cache
       if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost'
       id: pgdata-cache
       uses: actions/cache@v4
       with:
         path: /tmp/pgvector-data
-        key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}
+        key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-${{ steps.cache-date.outputs.date }}
         restore-keys: |
+          pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-
           pgvector-${{ inputs.confluence_space_key }}-
 
     - name: Load PostgreSQL data from cache
-      if: steps.pgdata-cache.outputs.cache-hit == 'true' && inputs.database_host == 'localhost'
+      if: inputs.database_host == 'localhost'
+      id: load-cache
       shell: bash
       env:
         DB_USER: ${{ inputs.database_user }}
         DB_NAME: ${{ inputs.database_name }}
       run: |
-        echo "📦 Restoring PostgreSQL data from cache..."
+        echo "📦 Checking for cached PostgreSQL data..."
         if [ -f /tmp/pgvector-data/pgdump.sql ]; then
           # Truncate existing tables before restore (schema already exists from init scripts)
           echo "🗑️  Clearing existing data..."
@@ -564,11 +572,14 @@ runs:
           if [ "$DOC_COUNT" -gt 0 ]; then
             echo "✅ Restored $DOC_COUNT documents from cache"
             echo "   Confluence fetch will be skipped!"
+            echo "cache_loaded=true" >> $GITHUB_OUTPUT
           else
             echo "⚠️  Cache restore completed but no documents found"
+            echo "cache_loaded=false" >> $GITHUB_OUTPUT
           fi
         else
           echo "⚠️  Cache file not found, will fetch from Confluence"
+          echo "cache_loaded=false" >> $GITHUB_OUTPUT
         fi
 
     - name: Step 1 - Fetch JIRA and Confluence data
@@ -593,7 +604,7 @@ runs:
         echo "✅ Confluence RAG data fetched successfully"
 
     - name: Save PostgreSQL data to cache
-      if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost' && steps.pgdata-cache.outputs.cache-hit != 'true'
+      if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost' && steps.load-cache.outputs.cache_loaded != 'true'
       shell: bash
       env:
         DB_USER: ${{ inputs.database_user }}
