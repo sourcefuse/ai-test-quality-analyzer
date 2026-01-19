@@ -145,6 +145,10 @@ inputs:
     description: 'Enable Docker services (pgvector and Presidio from ghcr.io) - true/false'
     required: false
     default: 'true'
+  embedding_dimensions:
+    description: 'Embedding vector dimensions (1536 for OpenAI, 768 for Ollama nomic-embed-text)'
+    required: false
+    default: '1536'
 
 outputs:
   test_quality_score:
@@ -430,13 +434,101 @@ runs:
         EOF
         echo "✅ Environment configuration created"
 
-    - name: Step 1 - Fetch JIRA and Confluence data
+    - name: Get cache date key
+      id: cache-date
       shell: bash
       run: |
-        cd ${{ github.action_path }}
+        echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+    - name: Restore PostgreSQL data from cache
+      if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost'
+      id: pgdata-cache
+      uses: actions/cache@v4
+      with:
+        path: /tmp/pgvector-data
+        key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-${{ steps.cache-date.outputs.date }}
+        restore-keys: |
+          pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-
+          pgvector-${{ inputs.confluence_space_key }}-
+
+    - name: Load PostgreSQL data from cache
+      if: inputs.database_host == 'localhost'
+      id: load-cache
+      shell: bash
+      env:
+        DB_USER: ${{ inputs.database_user }}
+        DB_NAME: ${{ inputs.database_name }}
+      run: |
+        echo "📦 Checking for cached PostgreSQL data..."
+        if [ -f /tmp/pgvector-data/pgdump.sql ]; then
+          # Truncate existing tables before restore (schema already exists from init scripts)
+          echo "🗑️  Clearing existing data..."
+          docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -c "TRUNCATE TABLE document_chunks, confluence_documents CASCADE;" 2>/dev/null || true
+
+          # Restore the data-only dump (ignore errors for schema objects)
+          echo "📥 Restoring data from cache..."
+          docker exec -i postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" --set ON_ERROR_STOP=off < /tmp/pgvector-data/pgdump.sql 2>/dev/null || true
+
+          # Verify restoration
+          DOC_COUNT=$(docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM confluence_documents;" 2>/dev/null || echo "0")
+          DOC_COUNT=$(echo "$DOC_COUNT" | tr -d ' ')
+
+          if [ "$DOC_COUNT" -gt 0 ]; then
+            echo "✅ Restored $DOC_COUNT documents from cache"
+            echo "   Confluence fetch will be skipped!"
+            echo "cache_loaded=true" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️  Cache restore completed but no documents found"
+            echo "cache_loaded=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "⚠️  Cache file not found, will fetch from Confluence"
+          echo "cache_loaded=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Step 1 - Fetch JIRA and Confluence data
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        cd "$ACTION_PATH"
         echo "🔄 Fetching JIRA ticket and Confluence pages..."
         npm run start
         echo "✅ Data fetched successfully"
+
+    - name: Save PostgreSQL data to cache
+      if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost' && steps.load-cache.outputs.cache_loaded != 'true'
+      shell: bash
+      env:
+        DB_USER: ${{ inputs.database_user }}
+        DB_NAME: ${{ inputs.database_name }}
+      run: |
+        echo "💾 Saving PostgreSQL data to cache..."
+        mkdir -p /tmp/pgvector-data
+
+        # Check if table exists and has data
+        TABLE_EXISTS=$(docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'confluence_documents');" 2>/dev/null || echo "f")
+        TABLE_EXISTS=$(echo "$TABLE_EXISTS" | tr -d ' ')
+
+        if [ "$TABLE_EXISTS" = "t" ]; then
+          DOC_COUNT=$(docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM confluence_documents;" 2>/dev/null || echo "0")
+          DOC_COUNT=$(echo "$DOC_COUNT" | tr -d ' ')
+
+          if [ "$DOC_COUNT" -gt 0 ]; then
+            echo "📊 Found $DOC_COUNT documents to cache"
+
+            # Export data only (schema is created by Docker init scripts)
+            docker exec postgres-pgvector pg_dump -U "$DB_USER" -d "$DB_NAME" --data-only --no-owner --no-acl > /tmp/pgvector-data/pgdump.sql
+
+            DUMP_SIZE=$(du -h /tmp/pgvector-data/pgdump.sql | cut -f1)
+            echo "✅ PostgreSQL dump created: $DUMP_SIZE"
+            echo "   Cache will be saved for next run"
+          else
+            echo "⚠️  No documents found, skipping cache save"
+          fi
+        else
+          echo "⚠️  Table confluence_documents not found, skipping cache save"
+        fi
 
     - name: Step 2 - Create Requirements document (GLM)
       if: inputs.ai_type == '2'
