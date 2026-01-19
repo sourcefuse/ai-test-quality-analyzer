@@ -142,11 +142,11 @@ jobs:
           jira_email: ${{ secrets.UT_QUALITY_JIRA_EMAIL }}
           jira_api_token: ${{ secrets.UT_QUALITY_JIRA_API_TOKEN }}
           jira_ticket_id: ${{ steps.extract_ticket.outputs.ticket_id }}
-          jira_project_key: ${{ vars.UT_QUALITY_JIRA_PROJECT_KEY || 'BB' }}
+          jira_project_key: ${{ vars.UT_QUALITY_JIRA_PROJECT_KEY }}
           confluence_url: ${{ secrets.UT_QUALITY_CONFLUENCE_URL }}
           confluence_email: ${{ secrets.UT_QUALITY_CONFLUENCE_EMAIL }}
           confluence_api_token: ${{ secrets.UT_QUALITY_CONFLUENCE_API_TOKEN }}
-          confluence_space_key: ${{ vars.UT_QUALITY_CONFLUENCE_SPACE_KEY || 'BB' }}
+          confluence_space_key: ${{ vars.UT_QUALITY_CONFLUENCE_SPACE_KEY }}
           repository_url: ${{ github.server_url }}/${{ github.repository }}
           repository_branch: ${{ github.head_ref || github.ref_name }}
           minimum_score: ${{ github.event.inputs.minimum_score || vars.UT_QUALITY_MINIMUM_SCORE || '1.0' }}

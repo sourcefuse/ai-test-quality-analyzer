@@ -22,10 +22,12 @@
 # - UT_GENERATE_ANTHROPIC_BASE_URL (optional - for GLM or custom endpoints)
 # - UT_GENERATE_ANTHROPIC_AUTH_TOKEN (optional - for GLM or custom endpoints)
 # - UT_GENERATE_OPENAI_API_KEY (optional - for OpenAI embeddings if RAG enabled)
+# - UT_GENERATE_AI_TYPE (1 = claude_with_bedrock, 2 = claude_with_glm)
+#
+# Required Variables (non-sensitive - set in Repository Settings → Variables):
 # - UT_GENERATE_JIRA_PROJECT_KEY (e.g., BB)
 # - UT_GENERATE_CONFLUENCE_SPACE_KEY (e.g., BB)
 # - UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY (optional - for separate upload space)
-# - UT_GENERATE_AI_TYPE (1 = claude_with_bedrock, 2 = claude_with_glm)
 #
 # Usage:
 # This workflow must be triggered manually via workflow_dispatch.
@@ -111,15 +113,15 @@ jobs:
           jira_email: ${{ secrets.UT_GENERATE_JIRA_EMAIL }}
           jira_api_token: ${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}
           jira_ticket_id: ${{ steps.extract_ticket.outputs.ticket_id }}
-          jira_project_key: ${{ secrets.UT_GENERATE_JIRA_PROJECT_KEY }}
+          jira_project_key: ${{ vars.UT_GENERATE_JIRA_PROJECT_KEY }}
           confluence_url: ${{ secrets.UT_GENERATE_CONFLUENCE_URL }}
           confluence_email: ${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}
           confluence_api_token: ${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}
-          confluence_space_key: ${{ secrets.UT_GENERATE_CONFLUENCE_SPACE_KEY }}
+          confluence_space_key: ${{ vars.UT_GENERATE_CONFLUENCE_SPACE_KEY }}
           confluence_upload_url: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_URL }}
           confluence_upload_email: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL }}
           confluence_upload_api_token: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN }}
-          confluence_upload_space_key: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY }}
+          confluence_upload_space_key: ${{ vars.UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY }}
           repository_url: ${{ github.server_url }}/${{ github.repository }}
           repository_branch: ${{ steps.extract_ticket.outputs.ticket_id }}
           target_branch: ${{ env.TARGET_BRANCH }}
