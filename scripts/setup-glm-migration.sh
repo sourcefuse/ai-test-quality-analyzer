@@ -110,41 +110,49 @@ EXISTING_BASE_URL=$(grep "^ANTHROPIC_BASE_URL=" "$ENV_FILE" 2>/dev/null | cut -d
 EXISTING_AUTH_TOKEN=$(grep "^ANTHROPIC_AUTH_TOKEN=" "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- | sed 's/^"//' | sed 's/"$//' || echo "")
 EXISTING_AI_TYPE=$(grep "^AI_TYPE=" "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- || echo "1")
 
-# Prompt for GLM configuration
-echo -e "${BLUE}Step 2: Enter GLM configuration...${NC}"
-echo ""
-echo -e "${YELLOW}Note: Press Enter to keep existing value, or enter new value${NC}"
+# GLM configuration - only prompt if values don't exist
+echo -e "${BLUE}Step 2: GLM configuration...${NC}"
 echo ""
 
-prompt_with_default "Enter ANTHROPIC_BASE_URL (GLM endpoint)" "$EXISTING_BASE_URL" GLM_BASE_URL "false"
-prompt_with_default "Enter ANTHROPIC_AUTH_TOKEN (GLM token)" "$EXISTING_AUTH_TOKEN" GLM_AUTH_TOKEN "true"
-
-echo ""
-echo -e "${BLUE}Step 3: Select AI Provider...${NC}"
-echo ""
-echo "  1) AWS Bedrock"
-echo "  2) GLM"
-echo ""
-if [ "$EXISTING_AI_TYPE" = "2" ]; then
-    read -p "Select AI provider [2 - current]: " AI_PROVIDER_CHOICE
-    DEFAULT_CHOICE="2"
+if [ -n "$EXISTING_BASE_URL" ]; then
+    echo -e "${GREEN}✅ ANTHROPIC_BASE_URL: $EXISTING_BASE_URL (from .env)${NC}"
+    GLM_BASE_URL="$EXISTING_BASE_URL"
 else
-    read -p "Select AI provider [1 - current]: " AI_PROVIDER_CHOICE
-    DEFAULT_CHOICE="1"
+    read -p "Enter ANTHROPIC_BASE_URL (GLM endpoint): " GLM_BASE_URL
 fi
 
-if [ -z "$AI_PROVIDER_CHOICE" ]; then
-    AI_TYPE_VALUE="$DEFAULT_CHOICE"
-elif [ "$AI_PROVIDER_CHOICE" = "2" ]; then
-    AI_TYPE_VALUE="2"
+if [ -n "$EXISTING_AUTH_TOKEN" ]; then
+    echo -e "${GREEN}✅ ANTHROPIC_AUTH_TOKEN: *****(hidden, from .env)${NC}"
+    GLM_AUTH_TOKEN="$EXISTING_AUTH_TOKEN"
 else
-    AI_TYPE_VALUE="1"
+    read -sp "Enter ANTHROPIC_AUTH_TOKEN (GLM token): " GLM_AUTH_TOKEN
+    echo ""
 fi
 
-if [ "$AI_TYPE_VALUE" = "2" ]; then
-    echo -e "${GREEN}✅ Selected: GLM${NC}"
+echo ""
+echo -e "${BLUE}Step 3: AI Provider...${NC}"
+echo ""
+
+if [ -n "$EXISTING_AI_TYPE" ] && [ "$EXISTING_AI_TYPE" != "1" ]; then
+    echo -e "${GREEN}✅ AI_TYPE: $EXISTING_AI_TYPE (from .env)${NC}"
+    AI_TYPE_VALUE="$EXISTING_AI_TYPE"
 else
-    echo -e "${GREEN}✅ Selected: AWS Bedrock${NC}"
+    echo "  1) AWS Bedrock"
+    echo "  2) GLM"
+    echo ""
+    read -p "Select AI provider [2]: " AI_PROVIDER_CHOICE
+
+    if [ -z "$AI_PROVIDER_CHOICE" ] || [ "$AI_PROVIDER_CHOICE" = "2" ]; then
+        AI_TYPE_VALUE="2"
+    else
+        AI_TYPE_VALUE="1"
+    fi
+
+    if [ "$AI_TYPE_VALUE" = "2" ]; then
+        echo -e "${GREEN}✅ Selected: GLM${NC}"
+    else
+        echo -e "${GREEN}✅ Selected: AWS Bedrock${NC}"
+    fi
 fi
 
 echo ""
