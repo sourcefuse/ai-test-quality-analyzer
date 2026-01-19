@@ -536,9 +536,9 @@ runs:
       uses: actions/cache@v4
       with:
         path: /tmp/pgvector-data
-        key: pgvector-data-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-v2
+        key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}
         restore-keys: |
-          pgvector-data-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-
+          pgvector-${{ inputs.confluence_space_key }}-
 
     - name: Load PostgreSQL data from cache
       if: steps.pgdata-cache.outputs.cache-hit == 'true' && inputs.database_host == 'localhost'
@@ -549,8 +549,13 @@ runs:
       run: |
         echo "📦 Restoring PostgreSQL data from cache..."
         if [ -f /tmp/pgvector-data/pgdump.sql ]; then
-          # Restore the database dump
-          docker exec -i postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" < /tmp/pgvector-data/pgdump.sql
+          # Truncate existing tables before restore (schema already exists from init scripts)
+          echo "🗑️  Clearing existing data..."
+          docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -c "TRUNCATE TABLE document_chunks, confluence_documents CASCADE;" 2>/dev/null || true
+
+          # Restore the data-only dump (ignore errors for schema objects)
+          echo "📥 Restoring data from cache..."
+          docker exec -i postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" --set ON_ERROR_STOP=off < /tmp/pgvector-data/pgdump.sql 2>/dev/null || true
 
           # Verify restoration
           DOC_COUNT=$(docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM confluence_documents;" 2>/dev/null || echo "0")
@@ -608,8 +613,8 @@ runs:
           if [ "$DOC_COUNT" -gt 0 ]; then
             echo "📊 Found $DOC_COUNT documents to cache"
 
-            # Export the database
-            docker exec postgres-pgvector pg_dump -U "$DB_USER" -d "$DB_NAME" --no-owner --no-acl > /tmp/pgvector-data/pgdump.sql
+            # Export data only (schema is created by Docker init scripts)
+            docker exec postgres-pgvector pg_dump -U "$DB_USER" -d "$DB_NAME" --data-only --no-owner --no-acl > /tmp/pgvector-data/pgdump.sql
 
             DUMP_SIZE=$(du -h /tmp/pgvector-data/pgdump.sql | cut -f1)
             echo "✅ PostgreSQL dump created: $DUMP_SIZE"
