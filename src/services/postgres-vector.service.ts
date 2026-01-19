@@ -212,7 +212,6 @@ export class PostgresVectorService {
     for (const chunk of chunks) {
       // Skip chunks with empty or invalid embeddings
       if (!chunk.embedding || chunk.embedding.length === 0) {
-        console.warn(`Skipping chunk with empty embedding for document ${documentId}`);
         continue;
       }
 
