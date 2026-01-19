@@ -216,6 +216,32 @@ runs:
         npm install
         npm install -g @anthropic-ai/claude-code
 
+    - name: Restore Docker images from cache
+      if: inputs.docker_username != '' && inputs.docker_password != ''
+      id: docker-cache
+      uses: actions/cache@v4
+      with:
+        path: /tmp/docker-images
+        key: docker-images-pgvector-presidio-v1
+
+    - name: Load Docker images from cache
+      if: steps.docker-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        echo "📦 Loading Docker images from cache..."
+        if [ -f /tmp/docker-images/pgvector.tar ]; then
+          docker load -i /tmp/docker-images/pgvector.tar
+          echo "✅ Loaded ankane/pgvector:latest from cache"
+        fi
+        if [ -f /tmp/docker-images/presidio-analyzer.tar ]; then
+          docker load -i /tmp/docker-images/presidio-analyzer.tar
+          echo "✅ Loaded presidio-analyzer:latest from cache"
+        fi
+        if [ -f /tmp/docker-images/presidio-anonymizer.tar ]; then
+          docker load -i /tmp/docker-images/presidio-anonymizer.tar
+          echo "✅ Loaded presidio-anonymizer:latest from cache"
+        fi
+
     - name: Setup PostgreSQL Database
       if: inputs.database_host == 'localhost' && inputs.docker_username != '' && inputs.docker_password != ''
       shell: bash
@@ -224,12 +250,17 @@ runs:
         DB_PASSWORD: ${{ inputs.database_password }}
         DB_NAME: ${{ inputs.database_name }}
         DB_PORT: ${{ inputs.database_port }}
+        CACHE_HIT: ${{ steps.docker-cache.outputs.cache-hit }}
       run: |
         echo "🐘 Setting up PostgreSQL database..."
 
-        # Pull PostgreSQL image with pgvector pre-installed
-        echo "📥 Pulling PostgreSQL + pgvector image..."
-        docker pull ankane/pgvector:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+        # Pull PostgreSQL image only if not cached
+        if [ "$CACHE_HIT" != "true" ] || ! docker image inspect ankane/pgvector:latest > /dev/null 2>&1; then
+          echo "📥 Pulling PostgreSQL + pgvector image..."
+          docker pull ankane/pgvector:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+        else
+          echo "✅ Using cached PostgreSQL + pgvector image"
+        fi
 
         # Start PostgreSQL container
         echo "🚀 Starting PostgreSQL container..."
@@ -255,13 +286,19 @@ runs:
       env:
         DOCKER_USER: ${{ inputs.docker_username }}
         DOCKER_PASS: ${{ inputs.docker_password }}
+        CACHE_HIT: ${{ steps.docker-cache.outputs.cache-hit }}
       run: |
         echo "🐳 Logging in to Docker registry..."
         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin docker.io
 
-        echo "📥 Pulling Presidio Docker images..."
-        docker pull mcr.microsoft.com/presidio-analyzer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
-        docker pull mcr.microsoft.com/presidio-anonymizer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+        # Pull Presidio images only if not cached
+        if [ "$CACHE_HIT" != "true" ] || ! docker image inspect mcr.microsoft.com/presidio-analyzer:latest > /dev/null 2>&1; then
+          echo "📥 Pulling Presidio Docker images..."
+          docker pull mcr.microsoft.com/presidio-analyzer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+          docker pull mcr.microsoft.com/presidio-anonymizer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+        else
+          echo "✅ Using cached Presidio Docker images"
+        fi
 
         echo "🚀 Starting Presidio services..."
         docker run -d -p 5001:3000 --name presidio-anonymizer mcr.microsoft.com/presidio-anonymizer:latest
@@ -326,6 +363,31 @@ runs:
         echo ""
         echo "📊 Presidio containers status:"
         docker ps | grep presidio
+
+    - name: Save Docker images to cache
+      if: inputs.docker_username != '' && inputs.docker_password != '' && steps.docker-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "💾 Saving Docker images to cache..."
+        mkdir -p /tmp/docker-images
+
+        if docker image inspect ankane/pgvector:latest > /dev/null 2>&1; then
+          docker save ankane/pgvector:latest -o /tmp/docker-images/pgvector.tar
+          echo "✅ Saved ankane/pgvector:latest"
+        fi
+
+        if docker image inspect mcr.microsoft.com/presidio-analyzer:latest > /dev/null 2>&1; then
+          docker save mcr.microsoft.com/presidio-analyzer:latest -o /tmp/docker-images/presidio-analyzer.tar
+          echo "✅ Saved presidio-analyzer:latest"
+        fi
+
+        if docker image inspect mcr.microsoft.com/presidio-anonymizer:latest > /dev/null 2>&1; then
+          docker save mcr.microsoft.com/presidio-anonymizer:latest -o /tmp/docker-images/presidio-anonymizer.tar
+          echo "✅ Saved presidio-anonymizer:latest"
+        fi
+
+        echo "📦 Cache directory contents:"
+        ls -lh /tmp/docker-images/
 
     - name: Skip Presidio setup notification
       if: inputs.docker_username == '' || inputs.docker_password == ''
