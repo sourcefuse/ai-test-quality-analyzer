@@ -124,12 +124,20 @@ export class JiraProcessorService {
       if (response.body?.view?.value) {
         htmlContent = response.body.view.value;
         const $ = cheerio.load(htmlContent);
-        plainContent = $.text();
+        // Preserve paragraph structure with newlines
+        plainContent = $.text()
+          .replace(/[ \t]+/g, ' ')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
       } else if (response.body?.storage?.value) {
         // Fallback to storage format
         htmlContent = response.body.storage.value;
         const $ = cheerio.load(htmlContent);
-        plainContent = $.text();
+        // Preserve paragraph structure with newlines
+        plainContent = $.text()
+          .replace(/[ \t]+/g, ' ')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
       }
 
       const url = response._links?.webui
@@ -386,7 +394,11 @@ export class JiraProcessorService {
 
       // Strip HTML to get plain text
       const $ = cheerio.load(fullDoc.htmlContent);
-      let cleanContent = $.text().replace(/\s+/g, ' ').trim();
+      // Preserve paragraph breaks for better readability - replace multiple spaces but keep newlines
+      let cleanContent = $.text()
+        .replace(/[ \t]+/g, ' ') // Replace multiple spaces/tabs with single space
+        .replace(/\n{3,}/g, '\n\n') // Replace 3+ newlines with 2
+        .trim();
 
       // Apply PII detection if enabled
       if (this.piiDetector && cleanContent) {
