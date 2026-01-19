@@ -586,9 +586,9 @@ runs:
       uses: actions/cache@v4
       with:
         path: /tmp/pgvector-data
-        key: pgvector-data-${{ inputs.confluence_space_key }}-week-${{ github.run_id }}
+        key: pgvector-data-${{ inputs.confluence_space_key }}-v1
         restore-keys: |
-          pgvector-data-${{ inputs.confluence_space_key }}-week-
+          pgvector-data-${{ inputs.confluence_space_key }}-
 
     - name: Load PostgreSQL data from cache
       if: steps.pgdata-cache.outputs.cache-hit == 'true' && inputs.database_host == 'localhost'
