@@ -12,7 +12,7 @@
 # - GITHUB_CONFIGURATION.json in the same directory
 #
 # Usage:
-#   ./setup-github-secrets.sh
+#   ./scripts/setup-github-secrets.sh
 ##############################################################################
 
 set -e

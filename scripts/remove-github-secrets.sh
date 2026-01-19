@@ -11,11 +11,11 @@
 # - GITHUB_CONFIGURATION.json in the specified directory
 #
 # Usage:
-#   ./remove-github-secrets.sh [path-to-config-directory]
+#   ./scripts/remove-github-secrets.sh [path-to-config-directory]
 #
 # Examples:
-#   ./remove-github-secrets.sh                           # Uses current directory
-#   ./remove-github-secrets.sh ../CheckUnitTestCases     # Uses specific directory
+#   ./scripts/remove-github-secrets.sh                           # Uses current directory
+#   ./scripts/remove-github-secrets.sh ../CheckUnitTestCases     # Uses specific directory
 ##############################################################################
 
 set -e

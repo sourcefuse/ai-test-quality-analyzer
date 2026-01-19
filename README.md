@@ -78,7 +78,7 @@ jobs:
           echo "ticket_id=$TICKET_ID" >> $GITHUB_OUTPUT
 
       - name: Run Unit Test Quality Analysis
-        uses: sourcefuse/ai-test-quality-analyzer@QC-V1.0
+        uses: sourcefuse/ai-test-quality-analyzer@QC-V2.0
         with:
           jira_url: ${{ secrets.UT_QUALITY_JIRA_URL }}
           jira_email: ${{ secrets.UT_QUALITY_JIRA_EMAIL }}
@@ -163,11 +163,11 @@ Configure via GitHub Variables (optional):
 - `UT_QUALITY_JIRA_PROJECT_KEY` - Default JIRA project (default: `BB`)
 - `UT_QUALITY_CONFLUENCE_SPACE_KEY` - Default Confluence space (default: `BB`)
 - `UT_QUALITY_MINIMUM_SCORE` - Global minimum score (default: `1.0`)
-- `UT_QUALITY_CLAUDE_CODE_USE_BEDROCK` - Use Bedrock (default: `1`)
+- `UT_QUALITY_AI_TYPE` - AI provider: 1=Bedrock (default), 2=GLM
 
-## 🛠️ Setup Script
+## 🛠️ Setup Scripts
 
-For automated setup, use the provided script:
+For automated setup, use the provided scripts:
 
 ```bash
 # Clone the repository
@@ -178,14 +178,32 @@ cd ai-test-quality-analyzer
 cp .env.example .env
 # Edit .env with your values
 
-# Run setup script
-chmod +x setup-github-secrets.sh
-./setup-github-secrets.sh
+# Run setup script for all secrets
+chmod +x scripts/setup-github-secrets.sh
+./scripts/setup-github-secrets.sh
+
+# Optional: Setup GLM secrets (if using GLM instead of AWS Bedrock)
+chmod +x scripts/setup-glm-secrets.sh
+./scripts/setup-glm-secrets.sh
+
+# Optional: Setup OpenAI secrets (if using PostgreSQL Vector DB)
+chmod +x scripts/setup-openai-secrets.sh
+./scripts/setup-openai-secrets.sh
 ```
 
-The script will:
+### Available Setup Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `setup-github-secrets.sh` | Setup all JIRA, Confluence, and AWS Bedrock secrets |
+| `setup-glm-secrets.sh` | Setup GLM API secrets (alternative to Bedrock) |
+| `setup-openai-secrets.sh` | Setup OpenAI API key for embeddings |
+| `setup-git-hooks.sh` | Install git hooks for secret detection |
+| `remove-github-secrets.sh` | Remove all secrets from repository |
+
+The scripts will:
 - Verify GitHub CLI authentication
-- Configure all required secrets
+- Configure all required secrets with both prefixes (UT_QUALITY_*, UT_GENERATE_*)
 - Set up optional variables
 - Provide setup confirmation
 
@@ -195,7 +213,7 @@ The script will:
 
 ```yaml
 - name: Run Unit Test Quality Analysis
-  uses: sourcefuse/ai-test-quality-analyzer@QC-V1.0
+  uses: sourcefuse/ai-test-quality-analyzer@QC-V2.0
   with:
     minimum_score: '7.0'  # Require high quality
     
@@ -303,8 +321,17 @@ npm run analyze-test-quality
 │   ├── models/            # Data models
 │   └── utils/             # Utility functions
 ├── templates/             # Workflow templates
-├── prompts/              # AI prompt templates
-└── setup-github-secrets.sh # Setup automation
+├── prompts/               # AI prompt templates
+├── scripts/               # Shell scripts for setup
+│   ├── setup-github-secrets.sh
+│   ├── setup-glm-secrets.sh
+│   ├── setup-openai-secrets.sh
+│   ├── setup-git-hooks.sh
+│   └── remove-github-secrets.sh
+└── cli/                   # CLI tools
+    ├── claude-runner.ts
+    ├── upload-requirements-to-confluence.ts
+    └── process-jira-with-rag-search.ts
 ```
 
 ## 🤝 Contributing

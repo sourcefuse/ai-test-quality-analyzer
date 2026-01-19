@@ -94,8 +94,8 @@ Implemented JWT-based authentication
 Run the setup script from the project root:
 
 ```bash
-chmod +x setup-git-hooks.sh
-./setup-git-hooks.sh
+chmod +x scripts/setup-git-hooks.sh
+./scripts/setup-git-hooks.sh
 ```
 
 This will:

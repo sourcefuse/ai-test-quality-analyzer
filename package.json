@@ -1,19 +1,23 @@
 {
   "name": "checkunittestcases",
-  "version": "QC-V1.0",
+  "version": "QC-V2.0",
   "main": "dist/fetch-and-analyze.js",
   "scripts": {
-    "claude": "ts-node claude-runner.ts",
+    "claude": "ts-node cli/claude-runner.ts",
     "start": "npx ts-node fetch-and-analyze.ts",
-    "upload-requirements": "npx ts-node upload-requirements-to-confluence.ts",
+    "upload-requirements": "npx ts-node cli/upload-requirements-to-confluence.ts",
     "create-requirement-doc": "npm run claude prompts/create-requirement.md",
     "analyze-test-quality": "npm run claude prompts/analyze-test-quality.md",
-    "process:jira": "npx ts-node process-jira-with-rag-search.ts"
+    "process:jira": "npx ts-node cli/process-jira-with-rag-search.ts"
   },
   "keywords": [],
   "author": "Vishal Gupta",
   "license": "ISC",
   "description": "Unit test case checker",
+  "overrides": {
+    "qs": "^6.14.1",
+    "undici": "^7.18.2"
+  },
   "devDependencies": {
     "@types/node": "^24.9.2",
     "ts-node": "^10.9.2",

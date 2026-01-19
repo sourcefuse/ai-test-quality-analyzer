@@ -5,14 +5,23 @@
 # .github/workflows/check-unit-testcases.yml
 #
 # Required Secrets:
-# - JIRA_URL
-# - JIRA_EMAIL
-# - JIRA_API_TOKEN
-# - CONFLUENCE_URL
-# - CONFLUENCE_EMAIL
-# - CONFLUENCE_API_TOKEN
-# - JIRA_PROJECT_KEY (optional, default: BB)
-# - CONFLUENCE_SPACE_KEY (optional, default: BB)
+# - UT_QUALITY_JIRA_URL
+# - UT_QUALITY_JIRA_EMAIL
+# - UT_QUALITY_JIRA_API_TOKEN
+# - UT_QUALITY_CONFLUENCE_URL
+# - UT_QUALITY_CONFLUENCE_EMAIL
+# - UT_QUALITY_CONFLUENCE_API_TOKEN
+# - UT_QUALITY_AWS_REGION_BEDROCK (required when AI_TYPE=1)
+# - UT_QUALITY_AWS_ACCESS_KEY_BEDROCK (required when AI_TYPE=1)
+# - UT_QUALITY_AWS_SECRET_KEY_BEDROCK (required when AI_TYPE=1)
+# - UT_QUALITY_ANTHROPIC_BASE_URL (required when AI_TYPE=2)
+# - UT_QUALITY_ANTHROPIC_AUTH_TOKEN (required when AI_TYPE=2)
+# - UT_QUALITY_OPENAI_API_KEY (optional - for embeddings)
+#
+# Required Variables:
+# - UT_QUALITY_AI_TYPE (1 = bedrock, 2 = glm, default: 1)
+# - UT_QUALITY_JIRA_PROJECT_KEY (optional, default: BB)
+# - UT_QUALITY_CONFLUENCE_SPACE_KEY (optional, default: BB)
 #
 # Customization:
 # 1. Update the action path: sourcefuse/ai-test-quality-analyzer@main (or @v1 for stable)
@@ -136,7 +145,7 @@ jobs:
       - name: Run Unit Test Quality Analysis
         id: quality_check
         if: steps.extract_ticket.outputs.ticket_id != 'UNKNOWN'
-        uses: sourcefuse/ai-test-quality-analyzer@QC-V1.0
+        uses: sourcefuse/ai-test-quality-analyzer@QC-V2.0
         with:
           jira_url: ${{ secrets.UT_QUALITY_JIRA_URL }}
           jira_email: ${{ secrets.UT_QUALITY_JIRA_EMAIL }}
@@ -155,9 +164,9 @@ jobs:
           aws_secret_key_bedrock: ${{ secrets.UT_QUALITY_AWS_SECRET_KEY_BEDROCK }}
           aws_bedrock_model: ${{ secrets.UT_QUALITY_AWS_BEDROCK_MODEL }}
           anthropic_model: ${{ secrets.UT_QUALITY_ANTHROPIC_MODEL }}
-          claude_code_use_bedrock: ${{ vars.UT_QUALITY_CLAUDE_CODE_USE_BEDROCK || '1' }}
-          docker_username: ${{ secrets.UT_QUALITY_DOCKER_USERNAME }}
-          docker_password: ${{ secrets.UT_QUALITY_DOCKER_PASSWORD }}
+          ai_type: ${{ vars.UT_QUALITY_AI_TYPE || '1' }}
+          anthropic_base_url: ${{ secrets.UT_QUALITY_ANTHROPIC_BASE_URL }}
+          anthropic_auth_token: ${{ secrets.UT_QUALITY_ANTHROPIC_AUTH_TOKEN }}
           openai_api_key: ${{ secrets.UT_QUALITY_OPENAI_API_KEY }}
           upload_to_confluence: 'true'
           save_to_file: 'true'

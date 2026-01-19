@@ -3,7 +3,7 @@
 # Git Hooks Setup Script
 # Installs pre-commit hooks for secret detection
 #
-# Usage: ./setup-git-hooks.sh
+# Usage: ./scripts/setup-git-hooks.sh
 
 set -e
 

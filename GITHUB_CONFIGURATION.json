@@ -115,20 +115,20 @@
         "reason": "Model configuration, not sensitive"
       },
       {
-        "name": "DOCKER_USERNAME",
-        "env_var": "DOCKER_USERNAME",
-        "description": "Docker registry username for authentication",
-        "example": "dockerhub-user",
+        "name": "ANTHROPIC_BASE_URL",
+        "env_var": "ANTHROPIC_BASE_URL",
+        "description": "GLM/Anthropic API base URL (required when AI_TYPE=2)",
+        "example": "https://your-glm-endpoint.com",
         "sensitive": true,
-        "reason": "Docker registry credentials"
+        "reason": "API endpoint URL"
       },
       {
-        "name": "DOCKER_PASSWORD",
-        "env_var": "DOCKER_PASSWORD",
-        "description": "Docker registry password/token for authentication",
-        "example": "dckr_pat_xxxxxxxxxxxxxxxxxxxx",
+        "name": "ANTHROPIC_AUTH_TOKEN",
+        "env_var": "ANTHROPIC_AUTH_TOKEN",
+        "description": "GLM/Anthropic authentication token (required when AI_TYPE=2)",
+        "example": "your-auth-token",
         "sensitive": true,
-        "reason": "Docker registry authentication token"
+        "reason": "Authentication credentials"
       },
       {
         "name": "OPENAI_API_KEY",
@@ -234,22 +234,13 @@
         "reason": "Feature flag, not sensitive"
       },
       {
-        "name": "WORKFLOW_RETENTION_DAYS",
-        "env_var": "WORKFLOW_RETENTION_DAYS",
-        "description": "Number of days to retain workflow artifacts",
-        "example": "2",
-        "default": "2",
-        "sensitive": false,
-        "reason": "Retention policy, not sensitive"
-      },
-      {
-        "name": "CLAUDE_CODE_USE_BEDROCK",
-        "env_var": "CLAUDE_CODE_USE_BEDROCK",
-        "description": "Enable AWS Bedrock for Claude (1=enabled, 0=disabled)",
+        "name": "AI_TYPE",
+        "env_var": "AI_TYPE",
+        "description": "AI provider type: 1 = claude_with_bedrock (default), 2 = claude_with_glm",
         "example": "1",
         "default": "1",
         "sensitive": false,
-        "reason": "Feature flag, not sensitive"
+        "reason": "Provider selection flag"
       },
       {
         "name": "USE_POSTGRES_VECTOR_DB",
@@ -257,6 +248,15 @@
         "description": "Enable PostgreSQL Vector Database with pgvector for RAG-based Confluence fetching (true/false)",
         "example": "false",
         "default": "false",
+        "sensitive": false,
+        "reason": "Feature flag, not sensitive"
+      },
+      {
+        "name": "ENABLE_DOCKER_SERVICES",
+        "env_var": "ENABLE_DOCKER_SERVICES",
+        "description": "Enable Docker services (pgvector and Presidio from ghcr.io) - uses github.token for authentication (true/false)",
+        "example": "true",
+        "default": "true",
         "sensitive": false,
         "reason": "Feature flag, not sensitive"
       }
@@ -298,8 +298,8 @@
     ]
   },
   "usage_in_workflow": {
-    "note": "Two types of workflows use different secret prefixes: UT_QUALITY_* for quality check workflow, UT_GENERATE_* for test generation workflow",
-    "secrets_example_quality_check": {
+    "note": "Check Unit Test Cases Quality workflow uses UT_QUALITY_* prefix for all secrets and variables",
+    "secrets_example": {
       "jira_url": "${{ secrets.UT_QUALITY_JIRA_URL }}",
       "jira_email": "${{ secrets.UT_QUALITY_JIRA_EMAIL }}",
       "jira_api_token": "${{ secrets.UT_QUALITY_JIRA_API_TOKEN }}",
@@ -314,28 +314,14 @@
       "aws_secret_key_bedrock": "${{ secrets.UT_QUALITY_AWS_SECRET_KEY_BEDROCK }}",
       "aws_bedrock_model": "${{ secrets.UT_QUALITY_AWS_BEDROCK_MODEL }}",
       "anthropic_model": "${{ secrets.UT_QUALITY_ANTHROPIC_MODEL }}",
-      "docker_username": "${{ secrets.UT_QUALITY_DOCKER_USERNAME }}",
-      "docker_password": "${{ secrets.UT_QUALITY_DOCKER_PASSWORD }}",
-      "openai_api_key": "${{ secrets.UT_QUALITY_OPENAI_API_KEY }}"
-    },
-    "secrets_example_generate_tests": {
-      "jira_url": "${{ secrets.UT_GENERATE_JIRA_URL }}",
-      "jira_email": "${{ secrets.UT_GENERATE_JIRA_EMAIL }}",
-      "jira_api_token": "${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}",
-      "confluence_url": "${{ secrets.UT_GENERATE_CONFLUENCE_URL }}",
-      "confluence_email": "${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}",
-      "confluence_api_token": "${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}",
-      "aws_region_bedrock": "${{ secrets.UT_GENERATE_AWS_REGION_BEDROCK }}",
-      "aws_access_key_bedrock": "${{ secrets.UT_GENERATE_AWS_ACCESS_KEY_BEDROCK }}",
-      "aws_secret_key_bedrock": "${{ secrets.UT_GENERATE_AWS_SECRET_KEY_BEDROCK }}",
-      "aws_bedrock_model": "${{ secrets.UT_GENERATE_AWS_BEDROCK_MODEL }}",
-      "anthropic_model": "${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}",
-      "openai_api_key": "${{ secrets.UT_GENERATE_OPENAI_API_KEY }}",
-      "database_host": "${{ secrets.UT_GENERATE_DATABASE_HOST }}",
-      "database_port": "${{ secrets.UT_GENERATE_DATABASE_PORT }}",
-      "database_name": "${{ secrets.UT_GENERATE_DATABASE_NAME }}",
-      "database_user": "${{ secrets.UT_GENERATE_DATABASE_USER }}",
-      "database_password": "${{ secrets.UT_GENERATE_DATABASE_PASSWORD }}"
+      "anthropic_base_url": "${{ secrets.UT_QUALITY_ANTHROPIC_BASE_URL }}",
+      "anthropic_auth_token": "${{ secrets.UT_QUALITY_ANTHROPIC_AUTH_TOKEN }}",
+      "openai_api_key": "${{ secrets.UT_QUALITY_OPENAI_API_KEY }}",
+      "database_host": "${{ secrets.UT_QUALITY_DATABASE_HOST }}",
+      "database_port": "${{ secrets.UT_QUALITY_DATABASE_PORT }}",
+      "database_name": "${{ secrets.UT_QUALITY_DATABASE_NAME }}",
+      "database_user": "${{ secrets.UT_QUALITY_DATABASE_USER }}",
+      "database_password": "${{ secrets.UT_QUALITY_DATABASE_PASSWORD }}"
     },
     "variables_example": {
       "jira_project_key": "${{ vars.UT_QUALITY_JIRA_PROJECT_KEY || 'BB' }}",
@@ -343,23 +329,22 @@
       "confluence_upload_space_key": "${{ vars.UT_QUALITY_CONFLUENCE_UPLOAD_SPACE_KEY || '' }}",
       "minimum_score": "${{ vars.UT_QUALITY_MINIMUM_SCORE || '1.0' }}",
       "upload_to_confluence": "${{ vars.UT_QUALITY_UPLOAD_TO_CONFLUENCE || 'true' }}",
-      "claude_code_use_bedrock": "${{ vars.UT_QUALITY_CLAUDE_CODE_USE_BEDROCK || '1' }}"
+      "ai_type": "${{ vars.UT_QUALITY_AI_TYPE || '1' }}",
+      "use_postgres_vector_db": "${{ vars.UT_QUALITY_USE_POSTGRES_VECTOR_DB || 'false' }}",
+      "enable_docker_services": "${{ vars.UT_QUALITY_ENABLE_DOCKER_SERVICES || 'true' }}"
     }
   },
   "setup_instructions": {
-    "important_note": "⚠️ Each secret needs TWO entries with different prefixes: UT_QUALITY_* for quality check workflow and UT_GENERATE_* for test generation workflow. For example, OPENAI_API_KEY needs both UT_QUALITY_OPENAI_API_KEY and UT_GENERATE_OPENAI_API_KEY.",
+    "important_note": "⚠️ For Check Unit Test Cases Quality workflow, use UT_QUALITY_* prefix for all secrets.",
     "secrets": [
       "1. Go to your repository on GitHub",
       "2. Navigate to Settings → Secrets and variables → Actions",
       "3. Click on 'Secrets' tab",
       "4. Click 'New repository secret'",
-      "5. Add each secret from the 'required' list above with BOTH prefixes:",
-      "   - UT_QUALITY_* (for quality check workflow)",
-      "   - UT_GENERATE_* (for test generation workflow)",
-      "6. Example: For JIRA_URL, create:",
-      "   - UT_QUALITY_JIRA_URL",
-      "   - UT_GENERATE_JIRA_URL",
-      "7. Click 'Add secret' to save each one"
+      "5. Add each secret from the 'required' list above with UT_QUALITY_ prefix:",
+      "   - Example: UT_QUALITY_JIRA_URL, UT_QUALITY_JIRA_EMAIL, etc.",
+      "6. Click 'Add secret' to save each one",
+      "7. Or use the setup script: ./scripts/setup-github-secrets.sh"
     ],
     "variables": [
       "1. Go to your repository on GitHub",

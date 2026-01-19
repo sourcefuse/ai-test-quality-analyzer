@@ -1,22 +1,20 @@
 #!/bin/bash
 
 ##############################################################################
-# Setup Docker & OpenAI Secrets
+# Setup OpenAI Secrets
 #
-# This script adds only the Docker and OpenAI secrets for Presidio PII
-# detection and embeddings generation.
+# This script adds the OpenAI API key secret for embeddings generation
+# with PostgreSQL Vector DB (pgvector).
 #
 # Secrets added:
-# - DOCKER_USERNAME
-# - DOCKER_PASSWORD
 # - OPENAI_API_KEY
 #
 # Prerequisites:
 # - GitHub CLI (gh) installed and authenticated
-# - .env file with DOCKER_USERNAME, DOCKER_PASSWORD, OPENAI_API_KEY
+# - .env file with OPENAI_API_KEY
 #
 # Usage:
-#   ./setup-docker-openai-secrets.sh
+#   ./scripts/setup-openai-secrets.sh
 ##############################################################################
 
 set -e
@@ -29,12 +27,12 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Docker & OpenAI Secrets Setup                            ║${NC}"
-echo -e "${BLUE}║  For Presidio PII Detection & Embeddings                  ║${NC}"
+echo -e "${BLUE}║  OpenAI Secrets Setup                                      ║${NC}"
+echo -e "${BLUE}║  For PostgreSQL Vector DB Embeddings                       ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -71,8 +69,8 @@ source "$ENV_FILE"
 # Secret prefixes for both workflows
 SECRET_PREFIXES=("UT_QUALITY_" "UT_GENERATE_")
 
-# Secrets to add (simple array - more compatible)
-SECRET_NAMES=("DOCKER_USERNAME" "DOCKER_PASSWORD" "OPENAI_API_KEY")
+# Secrets to add
+SECRET_NAMES=("OPENAI_API_KEY")
 
 # Prompt for repository name
 echo -e "${YELLOW}📦 Enter the repository name (format: owner/repo):${NC}"
@@ -108,7 +106,7 @@ echo -e "${GREEN}✅ Repository access verified${NC}"
 echo ""
 
 # Set secrets
-echo -e "${YELLOW}🔐 Setting up Docker & OpenAI Secrets...${NC}"
+echo -e "${YELLOW}🔐 Setting up OpenAI Secrets...${NC}"
 echo ""
 
 SECRETS_COUNT=0
@@ -163,29 +161,26 @@ echo ""
 
 echo -e "${BLUE}ℹ️  Secrets Created:${NC}"
 echo "  Quality Check Workflow (UT_QUALITY_):"
-echo "    - UT_QUALITY_DOCKER_USERNAME"
-echo "    - UT_QUALITY_DOCKER_PASSWORD"
 echo "    - UT_QUALITY_OPENAI_API_KEY"
 echo "  Test Generation Workflow (UT_GENERATE_):"
-echo "    - UT_GENERATE_DOCKER_USERNAME"
-echo "    - UT_GENERATE_DOCKER_PASSWORD"
 echo "    - UT_GENERATE_OPENAI_API_KEY"
 echo ""
 
 if [ $SECRETS_FAILED -eq 0 ]; then
     echo -e "${GREEN}✅ All secrets configured successfully!${NC}"
     echo ""
-    echo -e "${BLUE}These secrets enable:${NC}"
-    echo "  - Presidio PII detection (Docker credentials)"
-    echo "  - OpenAI embeddings for PostgreSQL Vector DB"
+    echo -e "${BLUE}This secret enables:${NC}"
+    echo "  - OpenAI embeddings for PostgreSQL Vector DB (pgvector)"
+    echo ""
+    echo -e "${BLUE}Note:${NC}"
+    echo "  - Presidio PII detection uses public images from Microsoft Container Registry"
+    echo "  - No Docker credentials are required"
     echo ""
     exit 0
 else
     echo -e "${YELLOW}⚠️  Setup completed with some warnings${NC}"
     echo ""
     echo -e "${BLUE}Please add missing values to your .env file:${NC}"
-    echo "  DOCKER_USERNAME=your-docker-username"
-    echo "  DOCKER_PASSWORD=your-docker-password-or-token"
     echo "  OPENAI_API_KEY=sk-your-openai-api-key"
     echo ""
     exit 1

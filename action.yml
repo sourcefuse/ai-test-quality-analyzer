@@ -99,10 +99,16 @@ inputs:
     description: 'Anthropic model name for Claude'
     required: false
     default: 'sonnet[1m]'
-  claude_code_use_bedrock:
-    description: 'Enable AWS Bedrock for Claude (1=enabled, 0=disabled)'
+  ai_type:
+    description: 'AI provider type: 1 = claude_with_bedrock, 2 = claude_with_glm'
     required: false
     default: '1'
+  anthropic_base_url:
+    description: 'Anthropic/GLM base URL (required when ai_type=2)'
+    required: false
+  anthropic_auth_token:
+    description: 'Anthropic/GLM auth token (required when ai_type=2)'
+    required: false
   base_folder_suffix:
     description: 'Base folder suffix for organizing analysis results'
     required: false
@@ -127,20 +133,16 @@ inputs:
     description: 'Confluence space key for uploading results (if different from fetch space)'
     required: false
     default: ''
-  docker_username:
-    description: 'Docker registry username for authentication (optional - required for Presidio PII detection)'
-    required: false
-    default: ''
-  docker_password:
-    description: 'Docker registry password/token for authentication (optional - required for Presidio PII detection)'
-    required: false
-    default: ''
   openai_api_key:
     description: 'OpenAI API key for embeddings (required if USE_POSTGRES_VECTOR_DB is enabled)'
     required: false
     default: ''
   use_postgres_vector_db:
     description: 'Enable PostgreSQL Vector Database with pgvector for RAG-based Confluence fetching (true/false)'
+    required: false
+    default: 'true'
+  enable_docker_services:
+    description: 'Enable Docker services (pgvector and Presidio from ghcr.io) - true/false'
     required: false
     default: 'true'
 
@@ -179,25 +181,41 @@ runs:
         npm install
         npm install -g @anthropic-ai/claude-code
 
-    - name: Setup PostgreSQL Database
-      if: inputs.database_host == 'localhost' && inputs.docker_username != '' && inputs.docker_password != ''
+    - name: Login to GitHub Container Registry
+      if: inputs.enable_docker_services == 'true'
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        # 🔒 Security: Use env var for github.actor to prevent command injection
+        GITHUB_ACTOR: ${{ github.actor }}
+      run: |
+        echo "🐳 Logging in to GitHub Container Registry..."
+        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+    - name: Setup PostgreSQL Database
+      if: inputs.database_host == 'localhost' && inputs.enable_docker_services == 'true'
+      shell: bash
+      env:
+        DB_USER: ${{ inputs.database_user }}
+        DB_PASSWORD: ${{ inputs.database_password }}
+        DB_NAME: ${{ inputs.database_name }}
+        DB_PORT: ${{ inputs.database_port }}
       run: |
         echo "🐘 Setting up PostgreSQL database..."
 
-        # Pull PostgreSQL image with pgvector pre-installed
-        echo "📥 Pulling PostgreSQL + pgvector image..."
-        docker pull ankane/pgvector:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+        # Pull PostgreSQL + pgvector image from ghcr.io
+        echo "📥 Pulling PostgreSQL + pgvector image from ghcr.io..."
+        docker pull ghcr.io/sourcefuse/pgvector-rag:latest
 
         # Start PostgreSQL container
         echo "🚀 Starting PostgreSQL container..."
         docker run -d \
           --name postgres-pgvector \
-          -e POSTGRES_USER="${{ inputs.database_user }}" \
-          -e POSTGRES_PASSWORD="${{ inputs.database_password }}" \
-          -e POSTGRES_DB="${{ inputs.database_name }}" \
-          -p ${{ inputs.database_port }}:5432 \
-          ankane/pgvector:latest
+          -e POSTGRES_USER="$DB_USER" \
+          -e POSTGRES_PASSWORD="$DB_PASSWORD" \
+          -e POSTGRES_DB="$DB_NAME" \
+          -p "${DB_PORT}:5432" \
+          ghcr.io/sourcefuse/pgvector-rag:latest
 
         # Wait for PostgreSQL to be ready
         echo "⏳ Waiting for PostgreSQL to be ready..."
@@ -207,36 +225,41 @@ runs:
         echo "✅ PostgreSQL setup complete"
         docker ps | grep postgres-pgvector
 
-    - name: Docker login and start Presidio services
-      if: inputs.docker_username != '' && inputs.docker_password != ''
+    - name: Start Presidio services
+      if: inputs.enable_docker_services == 'true'
       shell: bash
       run: |
-        echo "🐳 Logging in to Docker registry..."
-        echo "${{ inputs.docker_password }}" | docker login -u "${{ inputs.docker_username }}" --password-stdin docker.io
+        echo "📥 Pulling Presidio images from ghcr.io..."
+        docker pull ghcr.io/sourcefuse/presidio-analyzer:latest &
+        docker pull ghcr.io/sourcefuse/presidio-anonymizer:latest &
+        wait
 
-        echo "📥 Pulling Presidio Docker images..."
-        docker pull mcr.microsoft.com/presidio-analyzer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
-        docker pull mcr.microsoft.com/presidio-anonymizer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
+        echo "🚀 Starting Presidio Analyzer (port 5002)..."
+        docker run -d \
+          --name presidio-analyzer \
+          -p 5002:3000 \
+          -e PORT=3000 \
+          ghcr.io/sourcefuse/presidio-analyzer:latest
 
-        echo "🚀 Starting Presidio services..."
-        docker run -d -p 5001:3000 --name presidio-anonymizer mcr.microsoft.com/presidio-anonymizer:latest
-        docker run -d -p 5002:3000 --name presidio-analyzer mcr.microsoft.com/presidio-analyzer:latest
+        echo "🚀 Starting Presidio Anonymizer (port 5001)..."
+        docker run -d \
+          --name presidio-anonymizer \
+          -p 5001:3000 \
+          -e PORT=3000 \
+          ghcr.io/sourcefuse/presidio-anonymizer:latest
 
         echo "⏳ Waiting for services to be ready..."
-        sleep 10
+        sleep 15
 
         echo "🔍 Testing Presidio services availability..."
 
-        # Wait up to 60 seconds for Presidio Analyzer to be ready
-        MAX_WAIT=60
+        # Wait up to 120 seconds for Presidio Analyzer to be ready (spaCy model loading takes time)
+        MAX_WAIT=120
         ELAPSED=0
         ANALYZER_READY=false
 
         while [ $ELAPSED -lt $MAX_WAIT ]; do
-          if curl -s -X POST http://localhost:5002/analyze \
-            -H "Content-Type: application/json" \
-            -d '{"text":"test","language":"en"}' \
-            --max-time 5 > /dev/null 2>&1; then
+          if curl -s http://localhost:5002/health --max-time 5 | grep -q "Presidio"; then
             ANALYZER_READY=true
             echo "✅ Presidio Analyzer is ready (took ${ELAPSED}s)"
             break
@@ -250,15 +273,13 @@ runs:
           echo "⚠️  Presidio Analyzer did not respond within ${MAX_WAIT}s - PII detection will use regex fallback"
         fi
 
-        # Wait up to 60 seconds for Presidio Anonymizer to be ready
+        # Wait up to 60 seconds for Presidio Anonymizer to be ready (no model loading needed)
+        MAX_WAIT=60
         ELAPSED=0
         ANONYMIZER_READY=false
 
         while [ $ELAPSED -lt $MAX_WAIT ]; do
-          if curl -s -X POST http://localhost:5001/anonymize \
-            -H "Content-Type: application/json" \
-            -d '{"text":"test","anonymizers":{}}' \
-            --max-time 5 > /dev/null 2>&1; then
+          if curl -s http://localhost:5001/health --max-time 5 | grep -q "Presidio"; then
             ANONYMIZER_READY=true
             echo "✅ Presidio Anonymizer is ready (took ${ELAPSED}s)"
             break
@@ -279,30 +300,37 @@ runs:
         fi
 
         echo ""
-        echo "📊 Presidio containers status:"
+        echo "📊 Presidio container status:"
         docker ps | grep presidio
 
-    - name: Skip Presidio setup notification
-      if: inputs.docker_username == '' || inputs.docker_password == ''
+    - name: Skip Docker services notification
+      if: inputs.enable_docker_services != 'true'
       shell: bash
       run: |
-        echo "⚠️  Skipping Docker login and Presidio setup"
-        echo "   Docker credentials not provided - PII detection will be disabled"
-        echo "   To enable Presidio services, provide docker_username and docker_password inputs"
+        echo "⚠️  Skipping Docker services setup"
+        echo "   enable_docker_services is not set to 'true'"
+        echo "   PII detection will use regex-based fallback"
 
     - name: Clone repository for analysis
       shell: bash
+      env:
+        # 🔒 Security: Use env vars to prevent command injection
+        # Never use ${{ }} directly in bash scripts with untrusted input
+        BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        GITHUB_TOKEN: ${{ github.token }}
+        REPO_NAME: ${{ github.repository }}
+        ACTION_PATH: ${{ github.action_path }}
       run: |
-        cd ${{ github.action_path }}
+        cd "$ACTION_PATH"
         echo "📥 Cloning repository for test analysis..."
 
-        # Use head_ref for PRs (gives branch name like BB-2244), ref_name for other events
-        BRANCH="${{ github.head_ref || github.ref_name }}"
+        # ✅ SAFE: Sanitize branch name - only allow alphanumeric, hyphen, underscore, slash, dot
+        BRANCH=$(echo "$BRANCH_NAME" | tr -cd 'A-Za-z0-9._/-')
         echo "Branch to clone: $BRANCH"
 
         mkdir -p repo
         cd repo
-        git clone --depth 1 --branch "$BRANCH" --single-branch https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git .
+        git clone --depth 1 --branch "$BRANCH" --single-branch "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO_NAME}.git" .
         echo "✅ Repository cloned successfully (branch: $BRANCH)"
 
     - name: Create .env file
@@ -340,10 +368,6 @@ runs:
         CONFLUENCE_UPLOAD_API_TOKEN=${{ inputs.confluence_upload_api_token }}
         CONFLUENCE_UPLOAD_SPACE_KEY=${{ inputs.confluence_upload_space_key }}
 
-        # Docker Configuration
-        DOCKER_USERNAME=${{ inputs.docker_username }}
-        DOCKER_PASSWORD=${{ inputs.docker_password }}
-
         # Presidio Configuration (PII Detection)
         PRESIDIO_ANALYZE_URL=http://localhost:5002/analyze
         PRESIDIO_ANONYMIZE_URL=http://localhost:5001/anonymize
@@ -352,13 +376,17 @@ runs:
         # Data Sanitization Configuration
         SANITIZE_PG_DATA=false
 
+        # AI Provider Configuration
+        AI_TYPE=${{ inputs.ai_type }}
+        ANTHROPIC_BASE_URL=${{ inputs.anthropic_base_url }}
+        ANTHROPIC_AUTH_TOKEN=${{ inputs.anthropic_auth_token }}
+
         # AWS Bedrock Configuration
         AWS_REGION_BEDROCK=${{ inputs.aws_region_bedrock }}
         AWS_ACCESS_KEY_BEDROCK=${{ inputs.aws_access_key_bedrock }}
         AWS_SECRET_KEY_BEDROCK=${{ inputs.aws_secret_key_bedrock }}
         AWS_BEDROCK_MODEL=${{ inputs.aws_bedrock_model }}
         ANTHROPIC_MODEL=${{ inputs.anthropic_model }}
-        CLAUDE_CODE_USE_BEDROCK=${{ inputs.claude_code_use_bedrock }}
         BASE_FOLDER_SUFFIX=${{ inputs.base_folder_suffix }}
         CONFLUENCE_ROOT_PAGE_SUFFIX=${{ inputs.confluence_root_page_suffix }}
 
@@ -410,18 +438,37 @@ runs:
         npm run start
         echo "✅ Data fetched successfully"
 
-    - name: Step 2 - Create Requirements document
-      if: inputs.claude_code_use_bedrock == '1'
+    - name: Step 2 - Create Requirements document (GLM)
+      if: inputs.ai_type == '2'
       shell: bash
       env:
-        CLAUDE_CODE_USE_BEDROCK:  "1"
-        AWS_REGION:               ${{ inputs.aws_region_bedrock }}
-        ANTHROPIC_MODEL:          ${{ inputs.anthropic_model }}
-        AWS_ACCESS_KEY_ID:        ${{ inputs.aws_access_key_bedrock }}
-        AWS_SECRET_ACCESS_KEY:    ${{ inputs.aws_secret_key_bedrock }}
+        ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
+        ANTHROPIC_AUTH_TOKEN: ${{ inputs.anthropic_auth_token }}
+        ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
       run: |
         cd ${{ github.action_path }}
         echo "📋 Creating requirements document from JIRA and Confluence..."
+        echo "   Using GLM API (ANTHROPIC_BASE_URL: $ANTHROPIC_BASE_URL)"
+        npm run create-requirement-doc
+        echo "✅ Requirements document created"
+
+        echo "🔍 Analyzing unit test quality..."
+        npm run analyze-test-quality
+        echo "✅ Test quality analysis completed"
+
+    - name: Step 2 - Create Requirements document (Bedrock)
+      if: inputs.ai_type == '1' || inputs.ai_type == ''
+      shell: bash
+      env:
+        CLAUDE_CODE_USE_BEDROCK: "1"
+        AWS_REGION: ${{ inputs.aws_region_bedrock }}
+        ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_bedrock }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_key_bedrock }}
+      run: |
+        cd ${{ github.action_path }}
+        echo "📋 Creating requirements document from JIRA and Confluence..."
+        echo "   Using AWS Bedrock (Region: $AWS_REGION)"
         npm run create-requirement-doc
         echo "✅ Requirements document created"
 
@@ -432,10 +479,16 @@ runs:
     - name: Extract analysis paths
       id: extract_paths
       shell: bash
+      env:
+        # 🔒 Security: Use env vars to prevent command injection
+        ACTION_PATH: ${{ github.action_path }}
+        INPUT_SPACE_KEY: ${{ inputs.confluence_space_key }}
+        INPUT_TICKET_ID: ${{ inputs.jira_ticket_id }}
       run: |
-        cd ${{ github.action_path }}
-        SPACE_KEY="${{ inputs.confluence_space_key }}"
-        TICKET_ID="${{ inputs.jira_ticket_id }}"
+        cd "$ACTION_PATH"
+        # ✅ SAFE: Sanitize inputs - only allow alphanumeric, hyphen, underscore
+        SPACE_KEY=$(echo "$INPUT_SPACE_KEY" | tr -cd 'A-Za-z0-9_-')
+        TICKET_ID=$(echo "$INPUT_TICKET_ID" | tr -cd 'A-Za-z0-9_-')
 
         # Find the latest analysis folder
         ANALYSIS_FOLDER=$(find . -type d -path "*${SPACE_KEY}-Quality-Check-Via-AI/${TICKET_ID}-Via-AI/*-Via-AI" -print | sort -r | head -1)
@@ -459,9 +512,14 @@ runs:
     - name: Extract test quality score
       id: extract_score
       shell: bash
+      env:
+        # 🔒 Security: Use env vars to prevent command injection
+        ACTION_PATH: ${{ github.action_path }}
+        INPUT_RESULT_FILE: ${{ steps.extract_paths.outputs.result_file }}
       run: |
-        cd ${{ github.action_path }}
-        RESULT_FILE="${{ steps.extract_paths.outputs.result_file }}"
+        cd "$ACTION_PATH"
+        # ✅ SAFE: Validate file path doesn't contain malicious characters
+        RESULT_FILE=$(echo "$INPUT_RESULT_FILE" | tr -cd 'A-Za-z0-9._/-')
 
         if [ ! -f "$RESULT_FILE" ]; then
           echo "❌ Result file not found: $RESULT_FILE"
@@ -503,9 +561,14 @@ runs:
     - name: Check score threshold
       id: check_score
       shell: bash
+      env:
+        # 🔒 Security: Use env vars to prevent command injection
+        INPUT_SCORE: ${{ steps.extract_score.outputs.score }}
+        INPUT_THRESHOLD: ${{ inputs.minimum_score }}
       run: |
-        SCORE="${{ steps.extract_score.outputs.score }}"
-        THRESHOLD="${{ inputs.minimum_score }}"
+        # ✅ SAFE: Validate score is a number (only digits and decimal point)
+        SCORE=$(echo "$INPUT_SCORE" | tr -cd '0-9.')
+        THRESHOLD=$(echo "$INPUT_THRESHOLD" | tr -cd '0-9.')
 
         # Compare scores using awk (more portable than bc)
         PASSED=$(awk -v score="$SCORE" -v threshold="$THRESHOLD" 'BEGIN { print (score >= threshold) ? "true" : "false" }')
@@ -546,17 +609,34 @@ runs:
 
     - name: Generate summary
       shell: bash
+      env:
+        # 🔒 Security: Use env vars to prevent command injection
+        ACTION_PATH: ${{ github.action_path }}
+        INPUT_SCORE: ${{ steps.extract_score.outputs.score }}
+        INPUT_THRESHOLD: ${{ inputs.minimum_score }}
+        INPUT_PASSED: ${{ steps.check_score.outputs.passed }}
+        INPUT_RESULT_FILE: ${{ steps.extract_paths.outputs.result_file }}
+        INPUT_CONFLUENCE_URL: ${{ steps.upload_confluence.outputs.confluence_url }}
+        INPUT_JIRA_TICKET_ID: ${{ inputs.jira_ticket_id }}
+        INPUT_REQUIREMENTS_FILE: ${{ steps.extract_paths.outputs.requirements_file }}
+        PR_HTML_URL: ${{ github.event.pull_request.html_url }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
-        cd ${{ github.action_path }}
-        SCORE="${{ steps.extract_score.outputs.score }}"
-        THRESHOLD="${{ inputs.minimum_score }}"
-        PASSED="${{ steps.check_score.outputs.passed }}"
-        RESULT_FILE="${{ steps.extract_paths.outputs.result_file }}"
-        CONFLUENCE_URL="${{ steps.upload_confluence.outputs.confluence_url }}"
+        cd "$ACTION_PATH"
+        # ✅ SAFE: Sanitize all inputs
+        SCORE=$(echo "$INPUT_SCORE" | tr -cd '0-9.')
+        THRESHOLD=$(echo "$INPUT_THRESHOLD" | tr -cd '0-9.')
+        PASSED=$(echo "$INPUT_PASSED" | tr -cd 'a-z')
+        RESULT_FILE=$(echo "$INPUT_RESULT_FILE" | tr -cd 'A-Za-z0-9._/-')
+        CONFLUENCE_URL=$(echo "$INPUT_CONFLUENCE_URL" | tr -cd 'A-Za-z0-9._/:?&=-')
+        JIRA_TICKET_ID=$(echo "$INPUT_JIRA_TICKET_ID" | tr -cd 'A-Za-z0-9_-')
+        REQUIREMENTS_FILE=$(echo "$INPUT_REQUIREMENTS_FILE" | tr -cd 'A-Za-z0-9._/-')
+        SAFE_PR_URL=$(echo "$PR_HTML_URL" | tr -cd 'A-Za-z0-9._/:?&=-')
+        SAFE_PR_NUMBER=$(echo "$PR_NUMBER" | tr -cd '0-9')
 
         echo "## 📊 Unit Test Quality Analysis Report" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**JIRA Ticket:** ${{ inputs.jira_ticket_id }}" >> $GITHUB_STEP_SUMMARY
+        echo "**JIRA Ticket:** $JIRA_TICKET_ID" >> $GITHUB_STEP_SUMMARY
         echo "**Test Quality Score:** ${SCORE}/10" >> $GITHUB_STEP_SUMMARY
         echo "**Minimum Threshold:** ${THRESHOLD}/10" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -570,13 +650,13 @@ runs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
 
-        # Add PR link if available
-        if [ -n "${{ github.event.pull_request.html_url }}" ]; then
-          echo "- **Pull Request:** [${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})" >> $GITHUB_STEP_SUMMARY
+        # Add PR link if available (using sanitized env vars)
+        if [ -n "$SAFE_PR_URL" ]; then
+          echo "- **Pull Request:** [${SAFE_PR_NUMBER}](${SAFE_PR_URL})" >> $GITHUB_STEP_SUMMARY
         fi
 
         echo "### 📁 Generated Files" >> $GITHUB_STEP_SUMMARY
-        echo "- Requirements: \`${{ steps.extract_paths.outputs.requirements_file }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- Requirements: \`$REQUIREMENTS_FILE\`" >> $GITHUB_STEP_SUMMARY
         echo "- Analysis Report: \`$RESULT_FILE\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -655,9 +735,14 @@ runs:
     - name: Fail if score below threshold
       if: steps.check_score.outputs.passed == 'false'
       shell: bash
+      env:
+        # 🔒 Security: Use env vars to prevent command injection
+        INPUT_SCORE: ${{ steps.extract_score.outputs.score }}
+        INPUT_THRESHOLD: ${{ inputs.minimum_score }}
       run: |
-        SCORE="${{ steps.extract_score.outputs.score }}"
-        THRESHOLD="${{ inputs.minimum_score }}"
+        # ✅ SAFE: Validate score is a number (only digits and decimal point)
+        SCORE=$(echo "$INPUT_SCORE" | tr -cd '0-9.')
+        THRESHOLD=$(echo "$INPUT_THRESHOLD" | tr -cd '0-9.')
 
         GAP=$(awk -v threshold="$THRESHOLD" -v score="$SCORE" 'BEGIN { printf "%.1f", threshold - score }')
 

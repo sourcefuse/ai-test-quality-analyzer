@@ -5,9 +5,9 @@
  * Features:
  * - Fetch JIRA ticket details and save to file
  * - Fetch Confluence pages and save to file
- * - Search related documents using RAG (process-jira-with-rag-search.ts)
+ * - Search related documents using RAG (cli/process-jira-with-rag-search.ts)
  *
- * Note: Use process-jira-with-rag-search.ts for RAG functionality with PostgreSQL + pgvector.
+ * Note: Use cli/process-jira-with-rag-search.ts for RAG functionality with PostgreSQL + pgvector.
  */
 
 import * as dotenv from 'dotenv';
@@ -633,8 +633,8 @@ Example: \`user@example.com\` → \`us***********om\`
 ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
 💡 **Tip:** Start Presidio services for improved PII detection:
    \`\`\`bash
-   docker run -d -p 5002:3000 mcr.microsoft.com/presidio-analyzer
-   docker run -d -p 5001:3000 mcr.microsoft.com/presidio-anonymizer
+   docker run -d -p 5002:3000 -e PORT=3000 ghcr.io/sourcefuse/presidio-analyzer:latest
+   docker run -d -p 5001:3000 -e PORT=3000 ghcr.io/sourcefuse/presidio-anonymizer:latest
    \`\`\`
 ` : ''}
 `;

@@ -370,10 +370,10 @@ Use the provided script to automatically configure GitHub secrets and variables:
 
 ```bash
 # Make the script executable
-chmod +x setup-github-secrets.sh
+chmod +x scripts/setup-github-secrets.sh
 
 # Run the setup script
-./setup-github-secrets.sh
+./scripts/setup-github-secrets.sh
 ```
 
 The script will:
@@ -473,7 +473,7 @@ on:
 1. **Change trigger branches**: Edit the `branches` array under `pull_request`
 2. **Adjust quality threshold**: Set `UT_QUALITY_MINIMUM_SCORE` variable
 3. **Disable Confluence upload**: Set `upload_to_confluence: 'false'` in workflow
-4. **Change action version**: Update from `@QC-V1.0` to specific version
+4. **Change action version**: Update from `@QC-V2.0` to specific version
 
 ### Advanced Configuration
 
@@ -592,11 +592,11 @@ For issues or questions:
 
 ## Version Information
 
-Current Version: **QC-V1.0**
+Current Version: **QC-V2.0**
 
 To use a specific version in your workflow:
 ```yaml
-uses: sourcefuse/ai-test-quality-analyzer@QC-V1.0
+uses: sourcefuse/ai-test-quality-analyzer@QC-V2.0
 ```
 
 ---
