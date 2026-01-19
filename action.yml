@@ -434,6 +434,31 @@ runs:
         EOF
         echo "✅ Environment configuration created"
 
+    - name: Test PostgreSQL Database Connection
+      if: inputs.database_host == 'localhost' && inputs.enable_docker_services == 'true'
+      shell: bash
+      env:
+        DB_USER: ${{ inputs.database_user }}
+        DB_NAME: ${{ inputs.database_name }}
+      run: |
+        echo "🔍 Testing PostgreSQL database connection..."
+
+        # Wait a bit more for PostgreSQL to fully initialize
+        echo "⏳ Waiting for PostgreSQL to fully initialize..."
+        sleep 5
+
+        # Test connection and run sample queries
+        echo "📊 Running sample queries..."
+        docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT version();"
+
+        echo ""
+        echo "📦 Checking pgvector extension..."
+        docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+        docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -c "SELECT * FROM pg_extension WHERE extname = 'vector';"
+
+        echo ""
+        echo "✅ Database connection test complete!"
+
     - name: Get cache date key
       id: cache-date
       shell: bash
@@ -496,6 +521,17 @@ runs:
         npm run start
         echo "✅ Data fetched successfully"
 
+    - name: Step 2 - Fetch Confluence with RAG
+      if: inputs.use_postgres_vector_db == 'true'
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        cd "$ACTION_PATH"
+        echo "🔄 Fetching Confluence data using RAG-based approach..."
+        npm run process:jira
+        echo "✅ Confluence RAG data fetched successfully"
+
     - name: Save PostgreSQL data to cache
       if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost' && steps.load-cache.outputs.cache_loaded != 'true'
       shell: bash
@@ -530,7 +566,7 @@ runs:
           echo "⚠️  Table confluence_documents not found, skipping cache save"
         fi
 
-    - name: Step 2 - Create Requirements document (GLM)
+    - name: Step 3 - Create Requirements document (GLM)
       if: inputs.ai_type == '2'
       shell: bash
       env:
@@ -548,7 +584,7 @@ runs:
         npm run analyze-test-quality
         echo "✅ Test quality analysis completed"
 
-    - name: Step 2 - Create Requirements document (Bedrock)
+    - name: Step 3 - Create Requirements document (Bedrock)
       if: inputs.ai_type == '1' || inputs.ai_type == ''
       shell: bash
       env:
