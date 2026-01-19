@@ -279,8 +279,8 @@ runs:
 
         echo "🔍 Testing Presidio services availability..."
 
-        # Wait up to 60 seconds for Presidio Analyzer to be ready
-        MAX_WAIT=60
+        # Wait up to 120 seconds for Presidio Analyzer to be ready (spaCy model loading takes time)
+        MAX_WAIT=120
         ELAPSED=0
         ANALYZER_READY=false
 
@@ -302,7 +302,7 @@ runs:
           echo "⚠️  Presidio Analyzer did not respond within ${MAX_WAIT}s - PII detection will use regex fallback"
         fi
 
-        # Wait up to 60 seconds for Presidio Anonymizer to be ready
+        # Wait up to 120 seconds for Presidio Anonymizer to be ready
         ELAPSED=0
         ANONYMIZER_READY=false
 
@@ -524,7 +524,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: /tmp/pgvector-data
-        key: pgvector-data-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-v1
+        key: pgvector-data-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-v2
         restore-keys: |
           pgvector-data-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-
 
