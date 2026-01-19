@@ -262,17 +262,24 @@ runs:
       if: inputs.enable_docker_services == 'true'
       shell: bash
       run: |
-        echo "📥 Pulling Presidio combined image from ghcr.io..."
-        docker pull ghcr.io/sourcefuse/presidio-combined:latest
+        echo "📥 Pulling official Presidio images from Microsoft..."
+        docker pull mcr.microsoft.com/presidio-analyzer:latest &
+        docker pull mcr.microsoft.com/presidio-anonymizer:latest &
+        wait
 
-        echo "🚀 Starting Presidio combined service..."
-        # Combined image runs analyzer on 5001 and anonymizer on 5002
-        # Map to match existing .env config: analyzer=5002, anonymizer=5001
+        echo "🚀 Starting Presidio Analyzer (port 5002)..."
         docker run -d \
-          --name presidio-combined \
-          -p 5001:5002 \
-          -p 5002:5001 \
-          ghcr.io/sourcefuse/presidio-combined:latest
+          --name presidio-analyzer \
+          -p 5002:3000 \
+          -e PORT=3000 \
+          mcr.microsoft.com/presidio-analyzer:latest
+
+        echo "🚀 Starting Presidio Anonymizer (port 5001)..."
+        docker run -d \
+          --name presidio-anonymizer \
+          -p 5001:3000 \
+          -e PORT=3000 \
+          mcr.microsoft.com/presidio-anonymizer:latest
 
         echo "⏳ Waiting for services to be ready..."
         sleep 15
@@ -285,10 +292,7 @@ runs:
         ANALYZER_READY=false
 
         while [ $ELAPSED -lt $MAX_WAIT ]; do
-          if curl -s -X POST http://localhost:5002/analyze \
-            -H "Content-Type: application/json" \
-            -d '{"text":"test","language":"en"}' \
-            --max-time 5 > /dev/null 2>&1; then
+          if curl -s http://localhost:5002/health --max-time 5 | grep -q "Presidio"; then
             ANALYZER_READY=true
             echo "✅ Presidio Analyzer is ready (took ${ELAPSED}s)"
             break
@@ -302,15 +306,13 @@ runs:
           echo "⚠️  Presidio Analyzer did not respond within ${MAX_WAIT}s - PII detection will use regex fallback"
         fi
 
-        # Wait up to 120 seconds for Presidio Anonymizer to be ready
+        # Wait up to 60 seconds for Presidio Anonymizer to be ready (no model loading needed)
+        MAX_WAIT=60
         ELAPSED=0
         ANONYMIZER_READY=false
 
         while [ $ELAPSED -lt $MAX_WAIT ]; do
-          if curl -s -X POST http://localhost:5001/anonymize \
-            -H "Content-Type: application/json" \
-            -d '{"text":"test","analyzer_results":[]}' \
-            --max-time 5 > /dev/null 2>&1; then
+          if curl -s http://localhost:5001/health --max-time 5 | grep -q "Presidio"; then
             ANONYMIZER_READY=true
             echo "✅ Presidio Anonymizer is ready (took ${ELAPSED}s)"
             break
@@ -491,6 +493,8 @@ runs:
         ANTHROPIC_AUTH_TOKEN=$INPUT_ANTHROPIC_AUTH_TOKEN
 
         EOF
+        # Remove leading whitespace from .env file (heredoc indentation)
+        sed -i 's/^[[:space:]]*//' .env
         echo "✅ Environment configuration created"
 
     - name: Test PostgreSQL Database Connection
