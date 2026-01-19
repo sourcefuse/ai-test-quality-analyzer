@@ -105,28 +105,45 @@ fi
 echo -e "${GREEN}✅ Found .env file${NC}"
 echo ""
 
+# Read existing values from .env as defaults
+EXISTING_BASE_URL=$(grep "^ANTHROPIC_BASE_URL=" "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- | sed 's/^"//' | sed 's/"$//' || echo "")
+EXISTING_AUTH_TOKEN=$(grep "^ANTHROPIC_AUTH_TOKEN=" "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- | sed 's/^"//' | sed 's/"$//' || echo "")
+EXISTING_AI_TYPE=$(grep "^AI_TYPE=" "$ENV_FILE" 2>/dev/null | cut -d'=' -f2- || echo "1")
+
 # Prompt for GLM configuration
 echo -e "${BLUE}Step 2: Enter GLM configuration...${NC}"
 echo ""
-echo -e "${YELLOW}Note: Leave blank to skip (you can set these later)${NC}"
+echo -e "${YELLOW}Note: Press Enter to keep existing value, or enter new value${NC}"
 echo ""
 
-prompt_with_default "Enter ANTHROPIC_BASE_URL (GLM endpoint)" "" GLM_BASE_URL "false"
-prompt_with_default "Enter ANTHROPIC_AUTH_TOKEN (GLM token)" "" GLM_AUTH_TOKEN "true"
+prompt_with_default "Enter ANTHROPIC_BASE_URL (GLM endpoint)" "$EXISTING_BASE_URL" GLM_BASE_URL "false"
+prompt_with_default "Enter ANTHROPIC_AUTH_TOKEN (GLM token)" "$EXISTING_AUTH_TOKEN" GLM_AUTH_TOKEN "true"
 
 echo ""
 echo -e "${BLUE}Step 3: Select AI Provider...${NC}"
 echo ""
-echo "  1) AWS Bedrock (current)"
-echo "  2) GLM (migrate to this)"
+echo "  1) AWS Bedrock"
+echo "  2) GLM"
 echo ""
-read -p "Select AI provider [2]: " AI_PROVIDER_CHOICE
+if [ "$EXISTING_AI_TYPE" = "2" ]; then
+    read -p "Select AI provider [2 - current]: " AI_PROVIDER_CHOICE
+    DEFAULT_CHOICE="2"
+else
+    read -p "Select AI provider [1 - current]: " AI_PROVIDER_CHOICE
+    DEFAULT_CHOICE="1"
+fi
 
-if [ -z "$AI_PROVIDER_CHOICE" ] || [ "$AI_PROVIDER_CHOICE" = "2" ]; then
+if [ -z "$AI_PROVIDER_CHOICE" ]; then
+    AI_TYPE_VALUE="$DEFAULT_CHOICE"
+elif [ "$AI_PROVIDER_CHOICE" = "2" ]; then
     AI_TYPE_VALUE="2"
-    echo -e "${GREEN}✅ Selected: GLM${NC}"
 else
     AI_TYPE_VALUE="1"
+fi
+
+if [ "$AI_TYPE_VALUE" = "2" ]; then
+    echo -e "${GREEN}✅ Selected: GLM${NC}"
+else
     echo -e "${GREEN}✅ Selected: AWS Bedrock${NC}"
 fi
 
