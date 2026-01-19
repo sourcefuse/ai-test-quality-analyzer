@@ -10,8 +10,8 @@
 
 import * as dotenv from 'dotenv';
 import * as dotenvExt from 'dotenv-extended';
-import {JiraService, ConfluenceSmartFilterService} from './src/services';
-import {JiraConfigDto} from './src/dtos';
+import {JiraService, ConfluenceSmartFilterService} from '../src/services';
+import {JiraConfigDto} from '../src/dtos';
 
 // Load environment variables
 dotenv.config();

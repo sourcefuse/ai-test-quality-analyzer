@@ -16,8 +16,8 @@ import {
   JiraService,
   ConfluenceService,
   ConfluenceSmartFilterService,
-} from './src/services';
-import {JiraConfigDto, ConfluenceConfigDto} from './src/dtos';
+} from '../src/services';
+import {JiraConfigDto, ConfluenceConfigDto} from '../src/dtos';
 
 // Load environment variables
 dotenv.config();

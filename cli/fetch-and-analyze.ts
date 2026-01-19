@@ -14,9 +14,9 @@ import * as dotenv from 'dotenv';
 import * as dotenvExt from 'dotenv-extended';
 import * as fs from 'fs';
 import {randomUUID} from 'crypto';
-import {JiraService, ConfluenceService, HybridPIIDetectorService} from './src/services';
-import {JiraConfigDto, JiraTicketQueryDto, ConfluenceConfigDto, ConfluenceSearchRequestDto} from './src/dtos';
-import {stripHtmlTags, extractPlainText} from './src/utils';
+import {JiraService, ConfluenceService, HybridPIIDetectorService} from '../src/services';
+import {JiraConfigDto, JiraTicketQueryDto, ConfluenceConfigDto, ConfluenceSearchRequestDto} from '../src/dtos';
+import {stripHtmlTags, extractPlainText} from '../src/utils';
 
 /**
  * Load environment variables with dotenv-extended

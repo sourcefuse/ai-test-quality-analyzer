@@ -326,7 +326,11 @@ npm run analyze-test-quality
 
 ```
 ├── action.yml              # GitHub Action definition
-├── fetch-and-analyze.ts    # Main analysis orchestrator
+├── cli/                    # CLI entry points
+│   ├── fetch-and-analyze.ts    # Main analysis orchestrator
+│   ├── claude-runner.ts        # Claude AI runner
+│   ├── inspect-jira-ticket.ts  # JIRA inspection utility
+│   └── ...                     # Other CLI scripts
 ├── src/
 │   ├── services/          # Core services
 │   │   ├── jira.service.ts
@@ -336,14 +340,17 @@ npm run analyze-test-quality
 │   ├── dtos/              # Data transfer objects
 │   ├── models/            # Data models
 │   └── utils/             # Utility functions
+├── scripts/               # Setup and utility scripts
+│   ├── setup-git-hooks.sh      # Git hooks installer
+│   ├── setup-github-secrets.sh # GitHub secrets setup
+│   ├── setup-glm-migration.sh  # GLM migration helper
+│   └── remove-github-secrets.sh
 ├── .git-hooks/            # Git hooks for security
 │   ├── pre-commit         # Secret detection
 │   ├── prepare-commit-msg # AI co-author filter
 │   └── README.md          # Hooks documentation
 ├── templates/             # Workflow templates
-├── prompts/              # AI prompt templates
-├── setup-github-secrets.sh # GitHub secrets setup
-└── setup-git-hooks.sh     # Git hooks installer
+└── prompts/               # AI prompt templates
 ```
 
 ## 🤝 Contributing

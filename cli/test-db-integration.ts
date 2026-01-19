@@ -13,9 +13,9 @@ import {
   ConfluenceSmartFilterService,
   PostgresVectorService,
   EmbeddingService,
-} from './src/services';
-import {JiraConfigDto, ConfluenceConfigDto} from './src/dtos';
-import {stripHtmlTags} from './src/utils';
+} from '../src/services';
+import {JiraConfigDto, ConfluenceConfigDto} from '../src/dtos';
+import {stripHtmlTags} from '../src/utils';
 
 // Load environment variables
 dotenv.config();

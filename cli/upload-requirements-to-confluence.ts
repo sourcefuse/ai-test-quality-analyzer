@@ -6,8 +6,8 @@
 import * as dotenv from 'dotenv';
 import * as dotenvExt from 'dotenv-extended';
 import * as fs from 'fs';
-import {ConfluenceService} from './src/services';
-import {ConfluenceConfigDto} from './src/dtos';
+import {ConfluenceService} from '../src/services';
+import {ConfluenceConfigDto} from '../src/dtos';
 
 /**
  * Load environment variables

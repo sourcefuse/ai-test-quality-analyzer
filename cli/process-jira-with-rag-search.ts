@@ -12,14 +12,14 @@ import {
   EmbeddingService,
   PostgresVectorService,
   JiraProcessorService,
-} from './src/services';
-import {JiraConfigDto, ConfluenceConfigDto} from './src/dtos';
+} from '../src/services';
+import {JiraConfigDto, ConfluenceConfigDto} from '../src/dtos';
 import {
   getRequiredEnv,
   getRequiredEnvAsNumber,
   getOptionalEnv,
   getOptionalEnvAsNumber,
-} from './src/utils/env-validator.util';
+} from '../src/utils/env-validator.util';
 
 // Load environment variables
 dotenv.config();
