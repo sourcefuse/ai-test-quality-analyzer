@@ -497,14 +497,6 @@ runs:
         sed -i 's/^[[:space:]]*//' .env
         echo "✅ Environment configuration created"
 
-        # Debug: Show .env file content (masking sensitive values)
-        echo ""
-        echo "📋 Debug: .env file content (sensitive values masked):"
-        echo "----------------------------------------"
-        cat .env | sed -E 's/(API_TOKEN|PASSWORD|AUTH_TOKEN|OPENAI_API_KEY)=.*/\1=***MASKED***/g'
-        echo "----------------------------------------"
-        echo ""
-
     - name: Test PostgreSQL Database Connection
       if: inputs.database_host == 'localhost' && inputs.enable_docker_services == 'true'
       shell: bash
