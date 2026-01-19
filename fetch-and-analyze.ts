@@ -683,26 +683,50 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
                         const sanitizePgData = process.env.SANITIZE_PG_DATA !== 'false'; // default true
                         console.log(`\n🔒 PostgreSQL PII Sanitization: ${sanitizePgData ? '✅ ENABLED' : '❌ DISABLED'}`);
 
-                        const indexerService = new ConfluenceIndexerService(
-                            confluenceService,
-                            embeddingService,
-                            vectorService,
-                            chunkSize,
-                            chunkOverlap,
-                            sanitizePgData ? piiDetector : undefined, // pass piiDetector only if enabled
-                        );
+                        // Get JIRA project key from environment
+                        const projectKey = process.env.JIRA_PROJECT_KEY;
 
-                        // Index the space
-                        console.log(`\n📚 Indexing Confluence space: ${confluenceConfig.spaceKey}`);
-                        const stats = await indexerService.indexSpace(confluenceConfig.spaceKey, batchSize);
+                        // Check if we should verify PostgreSQL before fetching Confluence
+                        const checkPgBeforeFetch = process.env.CHECK_PG_BEFORE_CONFLUENCE_FETCH !== 'false'; // default true
 
-                        console.log('\n✅ PostgreSQL Vector DB indexing complete!');
-                        console.log(`   Space: ${stats.spaceKey}`);
-                        console.log(`   Pages indexed: ${stats.totalPages}`);
-                        console.log(`   Total chunks: ${stats.totalChunks}`);
-                        console.log(`   Processing time: ${(stats.processingTime / 1000).toFixed(2)}s`);
-                        if (stats.errors.length > 0) {
-                            console.log(`   Errors: ${stats.errors.length}`);
+                        let shouldFetchConfluence = true;
+
+                        // Check PostgreSQL for existing non-expired records if enabled
+                        if (checkPgBeforeFetch && projectKey) {
+                            console.log(`\n🔍 Checking PostgreSQL for existing data (project_key: ${projectKey})...`);
+                            const existingCount = await vectorService.getDocumentCountByProjectKey(projectKey);
+                            console.log(`   Found ${existingCount} non-expired document(s) for project ${projectKey}`);
+
+                            if (existingCount > 0) {
+                                shouldFetchConfluence = false;
+                                console.log(`   ✅ Using existing data from PostgreSQL - skipping Confluence fetch`);
+                            } else {
+                                console.log(`   ℹ️  No existing data found - will fetch from Confluence`);
+                            }
+                        }
+
+                        if (shouldFetchConfluence) {
+                            const indexerService = new ConfluenceIndexerService(
+                                confluenceService,
+                                embeddingService,
+                                vectorService,
+                                chunkSize,
+                                chunkOverlap,
+                                sanitizePgData ? piiDetector : undefined, // pass piiDetector only if enabled
+                            );
+
+                            // Index the space
+                            console.log(`\n📚 Indexing Confluence space: ${confluenceConfig.spaceKey}`);
+                            const stats = await indexerService.indexSpace(confluenceConfig.spaceKey, batchSize);
+
+                            console.log('\n✅ PostgreSQL Vector DB indexing complete!');
+                            console.log(`   Space: ${stats.spaceKey}`);
+                            console.log(`   Pages indexed: ${stats.totalPages}`);
+                            console.log(`   Total chunks: ${stats.totalChunks}`);
+                            console.log(`   Processing time: ${(stats.processingTime / 1000).toFixed(2)}s`);
+                            if (stats.errors.length > 0) {
+                                console.log(`   Errors: ${stats.errors.length}`);
+                            }
                         }
 
                         // Clean up expired records
