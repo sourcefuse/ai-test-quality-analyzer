@@ -59,11 +59,12 @@ jobs:
     name: Analyze Test Quality
     runs-on: ubuntu-latest
 
-    # Required permissions for PR comments
+    # Required permissions for PR comments and Docker images
     permissions:
       contents: read
       pull-requests: write
       issues: write
+      packages: read       # Required to pull Docker images from ghcr.io
     
     if: |
       github.actor != 'dependabot[bot]' &&
