@@ -242,6 +242,141 @@ else
     echo ""
 fi
 
+# Ask if user wants to update GitHub secrets
+echo ""
+echo -e "${BLUE}Step 6: Update GitHub Secrets/Variables?${NC}"
+echo ""
+read -p "Do you want to update GitHub secrets and variables? (y/n) [y]: " UPDATE_GITHUB
+
+if [ -z "$UPDATE_GITHUB" ] || [ "$UPDATE_GITHUB" = "y" ] || [ "$UPDATE_GITHUB" = "Y" ]; then
+    echo ""
+
+    # Check if gh is installed
+    if ! command -v gh &> /dev/null; then
+        echo -e "${RED}❌ Error: GitHub CLI (gh) is not installed${NC}"
+        echo "Please install it from: https://cli.github.com/"
+        echo ""
+        echo -e "${YELLOW}Skipping GitHub configuration. Please configure manually.${NC}"
+    else
+        # Check if gh is authenticated
+        if ! gh auth status &> /dev/null; then
+            echo -e "${RED}❌ Error: GitHub CLI is not authenticated${NC}"
+            echo "Please run: gh auth login"
+            echo ""
+            echo -e "${YELLOW}Skipping GitHub configuration. Please configure manually.${NC}"
+        else
+            echo -e "${GREEN}✅ GitHub CLI is installed and authenticated${NC}"
+            echo ""
+
+            # Prompt for repository name
+            echo -e "${YELLOW}📦 Enter the repository name (format: owner/repo):${NC}"
+            echo -e "${BLUE}   Example: sourcefuse/ai-test-quality-analyzer${NC}"
+            read -p "Repository: " REPO_NAME
+
+            if [ -z "$REPO_NAME" ]; then
+                echo -e "${YELLOW}⚠️  No repository specified. Skipping GitHub configuration.${NC}"
+            elif [[ ! "$REPO_NAME" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$ ]]; then
+                echo -e "${RED}❌ Error: Invalid repository name format${NC}"
+                echo "Expected format: owner/repo"
+            else
+                # Verify repository access
+                echo ""
+                echo -e "${BLUE}🔍 Verifying repository access...${NC}"
+
+                if ! gh repo view "$REPO_NAME" &> /dev/null; then
+                    echo -e "${RED}❌ Error: Cannot access repository '$REPO_NAME'${NC}"
+                else
+                    echo -e "${GREEN}✅ Repository access verified${NC}"
+                    echo ""
+
+                    # Define prefixes
+                    SECRET_PREFIXES=("UT_QUALITY_" "UT_GENERATE_")
+
+                    echo -e "${BLUE}🔐 Setting GitHub Secrets...${NC}"
+                    echo ""
+
+                    SECRETS_SUCCESS=0
+                    SECRETS_FAILED=0
+
+                    # Set GLM secrets with both prefixes
+                    for PREFIX in "${SECRET_PREFIXES[@]}"; do
+                        # ANTHROPIC_BASE_URL
+                        if [ -n "$GLM_BASE_URL" ]; then
+                            SECRET_NAME="${PREFIX}ANTHROPIC_BASE_URL"
+                            echo -e "   Setting: $SECRET_NAME"
+                            if echo "$GLM_BASE_URL" | gh secret set "$SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
+                                echo -e "   ${GREEN}✅ $SECRET_NAME set${NC}"
+                                SECRETS_SUCCESS=$((SECRETS_SUCCESS + 1))
+                            else
+                                echo -e "   ${RED}❌ Failed to set $SECRET_NAME${NC}"
+                                SECRETS_FAILED=$((SECRETS_FAILED + 1))
+                            fi
+                        fi
+
+                        # ANTHROPIC_AUTH_TOKEN
+                        if [ -n "$GLM_AUTH_TOKEN" ]; then
+                            SECRET_NAME="${PREFIX}ANTHROPIC_AUTH_TOKEN"
+                            echo -e "   Setting: $SECRET_NAME"
+                            if echo "$GLM_AUTH_TOKEN" | gh secret set "$SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
+                                echo -e "   ${GREEN}✅ $SECRET_NAME set${NC}"
+                                SECRETS_SUCCESS=$((SECRETS_SUCCESS + 1))
+                            else
+                                echo -e "   ${RED}❌ Failed to set $SECRET_NAME${NC}"
+                                SECRETS_FAILED=$((SECRETS_FAILED + 1))
+                            fi
+                        fi
+                    done
+
+                    echo ""
+                    echo -e "${BLUE}📋 Setting GitHub Variables...${NC}"
+                    echo ""
+
+                    VARS_SUCCESS=0
+                    VARS_FAILED=0
+
+                    # Set AI_TYPE variable with both prefixes
+                    for PREFIX in "${SECRET_PREFIXES[@]}"; do
+                        VAR_NAME="${PREFIX}AI_TYPE"
+                        echo -e "   Setting: $VAR_NAME = $AI_TYPE_VALUE"
+                        if gh variable set "$VAR_NAME" --body "$AI_TYPE_VALUE" --repo "$REPO_NAME" 2>/dev/null; then
+                            echo -e "   ${GREEN}✅ $VAR_NAME set${NC}"
+                            VARS_SUCCESS=$((VARS_SUCCESS + 1))
+                        else
+                            echo -e "   ${RED}❌ Failed to set $VAR_NAME${NC}"
+                            VARS_FAILED=$((VARS_FAILED + 1))
+                        fi
+                    done
+
+                    echo ""
+                    echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+                    echo -e "${BLUE}GitHub Configuration Summary${NC}"
+                    echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
+                    echo ""
+                    echo -e "Repository: ${GREEN}$REPO_NAME${NC}"
+                    echo -e "Secrets set: ${GREEN}$SECRETS_SUCCESS${NC} success, ${RED}$SECRETS_FAILED${NC} failed"
+                    echo -e "Variables set: ${GREEN}$VARS_SUCCESS${NC} success, ${RED}$VARS_FAILED${NC} failed"
+                    echo ""
+                fi
+            fi
+        fi
+    fi
+else
+    echo -e "${YELLOW}Skipping GitHub configuration.${NC}"
+    echo ""
+    echo -e "${YELLOW}To configure GitHub manually:${NC}"
+    echo "  Settings → Secrets and variables → Actions"
+    echo ""
+    if [ "$AI_TYPE_VALUE" = "2" ]; then
+        echo -e "${BLUE}SECRETS to add:${NC}"
+        echo "  • UT_GENERATE_ANTHROPIC_BASE_URL"
+        echo "  • UT_GENERATE_ANTHROPIC_AUTH_TOKEN"
+        echo ""
+        echo -e "${BLUE}VARIABLES to add:${NC}"
+        echo "  • UT_GENERATE_AI_TYPE = 2"
+    fi
+fi
+
+echo ""
 echo -e "${YELLOW}Note: Database configs (DATABASE_*) have defaults and are${NC}"
 echo -e "${YELLOW}      auto-configured via Docker during workflow.${NC}"
 echo ""
