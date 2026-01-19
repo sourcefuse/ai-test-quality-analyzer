@@ -14,7 +14,11 @@
     "test-db": "ts-node test-db-integration.ts",
     "clear-db": "ts-node clear-db.ts",
     "build": "tsc",
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "setup:git-hooks": "bash scripts/setup-git-hooks.sh",
+    "setup:github-secrets": "bash scripts/setup-github-secrets.sh",
+    "setup:glm-migration": "bash scripts/setup-glm-migration.sh",
+    "setup:remove-secrets": "bash scripts/remove-github-secrets.sh"
   },
   "keywords": [],
   "author": "Vishal Gupta",

@@ -70,9 +70,9 @@ inputs:
     required: false
     default: 'main'
   target_branch:
-    description: 'Target branch for generated unit test cases (default: main)'
+    description: 'Target branch for generated unit test cases (default: dev)'
     required: false
-    default: 'main'
+    default: 'dev'
   save_to_file:
     description: 'Save analysis results to files (true/false)'
     required: false
@@ -99,8 +99,16 @@ inputs:
     description: 'Anthropic model name for Claude'
     required: false
     default: 'sonnet[1m]'
-  claude_code_use_bedrock:
-    description: 'Enable AWS Bedrock for Claude (1=enabled, 0=disabled)'
+  anthropic_base_url:
+    description: 'Anthropic API base URL (for GLM or custom endpoints)'
+    required: false
+    default: ''
+  anthropic_auth_token:
+    description: 'Anthropic API authentication token'
+    required: false
+    default: ''
+  ai_type:
+    description: 'AI provider type: 1 = claude_with_bedrock, 2 = claude_with_glm'
     required: false
     default: '1'
   base_folder_suffix:
@@ -163,6 +171,15 @@ outputs:
   confluence_url:
     description: 'Confluence URL to the uploaded analysis report'
     value: ${{ steps.upload_confluence.outputs.confluence_url }}
+  pr_url:
+    description: 'URL to the created/updated Pull Request'
+    value: ${{ steps.create_pr.outputs.pr_url }}
+  pr_number:
+    description: 'Pull Request number'
+    value: ${{ steps.create_pr.outputs.pr_number }}
+  pr_action:
+    description: 'PR action taken (created/updated/none)'
+    value: ${{ steps.create_pr.outputs.pr_action }}
 
 runs:
   using: 'composite'
@@ -416,6 +433,11 @@ runs:
         SMART_FILTER_DEBUG=false
         CHECK_PG_BEFORE_CONFLUENCE_FETCH=true
 
+        # Anthropic/GLM Configuration
+        ANTHROPIC_MODEL=${{ inputs.anthropic_model }}
+        ANTHROPIC_BASE_URL=${{ inputs.anthropic_base_url }}
+        ANTHROPIC_AUTH_TOKEN=${{ inputs.anthropic_auth_token }}
+
         EOF
         echo "✅ Environment configuration created"
 
@@ -459,17 +481,50 @@ runs:
         npm run fetch-confluence-rag
         echo "✅ Confluence RAG data fetched successfully"
 
-    - name: Step 3 - Create Requirements document
-      if: inputs.claude_code_use_bedrock == '1'
+    - name: Step 3 - Create Requirements document (GLM)
+      if: inputs.ai_type == '2'
       shell: bash
       env:
-        CLAUDE_CODE_USE_BEDROCK:  "1"
-        AWS_REGION:               ${{ inputs.aws_region_bedrock }}
-        ANTHROPIC_MODEL:          ${{ inputs.anthropic_model }}
-        AWS_ACCESS_KEY_ID:        ${{ inputs.aws_access_key_bedrock }}
-        AWS_SECRET_ACCESS_KEY:    ${{ inputs.aws_secret_key_bedrock }}
+        ANTHROPIC_BASE_URL:   ${{ inputs.anthropic_base_url }}
+        ANTHROPIC_AUTH_TOKEN: ${{ inputs.anthropic_auth_token }}
       run: |
         cd ${{ github.action_path }}
+        echo "🤖 Using GLM API (ANTHROPIC_BASE_URL: $ANTHROPIC_BASE_URL)"
+        echo "📋 Creating requirements document from JIRA and Confluence..."
+
+        # Capture output from create-requirement-doc and extract cost
+        OUTPUT1=$(npm run create-requirement-doc 2>&1)
+        echo "$OUTPUT1"
+        COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | sed 's/.*Cost: \$\([0-9.]*\).*/\1/')
+        echo "COST_REQUIREMENT=$COST1" >> $GITHUB_ENV
+        echo "✅ Requirements document created (Cost: \$$COST1)"
+
+        echo "🔍 Generating unit test cases..."
+
+        # Capture output from generate-unit-testcases and extract cost
+        OUTPUT2=$(npm run generate-unit-testcases 2>&1)
+        echo "$OUTPUT2"
+        COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | sed 's/.*Cost: \$\([0-9.]*\).*/\1/')
+        echo "COST_GENERATION=$COST2" >> $GITHUB_ENV
+        echo "✅ Unit test cases generated successfully (Cost: \$$COST2)"
+
+        # Calculate total cost
+        TOTAL_COST=$(echo "$COST1 + $COST2" | bc)
+        echo "TOTAL_CLAUDE_COST=$TOTAL_COST" >> $GITHUB_ENV
+        echo "💰 Total Cost: \$$TOTAL_COST (Provider: GLM)"
+
+    - name: Step 3 - Create Requirements document (Bedrock)
+      if: inputs.ai_type == '1'
+      shell: bash
+      env:
+        CLAUDE_CODE_USE_BEDROCK: "1"
+        AWS_REGION:              ${{ inputs.aws_region_bedrock }}
+        ANTHROPIC_MODEL:         ${{ inputs.anthropic_model }}
+        AWS_ACCESS_KEY_ID:       ${{ inputs.aws_access_key_bedrock }}
+        AWS_SECRET_ACCESS_KEY:   ${{ inputs.aws_secret_key_bedrock }}
+      run: |
+        cd ${{ github.action_path }}
+        echo "🤖 Using AWS Bedrock (Region: $AWS_REGION)"
         echo "📋 Creating requirements document from JIRA and Confluence..."
 
         # Capture output from create-requirement-doc and extract cost
@@ -631,6 +686,81 @@ runs:
           echo "✅ Results uploaded to Confluence"
         fi
 
+    - name: Step 6 - Create Pull Request
+      id: create_pr
+      if: steps.commit_tests.outputs.has_changes == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        cd ${{ github.action_path }}/repo
+        BRANCH_NAME="${{ steps.commit_tests.outputs.branch_name }}"
+        TARGET_BRANCH="${{ inputs.target_branch }}"
+        TICKET_ID=$(echo "${{ inputs.jira_ticket_id }}" | xargs)
+
+        echo "🔀 Creating Pull Request..."
+        echo "   Source: $BRANCH_NAME"
+        echo "   Target: $TARGET_BRANCH"
+
+        # Check if PR already exists
+        EXISTING_PR=$(gh pr list --head "$BRANCH_NAME" --base "$TARGET_BRANCH" --json number,url --jq '.[0]' 2>/dev/null || echo "")
+
+        if [ -n "$EXISTING_PR" ] && [ "$EXISTING_PR" != "null" ]; then
+          PR_NUMBER=$(echo "$EXISTING_PR" | jq -r '.number')
+          PR_URL=$(echo "$EXISTING_PR" | jq -r '.url')
+          echo "📝 Pull Request already exists: #$PR_NUMBER"
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "pr_action=updated" >> $GITHUB_OUTPUT
+        else
+          # Create new PR
+          PR_BODY="## Summary
+        - Generated unit test cases for JIRA ticket: $TICKET_ID
+        - AI-powered test generation based on JIRA requirements and Confluence documentation
+
+        ## Test Plan
+        - [ ] Review generated test cases
+        - [ ] Run tests locally to verify functionality
+        - [ ] Check test coverage
+
+        ## Links
+        - **JIRA Ticket:** [$TICKET_ID](${{ inputs.jira_url }}/browse/$TICKET_ID)
+        - **Confluence Report:** ${{ steps.upload_confluence.outputs.confluence_url }}
+
+        ---
+        🤖 _Generated via GitHub Actions - Unit Test Generation Workflow_"
+
+          PR_RESULT=$(gh pr create \
+            --title "test($TICKET_ID): add AI-generated unit tests" \
+            --body "$PR_BODY" \
+            --base "$TARGET_BRANCH" \
+            --head "$BRANCH_NAME" 2>&1) || true
+
+          if echo "$PR_RESULT" | grep -q "https://"; then
+            PR_URL=$(echo "$PR_RESULT" | grep -oE 'https://[^ ]+')
+            PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+            echo "✅ Pull Request created: $PR_URL"
+            echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+            echo "pr_action=created" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Could not create PR: $PR_RESULT"
+            echo "pr_url=" >> $GITHUB_OUTPUT
+            echo "pr_number=" >> $GITHUB_OUTPUT
+            echo "pr_action=none" >> $GITHUB_OUTPUT
+          fi
+        fi
+
+    - name: Skip PR Creation
+      id: skip_pr
+      if: steps.commit_tests.outputs.has_changes != 'true'
+      shell: bash
+      run: |
+        echo "ℹ️ No changes to commit, skipping PR creation"
+        echo "pr_url=" >> $GITHUB_OUTPUT
+        echo "pr_number=" >> $GITHUB_OUTPUT
+        echo "pr_action=none" >> $GITHUB_OUTPUT
+
     - name: Generate summary
       shell: bash
       run: |
@@ -638,6 +768,9 @@ runs:
         BRANCH_NAME="${{ steps.commit_tests.outputs.branch_name }}"
         BRANCH_URL="${{ steps.commit_tests.outputs.branch_url }}"
         CONFLUENCE_URL="${{ steps.upload_confluence.outputs.confluence_url }}"
+        PR_URL="${{ steps.create_pr.outputs.pr_url }}"
+        PR_NUMBER="${{ steps.create_pr.outputs.pr_number }}"
+        PR_ACTION="${{ steps.create_pr.outputs.pr_action }}"
         ANALYSIS_FOLDER="${{ env.ANALYSIS_FOLDER }}"
         COST_REQUIREMENT="${{ env.COST_REQUIREMENT }}"
         COST_GENERATION="${{ env.COST_GENERATION }}"
@@ -661,13 +794,22 @@ runs:
         echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        # Add JIRA link
-        JIRA_LINK="${{ inputs.jira_url }}/browse/${{ inputs.jira_ticket_id }}"
+        # Add JIRA link (ensure absolute URL)
+        JIRA_BASE="${{ inputs.jira_url }}"
+        # Add https:// if not present
+        if [[ ! "$JIRA_BASE" =~ ^https?:// ]]; then
+          JIRA_BASE="https://${JIRA_BASE}"
+        fi
+        JIRA_LINK="${JIRA_BASE}/browse/${{ inputs.jira_ticket_id }}"
         echo "- **JIRA Ticket:** [${{ inputs.jira_ticket_id }}](${JIRA_LINK})" >> $GITHUB_STEP_SUMMARY
 
         # Add PR link if available
-        if [ -n "${{ github.event.pull_request.html_url }}" ]; then
-          echo "- **Pull Request:** [${{ github.event.pull_request.number }}](${{ github.event.pull_request.html_url }})" >> $GITHUB_STEP_SUMMARY
+        if [ -n "$PR_URL" ]; then
+          if [ "$PR_ACTION" == "created" ]; then
+            echo "- **Pull Request:** [#${PR_NUMBER}](${PR_URL}) (newly created)" >> $GITHUB_STEP_SUMMARY
+          elif [ "$PR_ACTION" == "updated" ]; then
+            echo "- **Pull Request:** [#${PR_NUMBER}](${PR_URL}) (existing)" >> $GITHUB_STEP_SUMMARY
+          fi
         fi
 
         # Add Confluence link if upload was successful
@@ -697,7 +839,11 @@ runs:
         echo "### 📝 Next Steps" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "1. 🔍 Review the generated tests in the branch" >> $GITHUB_STEP_SUMMARY
-        echo "2. 🔀 Create a Pull Request to merge into \`${{ inputs.target_branch }}\`" >> $GITHUB_STEP_SUMMARY
+        if [ -n "$PR_URL" ]; then
+          echo "2. 🔀 Review and merge the Pull Request" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "2. 🔀 Create a Pull Request to merge into \`${{ inputs.target_branch }}\`" >> $GITHUB_STEP_SUMMARY
+        fi
         echo "3. 📊 Check Confluence for detailed analysis report" >> $GITHUB_STEP_SUMMARY
         echo "4. ✅ Run tests locally to verify functionality" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY

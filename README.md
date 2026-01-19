@@ -264,11 +264,41 @@ env:
 
 ## 🔒 Security
 
+### Git Hooks (Secret Detection)
+
+This project includes pre-commit hooks to prevent accidental commits of sensitive data:
+
+```bash
+# Install git hooks (one-time setup)
+chmod +x setup-git-hooks.sh
+./setup-git-hooks.sh
+```
+
+**Features**:
+- 🔍 Scans for AWS credentials, API keys, tokens before commit
+- 🛡️ Validates `.env.example` contains only placeholders
+- 🤖 Removes AI co-authorship from commit messages
+- ⚡ Fast - only scans staged files
+
+**Detects**:
+- AWS credentials (AKIA*, aws_secret_access_key)
+- Atlassian tokens (JIRA/Confluence)
+- OpenAI & Anthropic API keys
+- GitHub tokens
+- Private keys (RSA, SSH, PGP)
+- Database connection strings
+- Generic API keys and tokens
+
+See [.git-hooks/README.md](.git-hooks/README.md) for detailed documentation.
+
+### Best Practices
+
 - All credentials stored as GitHub Secrets
 - API tokens should have minimal required permissions
 - Rotate tokens every 90 days
 - Use dedicated service accounts
 - Enable GitHub secret scanning
+- **Never commit real credentials to .env.example**
 
 ## 📦 Development
 
@@ -278,9 +308,13 @@ env:
 # Install dependencies
 npm install
 
+# Set up git hooks (IMPORTANT - do this first)
+chmod +x setup-git-hooks.sh
+./setup-git-hooks.sh
+
 # Set up environment
 cp .env.example .env
-# Add your credentials to .env
+# Add your credentials to .env (hooks will prevent accidental commits)
 
 # Run analysis
 npm run start
@@ -302,9 +336,14 @@ npm run analyze-test-quality
 │   ├── dtos/              # Data transfer objects
 │   ├── models/            # Data models
 │   └── utils/             # Utility functions
+├── .git-hooks/            # Git hooks for security
+│   ├── pre-commit         # Secret detection
+│   ├── prepare-commit-msg # AI co-author filter
+│   └── README.md          # Hooks documentation
 ├── templates/             # Workflow templates
 ├── prompts/              # AI prompt templates
-└── setup-github-secrets.sh # Setup automation
+├── setup-github-secrets.sh # GitHub secrets setup
+└── setup-git-hooks.sh     # Git hooks installer
 ```
 
 ## 🤝 Contributing

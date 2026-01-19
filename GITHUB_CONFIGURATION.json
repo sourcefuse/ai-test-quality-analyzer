@@ -99,20 +99,28 @@
         "reason": "AWS secret credentials"
       },
       {
-        "name": "AWS_BEDROCK_MODEL",
-        "env_var": "AWS_BEDROCK_MODEL",
-        "description": "AWS Bedrock model identifier",
-        "example": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
+        "name": "ANTHROPIC_MODEL",
+        "env_var": "ANTHROPIC_MODEL",
+        "description": "Anthropic model name for Claude (used with Bedrock)",
+        "example": "sonnet",
         "sensitive": false,
         "reason": "Model configuration, not sensitive"
       },
       {
-        "name": "ANTHROPIC_MODEL",
-        "env_var": "ANTHROPIC_MODEL",
-        "description": "Anthropic model name for Claude",
-        "example": "sonnet[1m]",
-        "sensitive": false,
-        "reason": "Model configuration, not sensitive"
+        "name": "ANTHROPIC_BASE_URL",
+        "env_var": "ANTHROPIC_BASE_URL",
+        "description": "Anthropic API base URL (for GLM or custom endpoints)",
+        "example": "https://your-glm-endpoint.com",
+        "sensitive": true,
+        "reason": "API endpoint configuration"
+      },
+      {
+        "name": "ANTHROPIC_AUTH_TOKEN",
+        "env_var": "ANTHROPIC_AUTH_TOKEN",
+        "description": "Anthropic API authentication token (for GLM)",
+        "example": "glm_xxxxxxxxxxxxxxxxxxxxxx",
+        "sensitive": true,
+        "reason": "API authentication credentials"
       },
       {
         "name": "DOCKER_USERNAME",
@@ -133,55 +141,57 @@
       {
         "name": "OPENAI_API_KEY",
         "env_var": "OPENAI_API_KEY",
-        "description": "OpenAI API key for embeddings - used by both quality check and test generation workflows (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "description": "OpenAI API key for embeddings (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
         "example": "sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         "sensitive": true,
-        "reason": "OpenAI API credentials for embeddings generation",
-        "workflows": ["quality-check", "generate-tests"],
-        "secret_names": {
-          "quality_check": "UT_QUALITY_OPENAI_API_KEY",
-          "generate_tests": "UT_GENERATE_OPENAI_API_KEY"
-        }
-      },
+        "reason": "OpenAI API credentials for embeddings generation"
+      }
+    ],
+    "optional_with_defaults": [
       {
         "name": "DATABASE_HOST",
         "env_var": "DATABASE_HOST",
-        "description": "PostgreSQL database host (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "description": "PostgreSQL database host - has default in action.yml, only override if using external database",
         "example": "localhost",
+        "default": "localhost",
         "sensitive": false,
-        "reason": "Database connection configuration"
+        "reason": "Database connection configuration - uses Docker container by default"
       },
       {
         "name": "DATABASE_PORT",
         "env_var": "DATABASE_PORT",
-        "description": "PostgreSQL database port (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "description": "PostgreSQL database port - has default in action.yml",
         "example": "5432",
+        "default": "5432",
         "sensitive": false,
         "reason": "Database connection configuration"
       },
       {
         "name": "DATABASE_NAME",
         "env_var": "DATABASE_NAME",
-        "description": "PostgreSQL database name (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "description": "PostgreSQL database name - has default in action.yml",
         "example": "postgres-pgvector",
+        "default": "postgres-pgvector",
         "sensitive": false,
         "reason": "Database name configuration"
       },
       {
         "name": "DATABASE_USER",
         "env_var": "DATABASE_USER",
-        "description": "PostgreSQL database user (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "description": "PostgreSQL database user - has default in action.yml",
         "example": "postgres",
-        "sensitive": true,
-        "reason": "Database authentication credentials"
+        "default": "postgres",
+        "sensitive": false,
+        "reason": "Database authentication - uses default for Docker container"
       },
       {
         "name": "DATABASE_PASSWORD",
         "env_var": "DATABASE_PASSWORD",
-        "description": "PostgreSQL database password (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
-        "example": "your-secure-password",
-        "sensitive": true,
-        "reason": "Database authentication credentials"
+        "description": "PostgreSQL database password - has default in action.yml",
+        "example": "admin",
+        "default": "admin",
+        "sensitive": false,
+        "reason": "Database authentication - uses default for Docker container"
       }
     ]
   },
@@ -234,22 +244,13 @@
         "reason": "Feature flag, not sensitive"
       },
       {
-        "name": "WORKFLOW_RETENTION_DAYS",
-        "env_var": "WORKFLOW_RETENTION_DAYS",
-        "description": "Number of days to retain workflow artifacts",
-        "example": "2",
-        "default": "2",
-        "sensitive": false,
-        "reason": "Retention policy, not sensitive"
-      },
-      {
-        "name": "CLAUDE_CODE_USE_BEDROCK",
-        "env_var": "CLAUDE_CODE_USE_BEDROCK",
-        "description": "Enable AWS Bedrock for Claude (1=enabled, 0=disabled)",
+        "name": "AI_TYPE",
+        "env_var": "AI_TYPE",
+        "description": "AI provider type: 1 = claude_with_bedrock, 2 = claude_with_glm",
         "example": "1",
         "default": "1",
         "sensitive": false,
-        "reason": "Feature flag, not sensitive"
+        "reason": "AI provider selection, not sensitive"
       },
       {
         "name": "USE_POSTGRES_VECTOR_DB",
@@ -312,8 +313,9 @@
       "aws_region_bedrock": "${{ secrets.UT_QUALITY_AWS_REGION_BEDROCK }}",
       "aws_access_key_bedrock": "${{ secrets.UT_QUALITY_AWS_ACCESS_KEY_BEDROCK }}",
       "aws_secret_key_bedrock": "${{ secrets.UT_QUALITY_AWS_SECRET_KEY_BEDROCK }}",
-      "aws_bedrock_model": "${{ secrets.UT_QUALITY_AWS_BEDROCK_MODEL }}",
       "anthropic_model": "${{ secrets.UT_QUALITY_ANTHROPIC_MODEL }}",
+      "anthropic_base_url": "${{ secrets.UT_QUALITY_ANTHROPIC_BASE_URL }}",
+      "anthropic_auth_token": "${{ secrets.UT_QUALITY_ANTHROPIC_AUTH_TOKEN }}",
       "docker_username": "${{ secrets.UT_QUALITY_DOCKER_USERNAME }}",
       "docker_password": "${{ secrets.UT_QUALITY_DOCKER_PASSWORD }}",
       "openai_api_key": "${{ secrets.UT_QUALITY_OPENAI_API_KEY }}",
@@ -333,27 +335,9 @@
       "aws_region_bedrock": "${{ secrets.UT_GENERATE_AWS_REGION_BEDROCK }}",
       "aws_access_key_bedrock": "${{ secrets.UT_GENERATE_AWS_ACCESS_KEY_BEDROCK }}",
       "aws_secret_key_bedrock": "${{ secrets.UT_GENERATE_AWS_SECRET_KEY_BEDROCK }}",
-      "aws_bedrock_model": "${{ secrets.UT_GENERATE_AWS_BEDROCK_MODEL }}",
       "anthropic_model": "${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}",
-      "openai_api_key": "${{ secrets.UT_GENERATE_OPENAI_API_KEY }}",
-      "database_host": "${{ secrets.UT_GENERATE_DATABASE_HOST }}",
-      "database_port": "${{ secrets.UT_GENERATE_DATABASE_PORT }}",
-      "database_name": "${{ secrets.UT_GENERATE_DATABASE_NAME }}",
-      "database_user": "${{ secrets.UT_GENERATE_DATABASE_USER }}",
-      "database_password": "${{ secrets.UT_GENERATE_DATABASE_PASSWORD }}"
-    },
-    "secrets_example_generate_tests": {
-      "jira_url": "${{ secrets.UT_GENERATE_JIRA_URL }}",
-      "jira_email": "${{ secrets.UT_GENERATE_JIRA_EMAIL }}",
-      "jira_api_token": "${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}",
-      "confluence_url": "${{ secrets.UT_GENERATE_CONFLUENCE_URL }}",
-      "confluence_email": "${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}",
-      "confluence_api_token": "${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}",
-      "aws_region_bedrock": "${{ secrets.UT_GENERATE_AWS_REGION_BEDROCK }}",
-      "aws_access_key_bedrock": "${{ secrets.UT_GENERATE_AWS_ACCESS_KEY_BEDROCK }}",
-      "aws_secret_key_bedrock": "${{ secrets.UT_GENERATE_AWS_SECRET_KEY_BEDROCK }}",
-      "aws_bedrock_model": "${{ secrets.UT_GENERATE_AWS_BEDROCK_MODEL }}",
-      "anthropic_model": "${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}",
+      "anthropic_base_url": "${{ secrets.UT_GENERATE_ANTHROPIC_BASE_URL }}",
+      "anthropic_auth_token": "${{ secrets.UT_GENERATE_ANTHROPIC_AUTH_TOKEN }}",
       "openai_api_key": "${{ secrets.UT_GENERATE_OPENAI_API_KEY }}",
       "database_host": "${{ secrets.UT_GENERATE_DATABASE_HOST }}",
       "database_port": "${{ secrets.UT_GENERATE_DATABASE_PORT }}",
@@ -367,7 +351,7 @@
       "confluence_upload_space_key": "${{ vars.UT_QUALITY_CONFLUENCE_UPLOAD_SPACE_KEY || '' }}",
       "minimum_score": "${{ vars.UT_QUALITY_MINIMUM_SCORE || '1.0' }}",
       "upload_to_confluence": "${{ vars.UT_QUALITY_UPLOAD_TO_CONFLUENCE || 'true' }}",
-      "claude_code_use_bedrock": "${{ vars.UT_QUALITY_CLAUDE_CODE_USE_BEDROCK || '1' }}",
+      "ai_type": "${{ vars.UT_QUALITY_AI_TYPE || '1' }}",
       "use_postgres_vector_db": "${{ vars.UT_QUALITY_USE_POSTGRES_VECTOR_DB || 'false' }}"
     }
   },

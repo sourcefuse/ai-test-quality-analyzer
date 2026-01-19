@@ -17,8 +17,10 @@
 # - UT_GENERATE_CONFLUENCE_UPLOAD_URL (optional - for separate upload instance)
 # - UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL (optional)
 # - UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN (optional)
-# - UT_GENERATE_AWS_ACCESS_KEY_BEDROCK
-# - UT_GENERATE_AWS_SECRET_KEY_BEDROCK
+# - UT_GENERATE_AWS_ACCESS_KEY_BEDROCK (optional - for AWS Bedrock)
+# - UT_GENERATE_AWS_SECRET_KEY_BEDROCK (optional - for AWS Bedrock)
+# - UT_GENERATE_ANTHROPIC_BASE_URL (optional - for GLM or custom endpoints)
+# - UT_GENERATE_ANTHROPIC_AUTH_TOKEN (optional - for GLM or custom endpoints)
 # - UT_GENERATE_DOCKER_USERNAME (optional - for Docker registry authentication)
 # - UT_GENERATE_DOCKER_PASSWORD (optional - for Docker registry authentication)
 # - UT_GENERATE_OPENAI_API_KEY (optional - for OpenAI embeddings if RAG enabled)
@@ -27,11 +29,12 @@
 # - UT_GENERATE_JIRA_PROJECT_KEY (optional, default: BB)
 # - UT_GENERATE_CONFLUENCE_SPACE_KEY (optional, default: BB)
 # - UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY (optional - for separate upload space)
+# - UT_GENERATE_AI_TYPE (optional, default: 1) - AI provider: 1 = claude_with_bedrock, 2 = claude_with_glm
 #
 # Usage:
 # This workflow must be triggered manually via workflow_dispatch.
 # Provide the JIRA ticket ID (which will also be used as the source branch name).
-# Optionally provide a target branch where generated unit tests should be created (default: main).
+# Optionally provide a target branch where generated unit tests should be created (default: dev).
 #
 # Flow:
 # 1. Read JIRA ticket and Confluence documentation
@@ -43,7 +46,7 @@
 #
 # Inputs:
 # - jira_ticket_id: JIRA ticket ID (used for branch name: {ticket_id}-via-ai)
-# - target_branch: Branch where generated tests should be merged (default: main)
+# - target_branch: Branch where generated tests should be merged (default: dev)
 #
 # Environment Variables Available:
 # - TARGET_BRANCH: Available in all workflow steps for custom logic
@@ -126,9 +129,10 @@ jobs:
           aws_region_bedrock: ${{ secrets.UT_GENERATE_AWS_REGION_BEDROCK }}
           aws_access_key_bedrock: ${{ secrets.UT_GENERATE_AWS_ACCESS_KEY_BEDROCK }}
           aws_secret_key_bedrock: ${{ secrets.UT_GENERATE_AWS_SECRET_KEY_BEDROCK }}
-          aws_bedrock_model: ${{ secrets.UT_GENERATE_AWS_BEDROCK_MODEL }}
           anthropic_model: ${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}
-          claude_code_use_bedrock: ${{ vars.UT_GENERATE_CLAUDE_CODE_USE_BEDROCK || '1' }}
+          anthropic_base_url: ${{ secrets.UT_GENERATE_ANTHROPIC_BASE_URL }}
+          anthropic_auth_token: ${{ secrets.UT_GENERATE_ANTHROPIC_AUTH_TOKEN }}
+          ai_type: ${{ vars.UT_GENERATE_AI_TYPE || '1' }}
           docker_username: ${{ secrets.UT_GENERATE_DOCKER_USERNAME }}
           docker_password: ${{ secrets.UT_GENERATE_DOCKER_PASSWORD }}
           openai_api_key: ${{ secrets.UT_GENERATE_OPENAI_API_KEY }}
