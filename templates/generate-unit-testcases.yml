@@ -94,9 +94,9 @@ jobs:
 
       - name: Set JIRA ticket ID and branch
         id: extract_ticket
+        env:
+          TICKET_ID: ${{ github.event.inputs.jira_ticket_id }}
         run: |
-          TICKET_ID="${{ github.event.inputs.jira_ticket_id }}"
-
           if [ -z "$TICKET_ID" ]; then
             echo "❌ Error: JIRA ticket ID / Branch name is required"
             exit 1
@@ -141,36 +141,47 @@ jobs:
       - name: Display Results Summary
         if: always()
         shell: bash
+        env:
+          TICKET_ID: ${{ steps.extract_ticket.outputs.ticket_id }}
+          ANALYSIS_PATH: ${{ steps.generate_tests.outputs.analysis_path }}
+          REQUIREMENTS_FILE: ${{ steps.generate_tests.outputs.requirements_file }}
+          RESULT_FILE: ${{ steps.generate_tests.outputs.result_file }}
+          CONFLUENCE_URL: ${{ steps.generate_tests.outputs.confluence_url }}
+          PR_URL: ${{ steps.generate_tests.outputs.pr_url }}
+          BRANCH_NAME: ${{ steps.generate_tests.outputs.branch_name }}
+          PR_ACTION: ${{ steps.generate_tests.outputs.pr_action }}
+          PR_NUMBER: ${{ steps.generate_tests.outputs.pr_number }}
+          WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           echo ""
           echo "========================================"
           echo "✅ Unit Test Generation Completed"
           echo "========================================"
           echo ""
-          echo "📋 JIRA Ticket: ${{ steps.extract_ticket.outputs.ticket_id }}"
-          echo "🌿 Generated Branch: ${{ steps.extract_ticket.outputs.ticket_id }}-via-ai"
-          echo "🎯 Target Branch: ${{ env.TARGET_BRANCH }}"
+          echo "📋 JIRA Ticket: $TICKET_ID"
+          echo "🌿 Generated Branch: ${TICKET_ID}-via-ai"
+          echo "🎯 Target Branch: $TARGET_BRANCH"
           echo ""
-          echo "📁 Analysis Path: ${{ steps.generate_tests.outputs.analysis_path }}"
-          echo "📄 Requirements File: ${{ steps.generate_tests.outputs.requirements_file }}"
-          echo "📊 Result File: ${{ steps.generate_tests.outputs.result_file }}"
+          echo "📁 Analysis Path: $ANALYSIS_PATH"
+          echo "📄 Requirements File: $REQUIREMENTS_FILE"
+          echo "📊 Result File: $RESULT_FILE"
           echo ""
           echo "🔗 Links:"
-          echo "   • Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          if [ -n "${{ steps.generate_tests.outputs.confluence_url }}" ]; then
-            echo "   • Confluence Report: ${{ steps.generate_tests.outputs.confluence_url }}"
+          echo "   • Workflow Run: $WORKFLOW_URL"
+          if [ -n "$CONFLUENCE_URL" ]; then
+            echo "   • Confluence Report: $CONFLUENCE_URL"
           fi
-          if [ -n "${{ steps.generate_tests.outputs.pr_url }}" ]; then
-            echo "   • Pull Request: ${{ steps.generate_tests.outputs.pr_url }}"
+          if [ -n "$PR_URL" ]; then
+            echo "   • Pull Request: $PR_URL"
           fi
           echo ""
-          if [ "${{ steps.generate_tests.outputs.branch_name }}" != "" ]; then
-            echo "📝 Generated tests committed to: ${{ steps.generate_tests.outputs.branch_name }}"
+          if [ -n "$BRANCH_NAME" ]; then
+            echo "📝 Generated tests committed to: $BRANCH_NAME"
           fi
-          if [ "${{ steps.generate_tests.outputs.pr_action }}" == "created" ]; then
-            echo "🔀 Pull Request created: #${{ steps.generate_tests.outputs.pr_number }}"
-          elif [ "${{ steps.generate_tests.outputs.pr_action }}" == "updated" ]; then
-            echo "🔀 Pull Request updated: #${{ steps.generate_tests.outputs.pr_number }}"
+          if [ "$PR_ACTION" == "created" ]; then
+            echo "🔀 Pull Request created: #$PR_NUMBER"
+          elif [ "$PR_ACTION" == "updated" ]; then
+            echo "🔀 Pull Request updated: #$PR_NUMBER"
           fi
           echo ""
           echo "🤖 Generated unit test cases are ready for review!"
