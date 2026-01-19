@@ -242,16 +242,12 @@ else
     echo ""
 fi
 
-# Ask if user wants to update GitHub secrets
+# Update GitHub secrets/variables
 echo ""
-echo -e "${BLUE}Step 6: Update GitHub Secrets/Variables?${NC}"
+echo -e "${BLUE}Step 6: Update GitHub Secrets/Variables${NC}"
 echo ""
-read -p "Do you want to update GitHub secrets and variables? (y/n) [y]: " UPDATE_GITHUB
 
-if [ -z "$UPDATE_GITHUB" ] || [ "$UPDATE_GITHUB" = "y" ] || [ "$UPDATE_GITHUB" = "Y" ]; then
-    echo ""
-
-    # Check if gh is installed
+# Check if gh is installed
     if ! command -v gh &> /dev/null; then
         echo -e "${RED}❌ Error: GitHub CLI (gh) is not installed${NC}"
         echo "Please install it from: https://cli.github.com/"
@@ -289,8 +285,8 @@ if [ -z "$UPDATE_GITHUB" ] || [ "$UPDATE_GITHUB" = "y" ] || [ "$UPDATE_GITHUB" =
                     echo -e "${GREEN}✅ Repository access verified${NC}"
                     echo ""
 
-                    # Define prefixes
-                    SECRET_PREFIXES=("UT_QUALITY_" "UT_GENERATE_")
+                    # Define prefix
+                    SECRET_PREFIX="UT_GENERATE_"
 
                     echo -e "${BLUE}🔐 Setting GitHub Secrets...${NC}"
                     echo ""
@@ -298,8 +294,8 @@ if [ -z "$UPDATE_GITHUB" ] || [ "$UPDATE_GITHUB" = "y" ] || [ "$UPDATE_GITHUB" =
                     SECRETS_SUCCESS=0
                     SECRETS_FAILED=0
 
-                    # Set GLM secrets with both prefixes
-                    for PREFIX in "${SECRET_PREFIXES[@]}"; do
+                    # Set GLM secrets with UT_GENERATE_ prefix
+                    PREFIX="$SECRET_PREFIX"
                         # ANTHROPIC_BASE_URL
                         if [ -n "$GLM_BASE_URL" ]; then
                             SECRET_NAME="${PREFIX}ANTHROPIC_BASE_URL"
@@ -325,7 +321,6 @@ if [ -z "$UPDATE_GITHUB" ] || [ "$UPDATE_GITHUB" = "y" ] || [ "$UPDATE_GITHUB" =
                                 SECRETS_FAILED=$((SECRETS_FAILED + 1))
                             fi
                         fi
-                    done
 
                     echo ""
                     echo -e "${BLUE}📋 Setting GitHub Variables...${NC}"
@@ -334,18 +329,16 @@ if [ -z "$UPDATE_GITHUB" ] || [ "$UPDATE_GITHUB" = "y" ] || [ "$UPDATE_GITHUB" =
                     VARS_SUCCESS=0
                     VARS_FAILED=0
 
-                    # Set AI_TYPE variable with both prefixes
-                    for PREFIX in "${SECRET_PREFIXES[@]}"; do
-                        VAR_NAME="${PREFIX}AI_TYPE"
-                        echo -e "   Setting: $VAR_NAME = $AI_TYPE_VALUE"
-                        if gh variable set "$VAR_NAME" --body "$AI_TYPE_VALUE" --repo "$REPO_NAME" 2>/dev/null; then
-                            echo -e "   ${GREEN}✅ $VAR_NAME set${NC}"
-                            VARS_SUCCESS=$((VARS_SUCCESS + 1))
-                        else
-                            echo -e "   ${RED}❌ Failed to set $VAR_NAME${NC}"
-                            VARS_FAILED=$((VARS_FAILED + 1))
-                        fi
-                    done
+                    # Set AI_TYPE variable with UT_GENERATE_ prefix
+                    VAR_NAME="${SECRET_PREFIX}AI_TYPE"
+                    echo -e "   Setting: $VAR_NAME = $AI_TYPE_VALUE"
+                    if gh variable set "$VAR_NAME" --body "$AI_TYPE_VALUE" --repo "$REPO_NAME" 2>/dev/null; then
+                        echo -e "   ${GREEN}✅ $VAR_NAME set${NC}"
+                        VARS_SUCCESS=$((VARS_SUCCESS + 1))
+                    else
+                        echo -e "   ${RED}❌ Failed to set $VAR_NAME${NC}"
+                        VARS_FAILED=$((VARS_FAILED + 1))
+                    fi
 
                     echo ""
                     echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
@@ -360,21 +353,6 @@ if [ -z "$UPDATE_GITHUB" ] || [ "$UPDATE_GITHUB" = "y" ] || [ "$UPDATE_GITHUB" =
             fi
         fi
     fi
-else
-    echo -e "${YELLOW}Skipping GitHub configuration.${NC}"
-    echo ""
-    echo -e "${YELLOW}To configure GitHub manually:${NC}"
-    echo "  Settings → Secrets and variables → Actions"
-    echo ""
-    if [ "$AI_TYPE_VALUE" = "2" ]; then
-        echo -e "${BLUE}SECRETS to add:${NC}"
-        echo "  • UT_GENERATE_ANTHROPIC_BASE_URL"
-        echo "  • UT_GENERATE_ANTHROPIC_AUTH_TOKEN"
-        echo ""
-        echo -e "${BLUE}VARIABLES to add:${NC}"
-        echo "  • UT_GENERATE_AI_TYPE = 2"
-    fi
-fi
 
 echo ""
 echo -e "${YELLOW}Note: Database configs (DATABASE_*) have defaults and are${NC}"
