@@ -262,9 +262,9 @@ runs:
       if: inputs.enable_docker_services == 'true'
       shell: bash
       run: |
-        echo "📥 Pulling official Presidio images from Microsoft..."
-        docker pull mcr.microsoft.com/presidio-analyzer:latest &
-        docker pull mcr.microsoft.com/presidio-anonymizer:latest &
+        echo "📥 Pulling Presidio images from ghcr.io..."
+        docker pull ghcr.io/sourcefuse/presidio-analyzer:latest &
+        docker pull ghcr.io/sourcefuse/presidio-anonymizer:latest &
         wait
 
         echo "🚀 Starting Presidio Analyzer (port 5002)..."
@@ -272,14 +272,14 @@ runs:
           --name presidio-analyzer \
           -p 5002:3000 \
           -e PORT=3000 \
-          mcr.microsoft.com/presidio-analyzer:latest
+          ghcr.io/sourcefuse/presidio-analyzer:latest
 
         echo "🚀 Starting Presidio Anonymizer (port 5001)..."
         docker run -d \
           --name presidio-anonymizer \
           -p 5001:3000 \
           -e PORT=3000 \
-          mcr.microsoft.com/presidio-anonymizer:latest
+          ghcr.io/sourcefuse/presidio-anonymizer:latest
 
         echo "⏳ Waiting for services to be ready..."
         sleep 15
@@ -496,6 +496,14 @@ runs:
         # Remove leading whitespace from .env file (heredoc indentation)
         sed -i 's/^[[:space:]]*//' .env
         echo "✅ Environment configuration created"
+
+        # Debug: Show .env file content (masking sensitive values)
+        echo ""
+        echo "📋 Debug: .env file content (sensitive values masked):"
+        echo "----------------------------------------"
+        cat .env | sed -E 's/(API_TOKEN|PASSWORD|AUTH_TOKEN|OPENAI_API_KEY)=.*/\1=***MASKED***/g'
+        echo "----------------------------------------"
+        echo ""
 
     - name: Test PostgreSQL Database Connection
       if: inputs.database_host == 'localhost' && inputs.enable_docker_services == 'true'
