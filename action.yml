@@ -135,14 +135,10 @@ inputs:
     description: 'Confluence space key for uploading results (if different from fetch space)'
     required: false
     default: ''
-  docker_username:
-    description: 'Docker registry username for authentication (optional - required for Presidio PII detection)'
+  enable_docker_services:
+    description: 'Enable Docker services (pgvector and Presidio from ghcr.io) - true/false'
     required: false
-    default: ''
-  docker_password:
-    description: 'Docker registry password/token for authentication (optional - required for Presidio PII detection)'
-    required: false
-    default: ''
+    default: 'true'
   openai_api_key:
     description: 'OpenAI API key for embeddings (required if USE_POSTGRES_VECTOR_DB is enabled)'
     required: false
@@ -220,51 +216,29 @@ runs:
         npm install
         npm install -g @anthropic-ai/claude-code
 
-    - name: Restore Docker images from cache
-      if: inputs.docker_username != '' && inputs.docker_password != ''
-      id: docker-cache
-      uses: actions/cache@v4
-      with:
-        path: /tmp/docker-images
-        key: docker-images-pgvector-presidio-v1
-
-    - name: Load Docker images from cache
-      if: steps.docker-cache.outputs.cache-hit == 'true'
+    - name: Login to GitHub Container Registry
+      if: inputs.enable_docker_services == 'true'
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
       run: |
-        echo "📦 Loading Docker images from cache..."
-        if [ -f /tmp/docker-images/pgvector.tar ]; then
-          docker load -i /tmp/docker-images/pgvector.tar
-          echo "✅ Loaded ankane/pgvector:latest from cache"
-        fi
-        if [ -f /tmp/docker-images/presidio-analyzer.tar ]; then
-          docker load -i /tmp/docker-images/presidio-analyzer.tar
-          echo "✅ Loaded presidio-analyzer:latest from cache"
-        fi
-        if [ -f /tmp/docker-images/presidio-anonymizer.tar ]; then
-          docker load -i /tmp/docker-images/presidio-anonymizer.tar
-          echo "✅ Loaded presidio-anonymizer:latest from cache"
-        fi
+        echo "🐳 Logging in to GitHub Container Registry..."
+        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
     - name: Setup PostgreSQL Database
-      if: inputs.database_host == 'localhost' && inputs.docker_username != '' && inputs.docker_password != ''
+      if: inputs.database_host == 'localhost' && inputs.enable_docker_services == 'true'
       shell: bash
       env:
         DB_USER: ${{ inputs.database_user }}
         DB_PASSWORD: ${{ inputs.database_password }}
         DB_NAME: ${{ inputs.database_name }}
         DB_PORT: ${{ inputs.database_port }}
-        CACHE_HIT: ${{ steps.docker-cache.outputs.cache-hit }}
       run: |
         echo "🐘 Setting up PostgreSQL database..."
 
-        # Pull PostgreSQL image only if not cached
-        if [ "$CACHE_HIT" != "true" ] || ! docker image inspect ankane/pgvector:latest > /dev/null 2>&1; then
-          echo "📥 Pulling PostgreSQL + pgvector image..."
-          docker pull ankane/pgvector:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
-        else
-          echo "✅ Using cached PostgreSQL + pgvector image"
-        fi
+        # Pull PostgreSQL + pgvector image from ghcr.io
+        echo "📥 Pulling PostgreSQL + pgvector image from ghcr.io..."
+        docker pull ghcr.io/sourcefuse/pgvector-rag:latest
 
         # Start PostgreSQL container
         echo "🚀 Starting PostgreSQL container..."
@@ -274,7 +248,7 @@ runs:
           -e POSTGRES_PASSWORD="$DB_PASSWORD" \
           -e POSTGRES_DB="$DB_NAME" \
           -p "${DB_PORT}:5432" \
-          ankane/pgvector:latest
+          ghcr.io/sourcefuse/pgvector-rag:latest
 
         # Wait for PostgreSQL to be ready
         echo "⏳ Waiting for PostgreSQL to be ready..."
@@ -284,32 +258,24 @@ runs:
         echo "✅ PostgreSQL setup complete"
         docker ps | grep postgres-pgvector
 
-    - name: Docker login and start Presidio services
-      if: inputs.docker_username != '' && inputs.docker_password != ''
+    - name: Start Presidio services
+      if: inputs.enable_docker_services == 'true'
       shell: bash
-      env:
-        DOCKER_USER: ${{ inputs.docker_username }}
-        DOCKER_PASS: ${{ inputs.docker_password }}
-        CACHE_HIT: ${{ steps.docker-cache.outputs.cache-hit }}
       run: |
-        echo "🐳 Logging in to Docker registry..."
-        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin docker.io
+        echo "📥 Pulling Presidio combined image from ghcr.io..."
+        docker pull ghcr.io/sourcefuse/presidio-combined:latest
 
-        # Pull Presidio images only if not cached
-        if [ "$CACHE_HIT" != "true" ] || ! docker image inspect mcr.microsoft.com/presidio-analyzer:latest > /dev/null 2>&1; then
-          echo "📥 Pulling Presidio Docker images..."
-          docker pull mcr.microsoft.com/presidio-analyzer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
-          docker pull mcr.microsoft.com/presidio-anonymizer:latest -q 2>&1 | grep -v "Pulling\|Waiting\|Downloading\|Extracting\|Verifying\|Pull complete" || true
-        else
-          echo "✅ Using cached Presidio Docker images"
-        fi
-
-        echo "🚀 Starting Presidio services..."
-        docker run -d -p 5001:3000 --name presidio-anonymizer mcr.microsoft.com/presidio-anonymizer:latest
-        docker run -d -p 5002:3000 --name presidio-analyzer mcr.microsoft.com/presidio-analyzer:latest
+        echo "🚀 Starting Presidio combined service..."
+        # Combined image runs analyzer on 5001 and anonymizer on 5002
+        # Map to match existing .env config: analyzer=5002, anonymizer=5001
+        docker run -d \
+          --name presidio-combined \
+          -p 5001:5002 \
+          -p 5002:5001 \
+          ghcr.io/sourcefuse/presidio-combined:latest
 
         echo "⏳ Waiting for services to be ready..."
-        sleep 10
+        sleep 15
 
         echo "🔍 Testing Presidio services availability..."
 
@@ -343,7 +309,7 @@ runs:
         while [ $ELAPSED -lt $MAX_WAIT ]; do
           if curl -s -X POST http://localhost:5001/anonymize \
             -H "Content-Type: application/json" \
-            -d '{"text":"test","anonymizers":{}}' \
+            -d '{"text":"test","analyzer_results":[]}' \
             --max-time 5 > /dev/null 2>&1; then
             ANONYMIZER_READY=true
             echo "✅ Presidio Anonymizer is ready (took ${ELAPSED}s)"
@@ -365,41 +331,16 @@ runs:
         fi
 
         echo ""
-        echo "📊 Presidio containers status:"
+        echo "📊 Presidio container status:"
         docker ps | grep presidio
 
-    - name: Save Docker images to cache
-      if: inputs.docker_username != '' && inputs.docker_password != '' && steps.docker-cache.outputs.cache-hit != 'true'
+    - name: Skip Docker services notification
+      if: inputs.enable_docker_services != 'true'
       shell: bash
       run: |
-        echo "💾 Saving Docker images to cache..."
-        mkdir -p /tmp/docker-images
-
-        if docker image inspect ankane/pgvector:latest > /dev/null 2>&1; then
-          docker save ankane/pgvector:latest -o /tmp/docker-images/pgvector.tar
-          echo "✅ Saved ankane/pgvector:latest"
-        fi
-
-        if docker image inspect mcr.microsoft.com/presidio-analyzer:latest > /dev/null 2>&1; then
-          docker save mcr.microsoft.com/presidio-analyzer:latest -o /tmp/docker-images/presidio-analyzer.tar
-          echo "✅ Saved presidio-analyzer:latest"
-        fi
-
-        if docker image inspect mcr.microsoft.com/presidio-anonymizer:latest > /dev/null 2>&1; then
-          docker save mcr.microsoft.com/presidio-anonymizer:latest -o /tmp/docker-images/presidio-anonymizer.tar
-          echo "✅ Saved presidio-anonymizer:latest"
-        fi
-
-        echo "📦 Cache directory contents:"
-        ls -lh /tmp/docker-images/
-
-    - name: Skip Presidio setup notification
-      if: inputs.docker_username == '' || inputs.docker_password == ''
-      shell: bash
-      run: |
-        echo "⚠️  Skipping Docker login and Presidio setup"
-        echo "   Docker credentials not provided - PII detection will be disabled"
-        echo "   To enable Presidio services, provide docker_username and docker_password inputs"
+        echo "⚠️  Skipping Docker services setup"
+        echo "   enable_docker_services is not set to 'true'"
+        echo "   PII detection will be disabled"
 
     - name: Clone repository for analysis
       shell: bash
@@ -440,9 +381,6 @@ runs:
         INPUT_CONFLUENCE_UPLOAD_EMAIL: ${{ inputs.confluence_upload_email }}
         INPUT_CONFLUENCE_UPLOAD_API_TOKEN: ${{ inputs.confluence_upload_api_token }}
         INPUT_CONFLUENCE_UPLOAD_SPACE_KEY: ${{ inputs.confluence_upload_space_key }}
-        # Docker Configuration
-        INPUT_DOCKER_USERNAME: ${{ inputs.docker_username }}
-        INPUT_DOCKER_PASSWORD: ${{ inputs.docker_password }}
         # Analysis Configuration
         INPUT_SAVE_TO_FILE: ${{ inputs.save_to_file }}
         INPUT_BASE_FOLDER_SUFFIX: ${{ inputs.base_folder_suffix }}
@@ -491,10 +429,6 @@ runs:
         CONFLUENCE_UPLOAD_EMAIL=$INPUT_CONFLUENCE_UPLOAD_EMAIL
         CONFLUENCE_UPLOAD_API_TOKEN=$INPUT_CONFLUENCE_UPLOAD_API_TOKEN
         CONFLUENCE_UPLOAD_SPACE_KEY=$INPUT_CONFLUENCE_UPLOAD_SPACE_KEY
-
-        # Docker Configuration
-        DOCKER_USERNAME=$INPUT_DOCKER_USERNAME
-        DOCKER_PASSWORD=$INPUT_DOCKER_PASSWORD
 
         # Presidio Configuration (PII Detection)
         PRESIDIO_ANALYZE_URL=http://localhost:5002/analyze
@@ -560,7 +494,7 @@ runs:
         echo "✅ Environment configuration created"
 
     - name: Test PostgreSQL Database Connection
-      if: inputs.database_host == 'localhost' && inputs.docker_username != '' && inputs.docker_password != ''
+      if: inputs.database_host == 'localhost' && inputs.enable_docker_services == 'true'
       shell: bash
       env:
         DB_USER: ${{ inputs.database_user }}

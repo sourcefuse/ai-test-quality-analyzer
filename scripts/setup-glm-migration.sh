@@ -167,6 +167,26 @@ else
     echo -e "   ${YELLOW}⚠️  $SECRET_NAME not found or already removed${NC}"
 fi
 
+# Remove DOCKER_USERNAME (no longer needed - uses GITHUB_TOKEN for ghcr.io)
+SECRET_NAME="${SECRET_PREFIX}DOCKER_USERNAME"
+echo -e "   Removing: $SECRET_NAME"
+if gh secret delete "$SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
+    echo -e "   ${GREEN}✅ $SECRET_NAME removed${NC}"
+    REMOVED_COUNT=$((REMOVED_COUNT + 1))
+else
+    echo -e "   ${YELLOW}⚠️  $SECRET_NAME not found or already removed${NC}"
+fi
+
+# Remove DOCKER_PASSWORD (no longer needed - uses GITHUB_TOKEN for ghcr.io)
+SECRET_NAME="${SECRET_PREFIX}DOCKER_PASSWORD"
+echo -e "   Removing: $SECRET_NAME"
+if gh secret delete "$SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
+    echo -e "   ${GREEN}✅ $SECRET_NAME removed${NC}"
+    REMOVED_COUNT=$((REMOVED_COUNT + 1))
+else
+    echo -e "   ${YELLOW}⚠️  $SECRET_NAME not found or already removed${NC}"
+fi
+
 # Summary
 echo ""
 echo -e "${BLUE}════════════════════════════════════════════════════════════════${NC}"
@@ -185,5 +205,7 @@ echo "  • ${SECRET_PREFIX}AI_TYPE = $AI_TYPE (variable)"
 echo ""
 echo -e "${BLUE}Removed:${NC}"
 echo "  • ${SECRET_PREFIX}AWS_BEDROCK_MODEL (not used in generate workflow)"
+echo "  • ${SECRET_PREFIX}DOCKER_USERNAME (uses GITHUB_TOKEN for ghcr.io)"
+echo "  • ${SECRET_PREFIX}DOCKER_PASSWORD (uses GITHUB_TOKEN for ghcr.io)"
 echo ""
 echo -e "${GREEN}Done! 🚀${NC}"
