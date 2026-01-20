@@ -52,7 +52,7 @@ export class HybridPIIDetectorService {
         config?.presidioAnonymizeUrl ||
         process.env.PRESIDIO_ANONYMIZE_URL ||
         'http://localhost:5001/anonymize',
-      presidioTimeout: config?.presidioTimeout || parseInt(process.env.PRESIDIO_TIMEOUT || '30000'),
+      presidioTimeout: config?.presidioTimeout || 5000,
       preferPresidio: config?.preferPresidio !== false, // Default to true
       maskingChar: config?.maskingChar || '*',
     };

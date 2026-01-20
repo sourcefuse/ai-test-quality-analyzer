@@ -6,7 +6,7 @@
  * Usage:
  *   npm run claude <prompt-file> [-- --verbose]
  *   OR
- *   npx ts-node cli/claude-runner.ts <prompt-file> [--verbose]
+ *   npx ts-node claude-runner.ts <prompt-file> [--verbose]
  *
  * Examples:
  *   npm run claude prompts/create-requirement.md
@@ -39,7 +39,7 @@ async function main() {
     console.log('\nUsage:');
     console.log('  npm run claude <prompt-file> [-- --verbose]');
     console.log('  OR');
-    console.log('  npx ts-node cli/claude-runner.ts <prompt-file> [--verbose]');
+    console.log('  npx ts-node claude-runner.ts <prompt-file> [--verbose]');
     console.log('\nExamples:');
     console.log('  npm run claude prompts/create-requirement.md');
     console.log('  npm run claude prompts/create-requirement.md -- --verbose');
