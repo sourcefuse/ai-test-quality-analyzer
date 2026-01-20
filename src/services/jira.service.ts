@@ -97,11 +97,28 @@ export class JiraService {
 
       console.log(`✅ Found ${response.data.issues?.length || 0} issue(s)`);
 
+      // JIRA Cloud API v3 uses different pagination format
+      // Old format: total, maxResults, startAt
+      // New format: nextPageToken, isLast
+      const hasNewPaginationFormat = 'nextPageToken' in response.data || 'isLast' in response.data;
+
+      // For new format, if we have issues, estimate total based on what we know
+      // If isLast=true, total = issues.length, otherwise we don't know exact total
+      let total = response.data.total;
+      if (hasNewPaginationFormat && total === undefined) {
+        if (response.data.isLast) {
+          total = (startAt || 0) + (response.data.issues?.length || 0);
+        } else {
+          // We don't know the exact total, use issues length as minimum
+          total = response.data.issues?.length || 0;
+        }
+      }
+
       return {
         issues: response.data.issues || [],
-        total: response.data.total || 0,
+        total: total || 0,
         startAt: response.data.startAt || 0,
-        maxResults: response.data.maxResults || 0,
+        maxResults: response.data.maxResults || (maxResults || this.config.maxResult || JIRA_DEFAULTS.MAX_RESULTS),
         expand: response.data.expand,
       };
     } catch (error) {
@@ -202,7 +219,14 @@ export class JiraService {
    * @returns Formatted text representation
    */
   private formatIssueDetails(parentIssue: JiraIssue, subIssues?: JiraIssue[]): string {
-    let result = `Jira Story is below in format of title : description\n`;
+    let result = '';
+
+    // Defensive check for undefined fields
+    if (!parentIssue || !parentIssue.fields) {
+      console.error('⚠️  Invalid JIRA issue structure - missing fields');
+      console.error('   Issue data:', JSON.stringify(parentIssue, null, 2));
+      return 'Error: Unable to format JIRA issue - missing fields data';
+    }
 
     // Format parent issue
     const parentDescription = parentIssue.fields.description
@@ -213,9 +237,15 @@ export class JiraService {
 
     // Format sub-tasks if any
     if (subIssues && subIssues.length > 0) {
-      result += `\n\nJira sub story is below in format of title : description\n`;
+      result += `\n\n### Sub-Tasks\n`;
 
       for (const subIssue of subIssues) {
+        // Skip sub-issues with missing fields
+        if (!subIssue || !subIssue.fields) {
+          console.warn('⚠️  Skipping sub-issue with missing fields:', subIssue?.key || 'unknown');
+          continue;
+        }
+
         const subDescription = subIssue.fields.description
           ? extractParagraphText(subIssue.fields.description).join('\n')
           : 'No description provided';
