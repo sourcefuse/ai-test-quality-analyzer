@@ -583,12 +583,9 @@ runs:
         echo "║           💾 CACHE DEBUG INFO                                ║"
         echo "╚══════════════════════════════════════════════════════════════╝"
         echo ""
-        echo "🔑 Cache Key Details:"
-        echo "   Primary Key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-${{ steps.cache-date.outputs.date }}"
-        echo "   Fallback Key 1: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-*"
-        echo "   Fallback Key 2: pgvector-${{ inputs.confluence_space_key }}-*"
-        echo ""
+        echo "🔑 Cache Key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-${{ steps.cache-date.outputs.date }}"
         echo "📂 Cache Path: /tmp/pgvector-data"
+        echo "ℹ️  Cache Policy: Daily rotation (no fallback to older cache)"
         echo "═══════════════════════════════════════════════════════════════"
 
     - name: Restore PostgreSQL data from cache
@@ -598,9 +595,6 @@ runs:
       with:
         path: /tmp/pgvector-data
         key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-${{ steps.cache-date.outputs.date }}
-        restore-keys: |
-          pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-
-          pgvector-${{ inputs.confluence_space_key }}-
 
     - name: Debug - Cache Restore Result
       if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost'
