@@ -249,9 +249,9 @@ runs:
       run: |
         echo "🐘 Setting up PostgreSQL database..."
 
-        # Pull PostgreSQL + pgvector image from ghcr.io
+        # Pull PostgreSQL + pgvector image from ghcr.io (quiet mode)
         echo "📥 Pulling PostgreSQL + pgvector image from ghcr.io..."
-        docker pull ghcr.io/sourcefuse/pgvector-rag:latest
+        docker pull -q ghcr.io/sourcefuse/pgvector-rag:latest
 
         # Start PostgreSQL container
         echo "🚀 Starting PostgreSQL container..."
@@ -275,10 +275,11 @@ runs:
       if: inputs.enable_docker_services == 'true'
       shell: bash
       run: |
-        echo "📥 Pulling Presidio images from ghcr.io..."
-        docker pull ghcr.io/sourcefuse/presidio-analyzer:latest &
-        docker pull ghcr.io/sourcefuse/presidio-anonymizer:latest &
+        echo "📥 Pulling Presidio images from ghcr.io (quiet mode)..."
+        docker pull -q ghcr.io/sourcefuse/presidio-analyzer:latest &
+        docker pull -q ghcr.io/sourcefuse/presidio-anonymizer:latest &
         wait
+        echo "✅ Presidio images pulled successfully"
 
         echo "🚀 Starting Presidio Analyzer (port 5002)..."
         docker run -d \
