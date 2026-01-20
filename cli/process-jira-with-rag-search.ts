@@ -12,14 +12,14 @@ import {
   EmbeddingService,
   PostgresVectorService,
   JiraProcessorService,
-} from './src/services';
-import {JiraConfigDto, ConfluenceConfigDto} from './src/dtos';
+} from '../src/services';
+import {JiraConfigDto, ConfluenceConfigDto} from '../src/dtos';
 import {
   getRequiredEnv,
   getRequiredEnvAsNumber,
   getOptionalEnv,
   getOptionalEnvAsNumber,
-} from './src/utils/env-validator.util';
+} from '../src/utils/env-validator.util';
 
 // Load environment variables
 dotenv.config();
@@ -90,7 +90,7 @@ async function main() {
 
     // 5. Initialize Hybrid PII Detector
     console.log('\n🔒 Initializing PII Detection...');
-    const HybridPIIDetectorService = (await import('./src/services')).HybridPIIDetectorService;
+    const HybridPIIDetectorService = (await import('../src/services')).HybridPIIDetectorService;
     const piiDetector = new HybridPIIDetectorService();
     const detectionMethod = await piiDetector.initialize();
     const piiStatus = piiDetector.getStatus();
@@ -120,7 +120,8 @@ async function main() {
     let outputDir = '';
 
     if (currentAnalysisPath) {
-      outputDir = `${ticketDir}/${currentAnalysisPath}`;
+      // Use 2-level structure: {BASE}/{CURRENT_ANALYSIS_PATH} (skip ticket folder level)
+      outputDir = `${baseDir}/${currentAnalysisPath}`;
     } else {
       // Find the latest timestamp folder
       if (fs.existsSync(ticketDir)) {
@@ -166,8 +167,11 @@ async function main() {
     console.log(`   Related Documents: ${result.relatedDocuments.length}`);
     console.log(`   Output: ${outputDir}/${confluenceFileName}`);
 
-    // 10. Close connections
-    await vectorService.close();
+    // 10. Extract project key from ticket key (e.g., BB-12345 -> BB)
+    const projectKey = ticketKey.split('-')[0];
+
+    // 11. Close connections and cleanup project-specific expired records
+    await vectorService.close(projectKey);
   } catch (error) {
     console.error('❌ Error:', error);
     process.exit(1);

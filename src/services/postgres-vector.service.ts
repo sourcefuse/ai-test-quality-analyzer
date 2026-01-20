@@ -58,6 +58,11 @@ export class PostgresVectorService {
     try {
       console.log('🔧 Initializing PostgreSQL connection...');
 
+      // Determine SSL configuration based on host
+      // For localhost connections, disable SSL; for remote connections, use SSL with self-signed cert support
+      const isLocalhost = this.config.host === 'localhost' || this.config.host === '127.0.0.1';
+      const sslConfig = isLocalhost ? false : { rejectUnauthorized: false };
+
       this.pool = new Pool({
         host: this.config.host,
         port: this.config.port,
@@ -65,6 +70,7 @@ export class PostgresVectorService {
         user: this.config.user,
         password: this.config.password,
         max: this.config.max,
+        ssl: sslConfig,
       });
 
       // Test connection
@@ -93,6 +99,7 @@ export class PostgresVectorService {
     await client.query(`
       CREATE TABLE IF NOT EXISTS confluence_documents (
         id SERIAL PRIMARY KEY,
+        project_key VARCHAR(50),
         page_id VARCHAR(255) UNIQUE NOT NULL,
         title VARCHAR(500) NOT NULL,
         content TEXT,
@@ -102,6 +109,21 @@ export class PostgresVectorService {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         expires_at TIMESTAMP DEFAULT (CURRENT_TIMESTAMP + INTERVAL '1 day')
       )
+    `);
+
+    // Add project_key column if it doesn't exist (for existing tables)
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'confluence_documents'
+          AND column_name = 'project_key'
+        ) THEN
+          ALTER TABLE confluence_documents
+          ADD COLUMN project_key VARCHAR(50);
+        END IF;
+      END $$;
     `);
 
     // Add expires_at column if it doesn't exist (for existing tables)
@@ -118,6 +140,54 @@ export class PostgresVectorService {
         END IF;
       END $$;
     `);
+
+    // Add smart filter columns for tracking relevance and filtering metadata
+    await client.query(`
+      DO $$
+      BEGIN
+        -- Add ticket_id column
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'confluence_documents'
+          AND column_name = 'ticket_id'
+        ) THEN
+          ALTER TABLE confluence_documents
+          ADD COLUMN ticket_id VARCHAR(50);
+        END IF;
+
+        -- Add relevance_score column
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'confluence_documents'
+          AND column_name = 'relevance_score'
+        ) THEN
+          ALTER TABLE confluence_documents
+          ADD COLUMN relevance_score DECIMAL(5,3);
+        END IF;
+
+        -- Add matched_by array column
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'confluence_documents'
+          AND column_name = 'matched_by'
+        ) THEN
+          ALTER TABLE confluence_documents
+          ADD COLUMN matched_by TEXT[];
+        END IF;
+
+        -- Add filter_metadata JSONB column
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'confluence_documents'
+          AND column_name = 'filter_metadata'
+        ) THEN
+          ALTER TABLE confluence_documents
+          ADD COLUMN filter_metadata JSONB;
+        END IF;
+      END $$;
+    `);
+
+    console.log('   ✅ Smart filter columns created/verified');
 
     // Create document_chunks table with vector column
     await client.query(`
@@ -164,6 +234,11 @@ export class PostgresVectorService {
    * @param title - Page title
    * @param content - Page content
    * @param url - Page URL
+   * @param projectKey - JIRA project key (optional)
+   * @param ticketId - JIRA ticket ID (optional)
+   * @param relevanceScore - Smart filter relevance score (optional)
+   * @param matchedBy - Array of match strategies (optional)
+   * @param filterMetadata - Smart filter metadata (optional)
    * @returns Document ID
    */
   async upsertDocument(
@@ -171,22 +246,46 @@ export class PostgresVectorService {
     title: string,
     content: string,
     url: string,
+    projectKey?: string,
+    ticketId?: string,
+    relevanceScore?: number,
+    matchedBy?: string[],
+    filterMetadata?: any,
   ): Promise<number> {
     if (!this.pool) throw new Error('Database not initialized');
 
     const result = await this.pool.query<{id: number}>(
       `
-      INSERT INTO confluence_documents (page_id, title, content, url, last_modified, expires_at)
-      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day')
+      INSERT INTO confluence_documents (
+        project_key, page_id, title, content, url,
+        ticket_id, relevance_score, matched_by, filter_metadata,
+        last_modified, expires_at
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day')
       ON CONFLICT (page_id) DO UPDATE SET
+        project_key = EXCLUDED.project_key,
         title = EXCLUDED.title,
         content = EXCLUDED.content,
         url = EXCLUDED.url,
+        ticket_id = EXCLUDED.ticket_id,
+        relevance_score = EXCLUDED.relevance_score,
+        matched_by = EXCLUDED.matched_by,
+        filter_metadata = EXCLUDED.filter_metadata,
         last_modified = CURRENT_TIMESTAMP,
         expires_at = CURRENT_TIMESTAMP + INTERVAL '1 day'
       RETURNING id
     `,
-      [pageId, title, content, url],
+      [
+        projectKey,
+        pageId,
+        title,
+        content,
+        url,
+        ticketId || null,
+        relevanceScore || null,
+        matchedBy || null,
+        filterMetadata ? JSON.stringify(filterMetadata) : null,
+      ],
     );
 
     return result.rows[0].id;
@@ -208,23 +307,154 @@ export class PostgresVectorService {
       documentId,
     ]);
 
-    // Insert new chunks with 1-day expiry
-    for (const chunk of chunks) {
-      // Skip chunks with empty or invalid embeddings
+    // Filter out chunks with empty or invalid embeddings
+    const validChunks = chunks.filter(chunk => {
       if (!chunk.embedding || chunk.embedding.length === 0) {
         console.warn(`Skipping chunk with empty embedding for document ${documentId}`);
-        continue;
+        return false;
       }
+      return true;
+    });
 
+    if (validChunks.length === 0) {
+      return;
+    }
+
+    // Bulk insert all chunks in a single query
+    const values: string[] = [];
+    const params: any[] = [];
+    let paramIndex = 1;
+
+    for (const chunk of validChunks) {
       const embeddingString = `[${chunk.embedding.join(',')}]`;
 
-      await this.pool.query(
-        `
-        INSERT INTO document_chunks (document_id, text, embedding, metadata, expires_at)
-        VALUES ($1, $2, $3::vector, $4, CURRENT_TIMESTAMP + INTERVAL '1 day')
-      `,
-        [documentId, chunk.text, embeddingString, JSON.stringify(chunk.metadata)],
+      values.push(
+        `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}::vector, $${paramIndex + 3}, CURRENT_TIMESTAMP + INTERVAL '1 day')`
       );
+
+      params.push(
+        documentId,
+        chunk.text,
+        embeddingString,
+        JSON.stringify(chunk.metadata)
+      );
+
+      paramIndex += 4;
+    }
+
+    // Single bulk insert
+    await this.pool.query(
+      `INSERT INTO document_chunks (document_id, text, embedding, metadata, expires_at)
+       VALUES ${values.join(', ')}`,
+      params
+    );
+  }
+
+  /**
+   * Bulk upsert multiple documents and their chunks in a transaction
+   * More efficient than individual upserts when processing multiple documents
+   * @param documents - Array of documents with their chunks
+   * @returns Array of document IDs
+   */
+  async bulkUpsertDocumentsWithChunks(
+    documents: Array<{
+      pageId: string;
+      title: string;
+      content: string;
+      url: string;
+      projectKey?: string;
+      ticketId?: string;
+      relevanceScore?: number;
+      matchedBy?: string[];
+      filterMetadata?: any;
+      chunks: DocumentChunk[];
+    }>
+  ): Promise<number[]> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    const client = await this.pool.connect();
+    const documentIds: number[] = [];
+
+    try {
+      // Start transaction
+      await client.query('BEGIN');
+
+      for (const doc of documents) {
+        // Upsert document
+        const docResult = await client.query<{id: number}>(
+          `INSERT INTO confluence_documents (
+             project_key, page_id, title, content, url,
+             ticket_id, relevance_score, matched_by, filter_metadata,
+             last_modified, expires_at
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day')
+           ON CONFLICT (page_id) DO UPDATE SET
+             project_key = EXCLUDED.project_key,
+             title = EXCLUDED.title,
+             content = EXCLUDED.content,
+             url = EXCLUDED.url,
+             ticket_id = EXCLUDED.ticket_id,
+             relevance_score = EXCLUDED.relevance_score,
+             matched_by = EXCLUDED.matched_by,
+             filter_metadata = EXCLUDED.filter_metadata,
+             last_modified = CURRENT_TIMESTAMP,
+             expires_at = CURRENT_TIMESTAMP + INTERVAL '1 day'
+           RETURNING id`,
+          [
+            doc.projectKey,
+            doc.pageId,
+            doc.title,
+            doc.content,
+            doc.url,
+            doc.ticketId || null,
+            doc.relevanceScore || null,
+            doc.matchedBy || null,
+            doc.filterMetadata ? JSON.stringify(doc.filterMetadata) : null,
+          ]
+        );
+
+        const documentId = docResult.rows[0].id;
+        documentIds.push(documentId);
+
+        // Delete existing chunks
+        await client.query('DELETE FROM document_chunks WHERE document_id = $1', [documentId]);
+
+        // Filter valid chunks
+        const validChunks = doc.chunks.filter(chunk => chunk.embedding && chunk.embedding.length > 0);
+
+        if (validChunks.length > 0) {
+          // Bulk insert chunks
+          const values: string[] = [];
+          const params: any[] = [];
+          let paramIndex = 1;
+
+          for (const chunk of validChunks) {
+            const embeddingString = `[${chunk.embedding.join(',')}]`;
+            values.push(
+              `($${paramIndex}, $${paramIndex + 1}, $${paramIndex + 2}::vector, $${paramIndex + 3}, CURRENT_TIMESTAMP + INTERVAL '1 day')`
+            );
+            params.push(documentId, chunk.text, embeddingString, JSON.stringify(chunk.metadata));
+            paramIndex += 4;
+          }
+
+          await client.query(
+            `INSERT INTO document_chunks (document_id, text, embedding, metadata, expires_at)
+             VALUES ${values.join(', ')}`,
+            params
+          );
+        }
+      }
+
+      // Commit transaction
+      await client.query('COMMIT');
+
+      return documentIds;
+    } catch (error) {
+      // Rollback on error
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
   }
 
@@ -298,6 +528,25 @@ export class PostgresVectorService {
   }
 
   /**
+   * Get count of non-expired documents for a specific project key
+   * @param projectKey - JIRA project key
+   * @returns Number of non-expired documents for the project
+   */
+  async getDocumentCountByProjectKey(projectKey: string): Promise<number> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    const result = await this.pool.query<{count: string}>(
+      `SELECT COUNT(*) as count
+       FROM confluence_documents
+       WHERE project_key = $1
+       AND expires_at > CURRENT_TIMESTAMP`,
+      [projectKey],
+    );
+
+    return parseInt(result.rows[0].count);
+  }
+
+  /**
    * Get chunk count
    * @returns Number of chunks in the database
    */
@@ -342,10 +591,136 @@ export class PostgresVectorService {
   }
 
   /**
-   * Close database connection
+   * Clean up expired records for a specific project key
+   * Deletes documents and chunks where expires_at <= CURRENT_TIMESTAMP AND project_key matches
+   * @param projectKey - JIRA project key
+   * @returns Number of documents and chunks deleted
    */
-  async close(): Promise<void> {
+  async cleanupExpiredByProjectKey(projectKey: string): Promise<{documents: number; chunks: number}> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    // Delete expired chunks for this project (by joining with confluence_documents)
+    const chunksResult = await this.pool.query<{count: string}>(
+      `DELETE FROM document_chunks
+       WHERE expires_at <= CURRENT_TIMESTAMP
+       AND document_id IN (
+         SELECT id FROM confluence_documents WHERE project_key = $1
+       )
+       RETURNING id`,
+      [projectKey],
+    );
+
+    // Delete expired documents for this project (CASCADE will delete related chunks)
+    const docsResult = await this.pool.query<{count: string}>(
+      `DELETE FROM confluence_documents
+       WHERE expires_at <= CURRENT_TIMESTAMP
+       AND project_key = $1
+       RETURNING id`,
+      [projectKey],
+    );
+
+    const documentsDeleted = docsResult.rowCount || 0;
+    const chunksDeleted = chunksResult.rowCount || 0;
+
+    if (documentsDeleted > 0 || chunksDeleted > 0) {
+      console.log(
+        `🗑️  Cleaned up ${documentsDeleted} expired document(s) and ${chunksDeleted} expired chunk(s) for project ${projectKey}`,
+      );
+    }
+
+    return {documents: documentsDeleted, chunks: chunksDeleted};
+  }
+
+  /**
+   * Get documents by ticket ID
+   * @param ticketId - JIRA ticket ID
+   * @returns Array of documents for the ticket
+   */
+  async getDocumentsByTicketId(ticketId: string): Promise<any[]> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    const result = await this.pool.query(
+      `SELECT
+        id, page_id, title, url, project_key,
+        relevance_score, matched_by, filter_metadata,
+        created_at, last_modified
+      FROM confluence_documents
+      WHERE ticket_id = $1
+      AND expires_at > CURRENT_TIMESTAMP
+      ORDER BY relevance_score DESC NULLS LAST`,
+      [ticketId],
+    );
+
+    return result.rows;
+  }
+
+  /**
+   * Get high-scoring documents above a threshold
+   * @param ticketId - JIRA ticket ID
+   * @param minScore - Minimum relevance score (default: 0.5)
+   * @returns Array of high-scoring documents
+   */
+  async getHighScoringDocuments(
+    ticketId: string,
+    minScore: number = 0.5,
+  ): Promise<any[]> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    const result = await this.pool.query(
+      `SELECT
+        id, page_id, title, url, project_key,
+        relevance_score, matched_by, filter_metadata
+      FROM confluence_documents
+      WHERE ticket_id = $1
+      AND relevance_score >= $2
+      AND expires_at > CURRENT_TIMESTAMP
+      ORDER BY relevance_score DESC`,
+      [ticketId, minScore],
+    );
+
+    return result.rows;
+  }
+
+  /**
+   * Get documents by match strategy
+   * @param ticketId - JIRA ticket ID
+   * @param matchType - Match strategy type
+   * @returns Array of documents that matched using the specified strategy
+   */
+  async getDocumentsByMatchType(
+    ticketId: string,
+    matchType: 'ticketId' | 'keywords' | 'title' | 'labels' | 'components',
+  ): Promise<any[]> {
+    if (!this.pool) throw new Error('Database not initialized');
+
+    const result = await this.pool.query(
+      `SELECT
+        id, page_id, title, url, project_key,
+        relevance_score, matched_by, filter_metadata
+      FROM confluence_documents
+      WHERE ticket_id = $1
+      AND $2 = ANY(matched_by)
+      AND expires_at > CURRENT_TIMESTAMP
+      ORDER BY relevance_score DESC`,
+      [ticketId, matchType],
+    );
+
+    return result.rows;
+  }
+
+  /**
+   * Close database connection
+   * Optionally cleans up expired records for a specific project before closing
+   * @param projectKey - Optional JIRA project key to clean up expired records
+   */
+  async close(projectKey?: string): Promise<void> {
     if (this.pool) {
+      // Clean up expired records before closing if project key is provided
+      if (projectKey) {
+        console.log(`\n🗑️  Cleaning up expired records for project ${projectKey}...`);
+        await this.cleanupExpiredByProjectKey(projectKey);
+      }
+
       await this.pool.end();
       this.pool = null;
       console.log('✅ PostgreSQL connection closed');

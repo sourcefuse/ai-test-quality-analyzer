@@ -14,9 +14,9 @@ import * as dotenv from 'dotenv';
 import * as dotenvExt from 'dotenv-extended';
 import * as fs from 'fs';
 import {randomUUID} from 'crypto';
-import {JiraService, ConfluenceService, HybridPIIDetectorService} from './src/services';
-import {JiraConfigDto, JiraTicketQueryDto, ConfluenceConfigDto, ConfluenceSearchRequestDto} from './src/dtos';
-import {stripHtmlTags, extractPlainText} from './src/utils';
+import {JiraService, ConfluenceService, HybridPIIDetectorService} from '../src/services';
+import {JiraConfigDto, JiraTicketQueryDto, ConfluenceConfigDto, ConfluenceSearchRequestDto} from '../src/dtos';
+import {stripHtmlTags, extractPlainText} from '../src/utils';
 
 /**
  * Load environment variables with dotenv-extended
@@ -166,7 +166,9 @@ async function main(): Promise<void> {
 
             // Save Jira details to file if SAVE_TO_FILE flag is enabled
             if (process.env.SAVE_TO_FILE === 'true') {
-                // Create folder with naming convention: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{date-time-TIMESTAMP_FOLDER_SUFFIX}
+                // Create folder with naming convention:
+                // If CURRENT_ANALYSIS_PATH is set: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}
+                // Otherwise: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{date-time-TIMESTAMP_FOLDER_SUFFIX}
                 const spaceKey = process.env.CONFLUENCE_SPACE_KEY || 'DEFAULT';
                 const ticketKey = ticketDetails.issue.key;
                 const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
@@ -174,15 +176,14 @@ async function main(): Promise<void> {
                 const timestampFolderSuffix = process.env.TIMESTAMP_FOLDER_SUFFIX || 'Via-AI';
 
                 const baseDir = `./${spaceKey}-${baseFolderSuffix}`;
-                const ticketDir = `${baseDir}/${ticketKey}-${ticketFolderSuffix}`;
 
                 // Check if CURRENT_ANALYSIS_PATH is set in environment
                 let tmpDir = '';
                 const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
 
                 if (currentAnalysisPath) {
-                    // Use the analysis path from environment variable
-                    tmpDir = `${ticketDir}/${currentAnalysisPath}`;
+                    // Use the analysis path directly under base folder (skip ticket folder level)
+                    tmpDir = `${baseDir}/${currentAnalysisPath}`;
                     if (!fs.existsSync(tmpDir)) {
                         fs.mkdirSync(tmpDir, { recursive: true });
                         console.log(`✅ Created analysis folder from CURRENT_ANALYSIS_PATH: ${tmpDir}`);
@@ -190,7 +191,8 @@ async function main(): Promise<void> {
                         console.log(`ℹ️  Using existing analysis folder from CURRENT_ANALYSIS_PATH: ${currentAnalysisPath}`);
                     }
                 } else {
-                    // Create new timestamp folder
+                    // Create traditional 3-level structure
+                    const ticketDir = `${baseDir}/${ticketKey}-${ticketFolderSuffix}`;
                     const now = new Date();
                     const timestamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
                     const timestampFolderName = `${timestamp}-${timestampFolderSuffix}`;
@@ -213,30 +215,7 @@ async function main(): Promise<void> {
             console.log('   Set these variables in .env to test ticket retrieval');
         }
 
-        // Example 2: Search for issues by JQL
-        if (jiraConfig.projectKey) {
-            console.log(`\n🔍 Example: Searching for issues in project ${jiraConfig.projectKey}...`);
-            console.log('-'.repeat(60));
-
-            const jql = `project = '${jiraConfig.projectKey}' ORDER BY created DESC`;
-            const searchResults = await jiraService.searchIssues({
-                jql,
-                maxResults: 5,
-                fields: ['key', 'summary', 'status'],
-            });
-
-            console.log(`\n✅ Found ${searchResults.total} total issue(s)`);
-            console.log(`   Showing first ${searchResults.issues.length} issue(s):\n`);
-
-            for (const issue of searchResults.issues) {
-                const summary = issue.fields?.summary || 'No summary';
-                console.log(`   - ${issue.key}: ${summary}`);
-            }
-        } else {
-            console.log('\n⚠️  Skipping search - JIRA_PROJECT_KEY not set');
-        }
-
-        // Example 3: Confluence Integration
+        // Confluence Integration
         console.log('\n\n' + '='.repeat(60));
         console.log('CONFLUENCE INTEGRATION TESTS');
         console.log('='.repeat(60));
@@ -290,44 +269,22 @@ async function main(): Promise<void> {
 
             // Start incremental processing if SAVE_TO_FILE is enabled
             if (process.env.SAVE_TO_FILE === 'true') {
-                // Create folder with naming convention
+                // Create folder with naming convention:
+                // If CURRENT_ANALYSIS_PATH is set: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}
+                // Otherwise: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{date-time-TIMESTAMP_FOLDER_SUFFIX}
                 const spaceKey = confluenceConfig.spaceKey || 'DEFAULT';
                 const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
                 const ticketFolderSuffix = process.env.TICKET_FOLDER_SUFFIX || 'Via-AI';
                 const timestampFolderSuffix = process.env.TIMESTAMP_FOLDER_SUFFIX || 'Via-AI';
                 const baseDir = `./${spaceKey}-${baseFolderSuffix}`;
 
-                // Get ticket ID from environment or scan for existing folders
-                let ticketKey = process.env.JIRA_TICKET_ID || '';
-
-                // If no ticket ID in env, try to find existing ticket folder
-                if (!ticketKey && fs.existsSync(baseDir)) {
-                    const folders = fs.readdirSync(baseDir).filter(f => {
-                        const fullPath = `${baseDir}/${f}`;
-                        return fs.statSync(fullPath).isDirectory() && f.includes(`-${ticketFolderSuffix}`);
-                    });
-                    if (folders.length > 0) {
-                        // Use the first ticket folder found
-                        const folderName = folders[0];
-                        ticketKey = folderName.replace(`-${ticketFolderSuffix}`, '');
-                        console.log(`ℹ️  Using existing ticket folder: ${folderName}`);
-                    }
-                }
-
-                if (!ticketKey) {
-                    ticketKey = 'UNKNOWN';
-                    console.log('⚠️  No JIRA_TICKET_ID found, using UNKNOWN');
-                }
-
-                const ticketDir = `${baseDir}/${ticketKey}-${ticketFolderSuffix}`;
-
                 // Check if CURRENT_ANALYSIS_PATH is set in environment
                 let tmpDir = '';
                 const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
 
                 if (currentAnalysisPath) {
-                    // Use the analysis path from environment variable
-                    tmpDir = `${ticketDir}/${currentAnalysisPath}`;
+                    // Use the analysis path directly under base folder (skip ticket folder level)
+                    tmpDir = `${baseDir}/${currentAnalysisPath}`;
                     if (!fs.existsSync(tmpDir)) {
                         fs.mkdirSync(tmpDir, { recursive: true });
                         console.log(`✅ Created analysis folder from CURRENT_ANALYSIS_PATH: ${tmpDir}`);
@@ -335,7 +292,32 @@ async function main(): Promise<void> {
                         console.log(`ℹ️  Using existing analysis folder from CURRENT_ANALYSIS_PATH: ${currentAnalysisPath}`);
                     }
                 } else {
-                    // Fallback: Check for existing timestamp folders or create new one
+                    // Create traditional 3-level structure
+                    // Get ticket ID from environment or scan for existing folders
+                    let ticketKey = process.env.JIRA_TICKET_ID || '';
+
+                    // If no ticket ID in env, try to find existing ticket folder
+                    if (!ticketKey && fs.existsSync(baseDir)) {
+                        const folders = fs.readdirSync(baseDir).filter(f => {
+                            const fullPath = `${baseDir}/${f}`;
+                            return fs.statSync(fullPath).isDirectory() && f.includes(`-${ticketFolderSuffix}`);
+                        });
+                        if (folders.length > 0) {
+                            // Use the first ticket folder found
+                            const folderName = folders[0];
+                            ticketKey = folderName.replace(`-${ticketFolderSuffix}`, '');
+                            console.log(`ℹ️  Using existing ticket folder: ${folderName}`);
+                        }
+                    }
+
+                    if (!ticketKey) {
+                        ticketKey = 'UNKNOWN';
+                        console.log('⚠️  No JIRA_TICKET_ID found, using UNKNOWN');
+                    }
+
+                    const ticketDir = `${baseDir}/${ticketKey}-${ticketFolderSuffix}`;
+
+                    // Check for existing timestamp folders or create new one
                     if (fs.existsSync(ticketDir)) {
                         // Look for existing timestamp folders - match pattern with suffix
                         const timestampPattern = new RegExp(`^\\d{4}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-\\d{2}-${timestampFolderSuffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`);
@@ -661,8 +643,8 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
 
                     try {
                         // Initialize services
-                        const {EmbeddingService, PostgresVectorService, ConfluenceIndexerService} = await import('./src/services');
-                        const {getRequiredEnv, getOptionalEnvAsNumber} = await import('./src/utils/env-validator.util');
+                        const {EmbeddingService, PostgresVectorService, ConfluenceIndexerService} = await import('../src/services');
+                        const {getRequiredEnv, getOptionalEnvAsNumber} = await import('../src/utils/env-validator.util');
 
                         console.log('\n🔧 Initializing services...');
                         const embeddingService = new EmbeddingService({
@@ -670,6 +652,7 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
                             model: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
                             provider: (process.env.EMBEDDING_PROVIDER as 'openai' | 'openrouter') || 'openai',
                             concurrency: getOptionalEnvAsNumber('EMBEDDING_CONCURRENCY', 20),
+                            silentMode: silentMode,
                         });
                         const vectorService = new PostgresVectorService({
                             host: process.env.DATABASE_HOST || 'localhost',
@@ -688,39 +671,89 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
                         const chunkSize = getOptionalEnvAsNumber('CHUNK_SIZE', 1000);
                         const chunkOverlap = getOptionalEnvAsNumber('CHUNK_OVERLAP', 200);
                         const batchSize = getOptionalEnvAsNumber('INDEXER_BATCH_SIZE', 10);
+                        const maxPages = getOptionalEnvAsNumber('CONFLUENCE_MAX_PAGES', 0); // 0 means fetch all
 
                         // Check if PII sanitization is enabled for PostgreSQL data
                         const sanitizePgData = process.env.SANITIZE_PG_DATA !== 'false'; // default true
                         console.log(`\n🔒 PostgreSQL PII Sanitization: ${sanitizePgData ? '✅ ENABLED' : '❌ DISABLED'}`);
 
-                        const indexerService = new ConfluenceIndexerService(
-                            confluenceService,
-                            embeddingService,
-                            vectorService,
-                            chunkSize,
-                            chunkOverlap,
-                            sanitizePgData ? piiDetector : undefined, // pass piiDetector only if enabled
-                        );
+                        // Get JIRA project key from environment
+                        const projectKey = process.env.JIRA_PROJECT_KEY;
 
-                        // Index the space
-                        console.log(`\n📚 Indexing Confluence space: ${confluenceConfig.spaceKey}`);
-                        const stats = await indexerService.indexSpace(confluenceConfig.spaceKey, batchSize);
+                        // Check if we should verify PostgreSQL before fetching Confluence
+                        const checkPgBeforeFetch = process.env.CHECK_PG_BEFORE_CONFLUENCE_FETCH !== 'false'; // default true
 
-                        console.log('\n✅ PostgreSQL Vector DB indexing complete!');
-                        console.log(`   Space: ${stats.spaceKey}`);
-                        console.log(`   Pages indexed: ${stats.totalPages}`);
-                        console.log(`   Total chunks: ${stats.totalChunks}`);
-                        console.log(`   Processing time: ${(stats.processingTime / 1000).toFixed(2)}s`);
-                        if (stats.errors.length > 0) {
-                            console.log(`   Errors: ${stats.errors.length}`);
+                        let shouldFetchConfluence = true;
+
+                        // Check PostgreSQL for existing non-expired records if enabled
+                        if (checkPgBeforeFetch && projectKey) {
+                            console.log(`\n🔍 Checking PostgreSQL for existing data (project_key: ${projectKey})...`);
+                            const existingCount = await vectorService.getDocumentCountByProjectKey(projectKey);
+                            console.log(`   Found ${existingCount} non-expired document(s) for project ${projectKey}`);
+
+                            if (existingCount > 0) {
+                                shouldFetchConfluence = false;
+                                console.log(`   ✅ Using existing data from PostgreSQL - skipping Confluence fetch`);
+                            } else {
+                                console.log(`   ℹ️  No existing data found - will fetch from Confluence`);
+                            }
                         }
 
-                        // Clean up expired records
+                        if (shouldFetchConfluence) {
+                            const indexerService = new ConfluenceIndexerService(
+                                confluenceService,
+                                embeddingService,
+                                vectorService,
+                                chunkSize,
+                                chunkOverlap,
+                                sanitizePgData ? piiDetector : undefined, // pass piiDetector only if enabled
+                                projectKey, // pass project key from env
+                                silentMode, // pass silent mode flag
+                            );
+
+                            // Fetch Jira issue for smart filtering if ticket ID is available
+                            let jiraIssueForFilter = undefined;
+                            const ticketId = process.env.JIRA_TICKET_ID;
+                            if (ticketId) {
+                                try {
+                                    console.log(`\n🎫 Fetching Jira ticket for smart filtering: ${ticketId}`);
+                                    const ticketDetails = await jiraService.getTicketDetails({ticketId, includeSubTasks: false});
+                                    jiraIssueForFilter = ticketDetails.issue;
+                                    console.log(`✅ Jira ticket fetched: ${jiraIssueForFilter.fields.summary}`);
+                                } catch (error) {
+                                    console.log(`⚠️  Could not fetch Jira ticket for filtering: ${error}`);
+                                    console.log(`   Continuing without smart filter...`);
+                                }
+                            }
+
+                            // Index the space with smart filter
+                            console.log(`\n📚 Indexing Confluence space: ${confluenceConfig.spaceKey}`);
+                            console.log(`   Max pages to fetch: ${maxPages > 0 ? maxPages : 'All'}`);
+                            const stats = await indexerService.indexSpace(
+                                confluenceConfig.spaceKey,
+                                batchSize,
+                                maxPages > 0 ? maxPages : undefined,
+                                jiraIssueForFilter  // Pass Jira issue for smart filtering
+                            );
+
+                            console.log('\n✅ PostgreSQL Vector DB indexing complete!');
+                            console.log(`   Space: ${stats.spaceKey}`);
+                            console.log(`   Pages indexed: ${stats.totalPages}`);
+                            console.log(`   Total chunks: ${stats.totalChunks}`);
+                            console.log(`   Processing time: ${(stats.processingTime / 1000).toFixed(2)}s`);
+                            if (stats.errors.length > 0) {
+                                console.log(`   Errors: ${stats.errors.length}`);
+                            }
+                        } else {
+                            console.log('\n✅ Skipped Confluence fetch - using existing PostgreSQL data');
+                        }
+
+                        // Clean up expired records (general cleanup)
                         console.log('\n🗑️  Cleaning up expired records...');
                         await vectorService.cleanupExpired();
 
-                        // Close database connection
-                        await vectorService.close();
+                        // Close database connection and cleanup project-specific expired records
+                        await vectorService.close(projectKey);
 
                     } catch (error: any) {
                         console.error('\n❌ Error pushing to PostgreSQL Vector DB:', error.message);

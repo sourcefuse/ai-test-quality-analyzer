@@ -3,22 +3,21 @@
   "version": "1.0.0",
   "main": "dist/fetch-and-analyze.js",
   "scripts": {
-    "claude": "ts-node claude-runner.ts",
-    "start": "npx ts-node fetch-and-analyze.ts",
-    "upload-requirements": "npx ts-node upload-requirements-to-confluence.ts",
-    "create-requirement-doc": "npm run claude prompts/create-requirement.md",
-    "analyze-test-quality": "npm run claude prompts/analyze-test-quality.md",
-    "process:jira": "npx ts-node process-jira-with-rag-search.ts"
+    "claude": "ts-node cli/claude-runner.ts",
+    "start": "ts-node cli/fetch-and-analyze.ts",
+    "upload-requirements": "ts-node cli/upload-requirements-to-confluence.ts",
+    "create-requirement-doc": "pnpm run claude prompts/create-requirement.md",
+    "analyze-test-quality": "pnpm run claude prompts/analyze-test-quality.md",
+    "process:jira": "ts-node cli/process-jira-with-rag-search.ts",
+    "clear-db": "ts-node cli/clear-db.ts",
+    "test:db": "ts-node cli/test-db-integration.ts",
+    "test:smart-filter": "ts-node cli/test-smart-filter.ts",
+    "inspect:jira": "ts-node cli/inspect-jira-ticket.ts"
   },
   "keywords": [],
   "author": "Vishal Gupta",
   "license": "ISC",
   "description": "Unit test case checker",
-  "overrides": {
-    "qs": "^6.14.1",
-    "undici": "^7.18.2",
-    "diff": "^8.0.3"
-  },
   "pnpm": {
     "overrides": {
       "qs": "^6.14.1",

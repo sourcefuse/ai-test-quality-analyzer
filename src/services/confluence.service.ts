@@ -37,9 +37,9 @@ export class ConfluenceService {
   // Patterns to exclude - pages created by this AI tool
   private readonly EXCLUDE_PATTERNS = [
     'Via-AI',
-    'Quality-Check',
-    'QUALITY-CHECK',
-    'GenerateTestCasesReport_',
+    'Generate-Unit-Tests',
+    'GENERATE-UNIT-TESTS',
+    'GeneratedTestsReport_',
     'Unit-Test-Report',
     'Test-Coverage-Report',
     'AI-Generated',
@@ -290,11 +290,12 @@ export class ConfluenceService {
    *
    * @param spaceKey - Space key
    * @param title - Page title
+   * @param parentId - Optional parent page ID to search under
    * @returns Promise resolving to page ID, or empty string if not found
    */
-  async getPageIdByTitle(spaceKey: string, title: string): Promise<string> {
+  async getPageIdByTitle(spaceKey: string, title: string, parentId?: string): Promise<string> {
     try {
-      console.log(`🔍 Searching for page: "${title}" in space ${spaceKey}`);
+      console.log(`🔍 Searching for page: "${title}" in space ${spaceKey}${parentId ? ` under parent ${parentId}` : ''}`);
 
       const response: any = await this.client.content.getContent({
         spaceKey,
@@ -303,9 +304,27 @@ export class ConfluenceService {
       });
 
       if (response.results && response.results.length > 0) {
-        const pageId = response.results[0].id;
-        console.log(`✅ Found page ID: ${pageId}`);
-        return pageId;
+        // If parentId is specified, filter results to only include pages with that parent
+        if (parentId) {
+          const matchingPage = response.results.find((page: any) => {
+            const ancestors = page.ancestors || [];
+            // Check if any ancestor matches the parentId
+            return ancestors.some((ancestor: any) => ancestor.id === parentId);
+          });
+
+          if (matchingPage) {
+            console.log(`✅ Found page ID: ${matchingPage.id} under parent ${parentId}`);
+            return matchingPage.id;
+          } else {
+            console.log(`⚠️  Page "${title}" found but not under parent ${parentId}`);
+            return '';
+          }
+        } else {
+          // No parent specified, return first match
+          const pageId = response.results[0].id;
+          console.log(`✅ Found page ID: ${pageId}`);
+          return pageId;
+        }
       }
 
       console.log(`⚠️  Page not found: "${title}"`);
@@ -326,7 +345,7 @@ export class ConfluenceService {
     try {
       const {title, content, spaceKey, parentId, type} = request;
 
-      console.log(`📝 Creating Confluence page: "${title}" in space ${spaceKey}`);
+      console.log(`📝 Creating Confluence page: "${title}" in space ${spaceKey}${parentId ? ` under parent ${parentId}` : ' at root level'}`);
 
       // Clean content
       let cleanedContent = content
@@ -359,21 +378,39 @@ export class ConfluenceService {
       return {
         pageId: response.id,
         pageTitle: response.title,
-        url: response._links?.webui,
+        url: response._links?.webui
+          ? `${this.config.host}${response._links.webui}`
+          : undefined,
       };
     } catch (error: any) {
       console.error('❌ Error creating Confluence page:', error);
 
-      // If page already exists, try to get its ID
-      if (error.message && error.message.includes('already exists')) {
-        console.log(`   Page "${request.title}" already exists, fetching ID...`);
-        const existingPageId = await this.getPageIdByTitle(request.spaceKey, request.title);
+      // Check if page already exists (handle different error formats from Confluence API)
+      const errorMessage = error.message || error.toString() || '';
+      const isPageExists =
+        errorMessage.includes('already exists') ||
+        errorMessage.includes('A page with this title already exists') ||
+        errorMessage.includes('BadRequestException') && errorMessage.includes('title');
+
+      if (isPageExists) {
+        console.log(`   ℹ️  Page "${request.title}" already exists, fetching existing page ID...`);
+
+        // Search for existing page (with or without parent filter based on request)
+        const existingPageId = await this.getPageIdByTitle(request.spaceKey, request.title, request.parentId);
+
         if (existingPageId) {
+          console.log(`   ✅ Using existing page ID: ${existingPageId}`);
+          // Construct URL from page ID
+          const pageUrl = `${this.config.host}/wiki/spaces/${request.spaceKey}/pages/${existingPageId}`;
           return {
             pageId: existingPageId,
             pageTitle: request.title,
+            url: pageUrl,
           };
         }
+
+        // If page exists but we can't find it, something is wrong
+        throw new Error(`Page "${request.title}" exists but cannot be found. Check permissions or space key.`);
       }
 
       throw this.handleError(error);
@@ -400,7 +437,7 @@ export class ConfluenceService {
       console.log(`🏗️  Creating hierarchical page structure for ${ticketId}`);
 
       // Step 1: Create/Get project root page
-      const projectPageTitle = `${projectKey}-QUALITY-CHECK`;
+      const projectPageTitle = `${projectKey}-GENERATE-UNIT-TESTS`;
       console.log(`   Creating project root page: ${projectPageTitle}`);
       const projectPageResponse = await this.createPage({
         title: projectPageTitle,
