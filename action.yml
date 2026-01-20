@@ -607,9 +607,13 @@ runs:
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
+        SKIP_CONFLUENCE_FETCH: ${{ steps.load-cache.outputs.cache_loaded }}
       run: |
         cd "$ACTION_PATH"
         echo "🔄 Fetching JIRA ticket and Confluence pages..."
+        if [ "$SKIP_CONFLUENCE_FETCH" == "true" ]; then
+          echo "   ℹ️  SKIP_CONFLUENCE_FETCH=true (cache loaded)"
+        fi
         npm run start
         echo "✅ Data fetched successfully"
 
