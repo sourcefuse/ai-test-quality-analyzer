@@ -1,182 +1,182 @@
-name: 'Check Unit Test Cases Quality'
-description: 'Analyze unit test quality against JIRA requirements and generate comprehensive reports'
-author: 'Vishal Gupta'
+name: "Check Unit Test Cases Quality"
+description: "Analyze unit test quality against JIRA requirements and generate comprehensive reports"
+author: "Vishal Gupta"
 
 branding:
-  icon: 'check-circle'
-  color: 'green'
+  icon: "check-circle"
+  color: "green"
 
 inputs:
   database_host:
-    description: 'PostgreSQL database host'
+    description: "PostgreSQL database host"
     required: false
-    default: 'localhost'
+    default: "localhost"
   database_port:
-    description: 'PostgreSQL database port'
+    description: "PostgreSQL database port"
     required: false
-    default: '5432'
+    default: "5432"
   database_name:
-    description: 'PostgreSQL database name'
+    description: "PostgreSQL database name"
     required: false
-    default: 'postgres-pgvector'
+    default: "postgres-pgvector"
   database_user:
-    description: 'PostgreSQL database user'
+    description: "PostgreSQL database user"
     required: false
-    default: 'postgres'
+    default: "postgres"
   database_password:
-    description: 'PostgreSQL database password'
+    description: "PostgreSQL database password"
     required: false
-    default: 'admin'
+    default: "admin"
   jira_url:
-    description: 'JIRA instance URL'
+    description: "JIRA instance URL"
     required: true
   jira_email:
-    description: 'JIRA user email'
+    description: "JIRA user email"
     required: true
   jira_api_token:
-    description: 'JIRA API token'
+    description: "JIRA API token"
     required: true
   jira_ticket_id:
-    description: 'JIRA ticket ID to analyze (e.g., BB-15690)'
+    description: "JIRA ticket ID to analyze (e.g., BB-15690)"
     required: true
   jira_project_key:
-    description: 'JIRA project key'
+    description: "JIRA project key"
     required: true
   confluence_url:
-    description: 'Confluence instance URL'
+    description: "Confluence instance URL"
     required: true
   confluence_email:
-    description: 'Confluence user email'
+    description: "Confluence user email"
     required: true
   confluence_api_token:
-    description: 'Confluence API token'
+    description: "Confluence API token"
     required: true
   confluence_space_key:
-    description: 'Confluence space key'
+    description: "Confluence space key"
     required: true
   confluence_silent_mode:
-    description: 'Suppress logging during Confluence page downloads (true/false)'
+    description: "Suppress logging during Confluence page downloads (true/false)"
     required: false
-    default: 'true'
+    default: "true"
   current_analysis_path:
-    description: 'Specific analysis folder to use (optional, auto-generated if not provided)'
+    description: "Specific analysis folder to use (optional, auto-generated if not provided)"
     required: false
-    default: ''
+    default: ""
   repository_url:
-    description: 'Repository URL to clone for test analysis'
+    description: "Repository URL to clone for test analysis"
     required: true
   repository_branch:
-    description: 'Branch name to clone'
+    description: "Branch name to clone"
     required: false
-    default: 'main'
+    default: "main"
   save_to_file:
-    description: 'Save analysis results to files (true/false)'
+    description: "Save analysis results to files (true/false)"
     required: false
-    default: 'true'
+    default: "true"
   upload_to_confluence:
-    description: 'Upload results to Confluence (true/false)'
+    description: "Upload results to Confluence (true/false)"
     required: false
-    default: 'true'
+    default: "true"
   minimum_score:
-    description: 'Minimum acceptable test quality score (0-10)'
+    description: "Minimum acceptable test quality score (0-10)"
     required: false
-    default: '6.0'
+    default: "6.0"
   aws_region_bedrock:
-    description: 'AWS region for Bedrock service'
+    description: "AWS region for Bedrock service"
     required: false
-    default: 'us-east-2'
+    default: "us-east-2"
   aws_access_key_bedrock:
-    description: 'AWS access key for Bedrock authentication'
+    description: "AWS access key for Bedrock authentication"
     required: true
   aws_secret_key_bedrock:
-    description: 'AWS secret key for Bedrock authentication'
+    description: "AWS secret key for Bedrock authentication"
     required: true
   aws_bedrock_model:
-    description: 'AWS Bedrock model identifier'
+    description: "AWS Bedrock model identifier"
     required: false
-    default: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
+    default: "us.anthropic.claude-3-5-sonnet-20241022-v2:0"
   anthropic_model:
-    description: 'Anthropic model name for Claude'
+    description: "Anthropic model name for Claude"
     required: false
-    default: 'sonnet[1m]'
+    default: "sonnet[1m]"
   ai_type:
-    description: 'AI provider type: 1 = claude_with_bedrock, 2 = claude_with_glm'
+    description: "AI provider type: 1 = claude_with_bedrock, 2 = claude_with_glm"
     required: false
-    default: '1'
+    default: "1"
   anthropic_base_url:
-    description: 'Anthropic/GLM base URL (required when ai_type=2)'
+    description: "Anthropic/GLM base URL (required when ai_type=2)"
     required: false
   anthropic_auth_token:
-    description: 'Anthropic/GLM auth token (required when ai_type=2)'
+    description: "Anthropic/GLM auth token (required when ai_type=2)"
     required: false
   base_folder_suffix:
-    description: 'Base folder suffix for organizing analysis results'
+    description: "Base folder suffix for organizing analysis results"
     required: false
-    default: 'Quality-Check-Via-AI'
+    default: "Quality-Check-Via-AI"
   confluence_root_page_suffix:
-    description: 'Confluence root page suffix for organizing reports'
+    description: "Confluence root page suffix for organizing reports"
     required: false
-    default: 'Quality-Check-Via-AI'
+    default: "Quality-Check-Via-AI"
   confluence_upload_url:
-    description: 'Confluence instance URL for uploading results (if different from fetch URL)'
+    description: "Confluence instance URL for uploading results (if different from fetch URL)"
     required: false
-    default: ''
+    default: ""
   confluence_upload_email:
-    description: 'Confluence user email for uploading results (if different from fetch email)'
+    description: "Confluence user email for uploading results (if different from fetch email)"
     required: false
-    default: ''
+    default: ""
   confluence_upload_api_token:
-    description: 'Confluence API token for uploading results (if different from fetch token)'
+    description: "Confluence API token for uploading results (if different from fetch token)"
     required: false
-    default: ''
+    default: ""
   confluence_upload_space_key:
-    description: 'Confluence space key for uploading results (if different from fetch space)'
+    description: "Confluence space key for uploading results (if different from fetch space)"
     required: false
-    default: ''
+    default: ""
   openai_api_key:
-    description: 'OpenAI API key for embeddings (required if USE_POSTGRES_VECTOR_DB is enabled)'
+    description: "OpenAI API key for embeddings (required if USE_POSTGRES_VECTOR_DB is enabled)"
     required: false
-    default: ''
+    default: ""
   use_postgres_vector_db:
-    description: 'Enable PostgreSQL Vector Database with pgvector for RAG-based Confluence fetching (true/false)'
+    description: "Enable PostgreSQL Vector Database with pgvector for RAG-based Confluence fetching (true/false)"
     required: false
-    default: 'true'
+    default: "true"
   enable_docker_services:
-    description: 'Enable Docker services (pgvector and Presidio from ghcr.io) - true/false'
+    description: "Enable Docker services (pgvector and Presidio from ghcr.io) - true/false"
     required: false
-    default: 'true'
+    default: "true"
   embedding_dimensions:
-    description: 'Embedding vector dimensions (1536 for OpenAI, 768 for Ollama nomic-embed-text)'
+    description: "Embedding vector dimensions (1536 for OpenAI, 768 for Ollama nomic-embed-text)"
     required: false
-    default: '1536'
+    default: "1536"
 
 outputs:
   test_quality_score:
-    description: 'Test quality score (0-10)'
+    description: "Test quality score (0-10)"
     value: ${{ steps.extract_score.outputs.score }}
   analysis_path:
-    description: 'Path to the analysis results folder'
+    description: "Path to the analysis results folder"
     value: ${{ steps.extract_paths.outputs.analysis_path }}
   requirements_file:
-    description: 'Path to the requirements file'
+    description: "Path to the requirements file"
     value: ${{ steps.extract_paths.outputs.requirements_file }}
   result_file:
-    description: 'Path to the result file'
+    description: "Path to the result file"
     value: ${{ steps.extract_paths.outputs.result_file }}
   score_passed:
-    description: 'Whether the score meets the minimum threshold (true/false)'
+    description: "Whether the score meets the minimum threshold (true/false)"
     value: ${{ steps.check_score.outputs.passed }}
   confluence_url:
-    description: 'Confluence URL to the uploaded analysis report'
+    description: "Confluence URL to the uploaded analysis report"
     value: ${{ steps.upload_confluence.outputs.confluence_url }}
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: "20"
 
     - name: Install dependencies
       shell: bash
@@ -518,12 +518,9 @@ runs:
         echo "║           💾 CACHE DEBUG INFO                                ║"
         echo "╚══════════════════════════════════════════════════════════════╝"
         echo ""
-        echo "🔑 Cache Key Details:"
-        echo "   Primary Key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-${{ steps.cache-date.outputs.date }}"
-        echo "   Fallback Key 1: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-*"
-        echo "   Fallback Key 2: pgvector-${{ inputs.confluence_space_key }}-*"
-        echo ""
+        echo "🔑 Cache Key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-${{ steps.cache-date.outputs.date }}"
         echo "📂 Cache Path: /tmp/pgvector-data"
+        echo "ℹ️  Cache Policy: Daily rotation (no fallback to older cache)"
         echo "═══════════════════════════════════════════════════════════════"
 
     - name: Restore PostgreSQL data from cache
@@ -533,9 +530,6 @@ runs:
       with:
         path: /tmp/pgvector-data
         key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-${{ steps.cache-date.outputs.date }}
-        restore-keys: |
-          pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-
-          pgvector-${{ inputs.confluence_space_key }}-
 
     - name: Debug - Cache Restore Result
       if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost'
