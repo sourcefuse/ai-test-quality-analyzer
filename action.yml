@@ -185,6 +185,48 @@ runs:
         npm install
         npm install -g @anthropic-ai/claude-code
 
+    - name: Debug - Print Configuration
+      shell: bash
+      run: |
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║           🔧 CONFIGURATION DEBUG INFO                        ║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo ""
+        echo "📋 JIRA Configuration:"
+        echo "   JIRA Ticket ID: ${{ inputs.jira_ticket_id }}"
+        echo "   JIRA Project Key: ${{ inputs.jira_project_key }}"
+        echo ""
+        echo "📄 Confluence Configuration:"
+        echo "   Confluence Space Key: ${{ inputs.confluence_space_key }}"
+        echo ""
+        echo "🤖 AI Configuration:"
+        echo "   AI Type: ${{ inputs.ai_type }} (1=Bedrock, 2=GLM)"
+        if [ "${{ inputs.ai_type }}" == "2" ]; then
+          echo "   ✅ Using GLM (Anthropic API)"
+          echo "   Anthropic Base URL: ${{ inputs.anthropic_base_url && '***configured***' || 'not set' }}"
+          echo "   Anthropic Model: ${{ inputs.anthropic_model || 'default' }}"
+        else
+          echo "   ✅ Using AWS Bedrock"
+          echo "   AWS Region: ${{ inputs.aws_region_bedrock || 'not set' }}"
+          echo "   Bedrock Model: ${{ inputs.aws_bedrock_model || 'default' }}"
+        fi
+        echo ""
+        echo "🐘 PostgreSQL Configuration:"
+        echo "   Use PostgreSQL Vector DB: ${{ inputs.use_postgres_vector_db }}"
+        echo "   Database Host: ${{ inputs.database_host }}"
+        echo "   Database Name: ${{ inputs.database_name }}"
+        echo "   Embedding Dimensions: ${{ inputs.embedding_dimensions }}"
+        echo ""
+        echo "🐳 Docker Configuration:"
+        echo "   Enable Docker Services: ${{ inputs.enable_docker_services }}"
+        echo ""
+        echo "📊 Analysis Configuration:"
+        echo "   Minimum Score: ${{ inputs.minimum_score }}"
+        echo "   Upload to Confluence: ${{ inputs.upload_to_confluence }}"
+        echo "   Save to File: ${{ inputs.save_to_file }}"
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════"
+
     - name: Login to GitHub Container Registry
       if: inputs.enable_docker_services == 'true'
       shell: bash
@@ -463,7 +505,25 @@ runs:
       id: cache-date
       shell: bash
       run: |
-        echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        CACHE_DATE=$(date +'%Y-%m-%d')
+        echo "date=$CACHE_DATE" >> $GITHUB_OUTPUT
+        echo "📅 Cache date key: $CACHE_DATE"
+
+    - name: Debug - Cache Configuration
+      if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost'
+      shell: bash
+      run: |
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║           💾 CACHE DEBUG INFO                                ║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo ""
+        echo "🔑 Cache Key Details:"
+        echo "   Primary Key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-${{ steps.cache-date.outputs.date }}"
+        echo "   Fallback Key 1: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-*"
+        echo "   Fallback Key 2: pgvector-${{ inputs.confluence_space_key }}-*"
+        echo ""
+        echo "📂 Cache Path: /tmp/pgvector-data"
+        echo "═══════════════════════════════════════════════════════════════"
 
     - name: Restore PostgreSQL data from cache
       if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost'
@@ -475,6 +535,20 @@ runs:
         restore-keys: |
           pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-
           pgvector-${{ inputs.confluence_space_key }}-
+
+    - name: Debug - Cache Restore Result
+      if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost'
+      shell: bash
+      run: |
+        echo "📦 Cache Restore Result:"
+        echo "   Cache Hit: ${{ steps.pgdata-cache.outputs.cache-hit || 'false' }}"
+        if [ -f /tmp/pgvector-data/pgdump.sql ]; then
+          CACHE_SIZE=$(ls -lh /tmp/pgvector-data/pgdump.sql | awk '{print $5}')
+          echo "   Cache File Found: ✅ Yes"
+          echo "   Cache File Size: $CACHE_SIZE"
+        else
+          echo "   Cache File Found: ❌ No"
+        fi
 
     - name: Load PostgreSQL data from cache
       if: inputs.database_host == 'localhost'
@@ -498,16 +572,34 @@ runs:
           DOC_COUNT=$(docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM confluence_documents;" 2>/dev/null || echo "0")
           DOC_COUNT=$(echo "$DOC_COUNT" | tr -d ' ')
 
+          CHUNK_COUNT=$(docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM document_chunks;" 2>/dev/null || echo "0")
+          CHUNK_COUNT=$(echo "$CHUNK_COUNT" | tr -d ' ')
+
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║           📊 CACHE LOAD RESULT                               ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo "   Documents Restored: $DOC_COUNT"
+          echo "   Chunks Restored: $CHUNK_COUNT"
+
           if [ "$DOC_COUNT" -gt 0 ]; then
-            echo "✅ Restored $DOC_COUNT documents from cache"
-            echo "   Confluence fetch will be skipped!"
+            echo "   Status: ✅ CACHE HIT - Data loaded successfully"
+            echo "   Confluence fetch will be SKIPPED!"
             echo "cache_loaded=true" >> $GITHUB_OUTPUT
           else
-            echo "⚠️  Cache restore completed but no documents found"
+            echo "   Status: ⚠️ CACHE MISS - No documents found after restore"
+            echo "   Confluence fetch will be REQUIRED"
             echo "cache_loaded=false" >> $GITHUB_OUTPUT
           fi
+          echo "═══════════════════════════════════════════════════════════════"
         else
-          echo "⚠️  Cache file not found, will fetch from Confluence"
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║           📊 CACHE LOAD RESULT                               ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo "   Status: ⚠️ CACHE MISS - No cache file found"
+          echo "   Confluence fetch will be REQUIRED"
+          echo "═══════════════════════════════════════════════════════════════"
           echo "cache_loaded=false" >> $GITHUB_OUTPUT
         fi
 
@@ -581,14 +673,22 @@ runs:
         ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
       run: |
         cd ${{ github.action_path }}
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║           🤖 AI ANALYSIS - GLM (Anthropic API)               ║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo ""
         echo "📋 Creating requirements document from JIRA and Confluence..."
-        echo "   Using GLM API (ANTHROPIC_BASE_URL: $ANTHROPIC_BASE_URL)"
+        echo "   AI Provider: GLM (Anthropic API)"
+        echo "   Base URL: ${ANTHROPIC_BASE_URL:-not set}"
+        echo "   Model: ${ANTHROPIC_MODEL:-default}"
+        echo ""
         npm run create-requirement-doc
         echo "✅ Requirements document created"
-
+        echo ""
         echo "🔍 Analyzing unit test quality..."
         npm run analyze-test-quality
         echo "✅ Test quality analysis completed"
+        echo "═══════════════════════════════════════════════════════════════"
 
     - name: Step 3 - Create Requirements document (Bedrock)
       if: inputs.ai_type == '1' || inputs.ai_type == ''
@@ -601,14 +701,22 @@ runs:
         AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_key_bedrock }}
       run: |
         cd ${{ github.action_path }}
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║           🤖 AI ANALYSIS - AWS Bedrock                       ║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo ""
         echo "📋 Creating requirements document from JIRA and Confluence..."
-        echo "   Using AWS Bedrock (Region: $AWS_REGION)"
+        echo "   AI Provider: AWS Bedrock"
+        echo "   AWS Region: ${AWS_REGION:-not set}"
+        echo "   Model: ${ANTHROPIC_MODEL:-default}"
+        echo ""
         npm run create-requirement-doc
         echo "✅ Requirements document created"
-
+        echo ""
         echo "🔍 Analyzing unit test quality..."
         npm run analyze-test-quality
         echo "✅ Test quality analysis completed"
+        echo "═══════════════════════════════════════════════════════════════"
 
     - name: Extract analysis paths
       id: extract_paths
