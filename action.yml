@@ -178,6 +178,25 @@ runs:
       with:
         node-version: "20"
 
+    - name: Set analysis path
+      id: set_analysis_path
+      shell: bash
+      env:
+        SPACE_KEY: ${{ inputs.confluence_space_key }}
+        BASE_FOLDER_SUFFIX: ${{ inputs.base_folder_suffix }}
+        TICKET_ID: ${{ inputs.jira_ticket_id }}
+      run: |
+        ANALYSIS_PATH="${TICKET_ID}-Via-AI/$(date +'%Y%m%d-%H-%M-%S')-Via-AI"
+        echo "CURRENT_ANALYSIS_PATH=$ANALYSIS_PATH" >> $GITHUB_ENV
+        echo "analysis_path=$ANALYSIS_PATH" >> $GITHUB_OUTPUT
+
+        # Set ANALYSIS_FOLDER for use in later steps
+        ANALYSIS_FOLDER="${SPACE_KEY}-${BASE_FOLDER_SUFFIX}/${ANALYSIS_PATH}"
+        echo "ANALYSIS_FOLDER=$ANALYSIS_FOLDER" >> $GITHUB_ENV
+
+        echo "✅ Analysis path set: $ANALYSIS_PATH"
+        echo "✅ Analysis folder set: $ANALYSIS_FOLDER"
+
     - name: Install dependencies
       shell: bash
       run: |
@@ -438,7 +457,8 @@ runs:
         CONFLUENCE_ROOT_PAGE_SUFFIX=${{ inputs.confluence_root_page_suffix }}
 
         # Analysis Configuration
-        CURRENT_ANALYSIS_PATH=$(echo $(date +'%Y%m%d-%H-%M-%S')-Via-AI)
+        CURRENT_ANALYSIS_PATH=$CURRENT_ANALYSIS_PATH
+        ANALYSIS_FOLDER=$ANALYSIS_FOLDER
         SAVE_TO_FILE=${{ inputs.save_to_file }}
 
         # File Names Configuration
@@ -723,19 +743,19 @@ runs:
       env:
         # 🔒 Security: Use env vars to prevent command injection
         ACTION_PATH: ${{ github.action_path }}
-        INPUT_SPACE_KEY: ${{ inputs.confluence_space_key }}
-        INPUT_TICKET_ID: ${{ inputs.jira_ticket_id }}
       run: |
         cd "$ACTION_PATH"
-        # ✅ SAFE: Sanitize inputs - only allow alphanumeric, hyphen, underscore
-        SPACE_KEY=$(echo "$INPUT_SPACE_KEY" | tr -cd 'A-Za-z0-9_-')
-        TICKET_ID=$(echo "$INPUT_TICKET_ID" | tr -cd 'A-Za-z0-9_-')
 
-        # Find the latest analysis folder
-        ANALYSIS_FOLDER=$(find . -type d -path "*${SPACE_KEY}-Quality-Check-Via-AI/${TICKET_ID}-Via-AI/*-Via-AI" -print | sort -r | head -1)
-
+        # Use ANALYSIS_FOLDER from environment (set in 'Set analysis path' step)
         if [ -z "$ANALYSIS_FOLDER" ]; then
-          echo "❌ Analysis folder not found"
+          echo "❌ Analysis folder not found (ANALYSIS_FOLDER env not set)"
+          exit 1
+        fi
+
+        if [ ! -d "$ANALYSIS_FOLDER" ]; then
+          echo "❌ Analysis folder does not exist: $ANALYSIS_FOLDER"
+          echo "📂 Listing available folders..."
+          ls -la
           exit 1
         fi
 
