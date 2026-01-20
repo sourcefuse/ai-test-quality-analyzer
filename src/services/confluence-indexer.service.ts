@@ -38,6 +38,8 @@ export class ConfluenceIndexerService {
   private readonly piiDetector?: HybridPIIDetectorService;
   private readonly chunkSize: number;
   private readonly chunkOverlap: number;
+  private readonly projectKey?: string;
+  private readonly silentMode: boolean;
 
   /**
    * Constructor
@@ -47,6 +49,8 @@ export class ConfluenceIndexerService {
    * @param chunkSize - Size of text chunks (default: 1000)
    * @param chunkOverlap - Overlap between chunks (default: 200)
    * @param piiDetector - Optional PII detector for sanitizing data before storage
+   * @param projectKey - Optional JIRA project key to associate with documents
+   * @param silentMode - Suppress detailed logging (default: false)
    */
   constructor(
     confluenceService: ConfluenceService,
@@ -55,6 +59,8 @@ export class ConfluenceIndexerService {
     chunkSize: number = 1000,
     chunkOverlap: number = 200,
     piiDetector?: HybridPIIDetectorService,
+    projectKey?: string,
+    silentMode: boolean = false,
   ) {
     this.confluenceService = confluenceService;
     this.embeddingService = embeddingService;
@@ -62,6 +68,8 @@ export class ConfluenceIndexerService {
     this.chunkSize = chunkSize;
     this.chunkOverlap = chunkOverlap;
     this.piiDetector = piiDetector;
+    this.projectKey = projectKey;
+    this.silentMode = silentMode;
   }
 
   /**
@@ -120,21 +128,21 @@ export class ConfluenceIndexerService {
   private async processBatch(pages: any[], stats: IndexStats): Promise<void> {
     // 1. Apply PII detection if enabled
     if (this.piiDetector) {
-      console.log('   🔒 Applying PII detection...');
+      if (!this.silentMode) console.log('   🔒 Applying PII detection...');
       for (const page of pages) {
         if (page.content) {
           const piiResult = await this.piiDetector.detectAndRedact(page.content);
           if (piiResult.hasPII) {
             page.content = piiResult.redactedText;
-            console.log(`      🔒 ${page.title}: PII redacted via ${piiResult.method}`);
+            if (!this.silentMode) console.log(`      🔒 ${page.title}: PII redacted via ${piiResult.method}`);
           }
         }
       }
-      console.log('   ✅ PII detection complete');
+      if (!this.silentMode) console.log('   ✅ PII detection complete');
     }
 
     // 2. Chunk all pages in batch
-    console.log('   🔄 Chunking text...');
+    if (!this.silentMode) console.log('   🔄 Chunking text...');
     const allChunks: TextChunk[] = [];
 
     for (const page of pages) {
@@ -142,16 +150,16 @@ export class ConfluenceIndexerService {
       allChunks.push(...chunks);
     }
 
-    console.log(`   ✅ Created ${allChunks.length} chunks`);
+    if (!this.silentMode) console.log(`   ✅ Created ${allChunks.length} chunks`);
 
     // 3. Generate embeddings for all chunks in batch (parallel)
-    console.log('   🔄 Generating embeddings...');
+    if (!this.silentMode) console.log('   🔄 Generating embeddings...');
     const embeddings = await this.embeddingService.batchGenerateEmbeddings(
       allChunks.map(c => c.text),
     );
 
     // 4. Save to database
-    console.log('   🔄 Saving to database...');
+    if (!this.silentMode) console.log('   🔄 Saving to database...');
     for (let i = 0; i < pages.length; i++) {
       try {
         const page = pages[i];
@@ -175,12 +183,13 @@ export class ConfluenceIndexerService {
         // Strip HTML from content before saving
         const cleanContent = this.stripHtml(page.content);
 
-        // Upsert document
+        // Upsert document with project key
         const documentId = await this.vectorService.upsertDocument(
           page.id,
           page.title,
           cleanContent,
           page.url || '',
+          this.projectKey,
         );
 
         // Prepare chunks with embeddings
@@ -203,11 +212,103 @@ export class ConfluenceIndexerService {
 
     // Log summary after all pages saved
     const savedPages = pages.length - stats.errors.length;
-    console.log(`   ✅ Saved ${savedPages} pages (${stats.totalChunks} chunks) to database`);
+    if (!this.silentMode) console.log(`   ✅ Saved ${savedPages} pages (${stats.totalChunks} chunks) to database`);
   }
 
   /**
-   * Index a Confluence space
+   * Index pre-fetched pages (avoids redundant Confluence API calls)
+   * @param pages - Array of pre-fetched pages with id, title, content, url
+   * @param spaceKey - Confluence space key for stats
+   * @param batchSize - Number of pages to process in each batch
+   * @returns Index statistics
+   */
+  async indexPages(
+    pages: Array<{id: string; title: string; content: string; url?: string}>,
+    spaceKey: string,
+    batchSize: number = 10,
+  ): Promise<IndexStats> {
+    const startTime = Date.now();
+    const stats: IndexStats = {
+      spaceKey,
+      totalPages: 0,
+      totalChunks: 0,
+      processingTime: 0,
+      errors: [],
+    };
+
+    try {
+      const totalPages = pages.length;
+      console.log(`\n📚 Indexing ${totalPages} pre-fetched pages from space: ${spaceKey}`);
+
+      if (totalPages === 0) {
+        console.log(`⚠️  No pages provided for indexing.`);
+        return stats;
+      }
+
+      // Process in batches to save incrementally
+      if (!this.silentMode) console.log(`🔄 Processing ${totalPages} pages in batches of ${batchSize}...\n`);
+
+      for (let batchStart = 0; batchStart < totalPages; batchStart += batchSize) {
+        const batchEnd = Math.min(batchStart + batchSize, totalPages);
+        const batchPages = pages.slice(batchStart, batchEnd);
+        const batchNum = Math.floor(batchStart / batchSize) + 1;
+        const totalBatches = Math.ceil(totalPages / batchSize);
+
+        if (!this.silentMode) console.log(`\n📦 Batch ${batchNum}/${totalBatches} - Processing pages ${batchStart + 1} to ${batchEnd}`);
+
+        try {
+          await this.processBatch(batchPages, stats);
+        } catch (error) {
+          console.error(`❌ Error processing batch ${batchNum}:`, error);
+          stats.errors.push(`Batch ${batchNum} failed: ${error}`);
+        }
+
+        // Show progress
+        stats.totalPages = batchEnd;
+        if (!this.silentMode) {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const pagesPerSecond = stats.totalPages / elapsed;
+          const remainingPages = totalPages - stats.totalPages;
+          const estimatedTimeRemaining = remainingPages / pagesPerSecond;
+
+          console.log(`\n📊 Progress:`);
+          console.log(`   Pages: ${stats.totalPages}/${totalPages}`);
+          console.log(`   Chunks: ${stats.totalChunks}`);
+          console.log(`   Speed: ${pagesPerSecond.toFixed(2)} pages/sec`);
+          console.log(`   Estimated time remaining: ${Math.ceil(estimatedTimeRemaining)}s`);
+        }
+      }
+
+      stats.processingTime = Date.now() - startTime;
+
+      console.log('\n✅ Indexing complete!');
+      console.log(`   Space: ${spaceKey}`);
+      console.log(`   Pages processed: ${stats.totalPages}`);
+      console.log(`   Total chunks: ${stats.totalChunks}`);
+      console.log(`   Processing time: ${(stats.processingTime / 1000).toFixed(2)}s`);
+      if (stats.errors.length > 0) {
+        console.log(`   Errors: ${stats.errors.length}`);
+      }
+
+      if (stats.errors.length > 0 && !this.silentMode) {
+        console.log('\n⚠️  Errors encountered:');
+        stats.errors.forEach((err, idx) => {
+          console.log(`   ${idx + 1}. ${err}`);
+        });
+      }
+
+      return stats;
+    } catch (error) {
+      console.error('❌ Error during indexing:', error);
+      stats.errors.push(`Indexing failed: ${error}`);
+      stats.processingTime = Date.now() - startTime;
+      throw error;
+    }
+  }
+
+  /**
+   * Index a Confluence space (fetches pages from Confluence API)
+   * Note: Use indexPages() if you already have fetched pages to avoid redundant API calls
    * @param spaceKey - Confluence space key
    * @param batchSize - Number of pages to process in each batch
    * @returns Index statistics

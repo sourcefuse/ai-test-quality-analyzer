@@ -392,15 +392,29 @@ Strategy: Incremental batch processing - saving raw content to file
 `;
                 fs.writeFileSync(confluenceFilePath, confluenceHeader);
 
-                console.log('\n\n' + '='.repeat(60));
-                console.log('SAVING CONFLUENCE PAGES TO FILE');
-                console.log('='.repeat(60));
-                console.log('\n💾 Saving all Confluence content directly to file (no AI filtering)');
+                // Check if we should skip Confluence fetch (cache was loaded)
+                const skipConfluenceFetch = process.env.SKIP_CONFLUENCE_FETCH === 'true';
 
                 let totalPagesProcessed = 0;
                 let totalPagesSkipped = 0;
                 let totalAIReportsSkipped = 0;
                 let batchCount = 0;
+
+                // Collect pages for PostgreSQL indexing (single fetch for both operations)
+                const collectedPages: Array<{id: string; title: string; content: string; url?: string}> = [];
+
+                if (skipConfluenceFetch) {
+                    console.log('\n\n' + '='.repeat(60));
+                    console.log('SKIPPING CONFLUENCE FETCH (CACHE HIT)');
+                    console.log('='.repeat(60));
+                    console.log('\n✅ Cache was loaded - skipping Confluence API calls');
+                    console.log('   Data is already available in PostgreSQL from cache');
+                    fs.appendFileSync(confluenceFilePath, '\n\n---\n\n**Note:** Confluence fetch skipped - using cached data from PostgreSQL.\n');
+                } else {
+                    console.log('\n\n' + '='.repeat(60));
+                    console.log('SAVING CONFLUENCE PAGES TO FILE');
+                    console.log('='.repeat(60));
+                    console.log('\n💾 Saving all Confluence content directly to file (no AI filtering)');
 
                 // Get AI-generated report title patterns to exclude from processing
                 const excludeTitlePatterns = [
@@ -508,6 +522,14 @@ Strategy: Incremental batch processing - saving raw content to file
                         batchContent += `${cleanContent}\n\n`;
                         batchContent += `---\n\n`;
                         pagesWithContent++;
+
+                        // Collect page for PostgreSQL indexing (single fetch for both)
+                        collectedPages.push({
+                            id: page.id || '',
+                            title: page.title || '',
+                            content: cleanContent, // Already PII-redacted content
+                            url: page._links?.webui ? `${confluenceConfig.host}${page._links.webui}` : '',
+                        });
                     }
 
                     totalPagesProcessed += pagesWithContent;
@@ -641,13 +663,15 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
                     fs.writeFileSync(piiReportPath, piiReport);
                     console.log(`\n📄 Detailed PII report saved to ${piiReportPath}`);
                 }
+                } // End of else block for skipConfluenceFetch
 
                 // Step: Push to PostgreSQL Vector DB (if enabled)
                 const usePostgresVectorDB = process.env.USE_POSTGRES_VECTOR_DB === 'true';
-                if (usePostgresVectorDB) {
+                if (usePostgresVectorDB && collectedPages.length > 0) {
                     console.log('\n\n' + '='.repeat(60));
                     console.log('PUSHING CONFLUENCE DATA TO POSTGRESQL VECTOR DB');
                     console.log('='.repeat(60));
+                    console.log(`\n📊 Using ${collectedPages.length} pre-fetched pages (single fetch optimization)`);
 
                     try {
                         // Initialize services
@@ -679,62 +703,41 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
                         const chunkOverlap = getOptionalEnvAsNumber('CHUNK_OVERLAP', 200);
                         const batchSize = getOptionalEnvAsNumber('INDEXER_BATCH_SIZE', 10);
 
-                        // Check if PII sanitization is enabled for PostgreSQL data
-                        const sanitizePgData = process.env.SANITIZE_PG_DATA !== 'false'; // default true
-                        console.log(`\n🔒 PostgreSQL PII Sanitization: ${sanitizePgData ? '✅ ENABLED' : '❌ DISABLED'}`);
-
                         // Get JIRA project key from environment
                         const projectKey = process.env.JIRA_PROJECT_KEY;
 
-                        // Check if we should verify PostgreSQL before fetching Confluence
-                        const checkPgBeforeFetch = process.env.CHECK_PG_BEFORE_CONFLUENCE_FETCH !== 'false'; // default true
+                        // PII is already redacted in collectedPages, so no need for additional sanitization
+                        // Create indexer without PII detector since content is already clean
+                        const indexerService = new ConfluenceIndexerService(
+                            confluenceService,
+                            embeddingService,
+                            vectorService,
+                            chunkSize,
+                            chunkOverlap,
+                            undefined, // PII already redacted in first fetch
+                            projectKey,
+                            silentMode,
+                        );
 
-                        let shouldFetchConfluence = true;
+                        // Index the pre-fetched pages (no additional Confluence API call!)
+                        console.log(`\n📚 Indexing ${collectedPages.length} pre-fetched pages from space: ${confluenceConfig.spaceKey}`);
+                        const stats = await indexerService.indexPages(collectedPages, confluenceConfig.spaceKey, batchSize);
 
-                        // Check PostgreSQL for existing non-expired records if enabled
-                        if (checkPgBeforeFetch && projectKey) {
-                            console.log(`\n🔍 Checking PostgreSQL for existing data (project_key: ${projectKey})...`);
-                            const existingCount = await vectorService.getDocumentCountByProjectKey(projectKey);
-                            console.log(`   Found ${existingCount} non-expired document(s) for project ${projectKey}`);
-
-                            if (existingCount > 0) {
-                                shouldFetchConfluence = false;
-                                console.log(`   ✅ Using existing data from PostgreSQL - skipping Confluence fetch`);
-                            } else {
-                                console.log(`   ℹ️  No existing data found - will fetch from Confluence`);
-                            }
-                        }
-
-                        if (shouldFetchConfluence) {
-                            const indexerService = new ConfluenceIndexerService(
-                                confluenceService,
-                                embeddingService,
-                                vectorService,
-                                chunkSize,
-                                chunkOverlap,
-                                sanitizePgData ? piiDetector : undefined, // pass piiDetector only if enabled
-                            );
-
-                            // Index the space
-                            console.log(`\n📚 Indexing Confluence space: ${confluenceConfig.spaceKey}`);
-                            const stats = await indexerService.indexSpace(confluenceConfig.spaceKey, batchSize);
-
-                            console.log('\n✅ PostgreSQL Vector DB indexing complete!');
-                            console.log(`   Space: ${stats.spaceKey}`);
-                            console.log(`   Pages indexed: ${stats.totalPages}`);
-                            console.log(`   Total chunks: ${stats.totalChunks}`);
-                            console.log(`   Processing time: ${(stats.processingTime / 1000).toFixed(2)}s`);
-                            if (stats.errors.length > 0) {
-                                console.log(`   Errors: ${stats.errors.length}`);
-                            }
+                        console.log('\n✅ PostgreSQL Vector DB indexing complete!');
+                        console.log(`   Space: ${stats.spaceKey}`);
+                        console.log(`   Pages indexed: ${stats.totalPages}`);
+                        console.log(`   Total chunks: ${stats.totalChunks}`);
+                        console.log(`   Processing time: ${(stats.processingTime / 1000).toFixed(2)}s`);
+                        if (stats.errors.length > 0) {
+                            console.log(`   Errors: ${stats.errors.length}`);
                         }
 
                         // Clean up expired records
                         console.log('\n🗑️  Cleaning up expired records...');
                         await vectorService.cleanupExpired();
 
-                        // Close database connection
-                        await vectorService.close();
+                        // Close database connection and cleanup project-specific expired records
+                        await vectorService.close(projectKey);
 
                     } catch (error: any) {
                         console.error('\n❌ Error pushing to PostgreSQL Vector DB:', error.message);
@@ -744,6 +747,9 @@ ${detectionMethod === 'regex' && piiStatus.presidioConfigured ? `
                         console.error('   Confluence.md file was still saved successfully');
                         console.error('   You can manually index to vector DB later using: npm run process:jira');
                     }
+                } else if (usePostgresVectorDB && collectedPages.length === 0) {
+                    console.log('\nℹ️  PostgreSQL Vector DB indexing skipped - no pages collected');
+                    console.log('   This may be because cache was loaded or no pages had content');
                 } else {
                     console.log('\nℹ️  PostgreSQL Vector DB indexing disabled (USE_POSTGRES_VECTOR_DB=false)');
                     console.log('   Set USE_POSTGRES_VECTOR_DB=true in .env to enable automatic indexing');
