@@ -6,8 +6,8 @@
 import * as dotenv from 'dotenv';
 import * as dotenvExt from 'dotenv-extended';
 import * as fs from 'fs';
-import {ConfluenceService} from './src/services';
-import {ConfluenceConfigDto} from './src/dtos';
+import {ConfluenceService} from '../src/services';
+import {ConfluenceConfigDto} from '../src/dtos';
 
 /**
  * Load environment variables
@@ -34,22 +34,26 @@ function loadEnvironment(): void {
  * Get analysis folder path using environment variables
  */
 function getAnalysisFolder(): string {
-    const spaceKey = process.env.CONFLUENCE_SPACE_KEY || 'BB';
-    const ticketId = process.env.JIRA_TICKET_ID;
-    const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
-    const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
-    const ticketFolderSuffix = process.env.TICKET_FOLDER_SUFFIX || 'Via-AI';
+    // Use ANALYSIS_FOLDER if set, otherwise construct from individual parts
+    let analysisFolder = process.env.ANALYSIS_FOLDER;
 
-    if (!ticketId) {
-        throw new Error('JIRA_TICKET_ID environment variable is required');
+    if (!analysisFolder) {
+        const spaceKey = process.env.CONFLUENCE_SPACE_KEY || 'BB';
+        const currentAnalysisPath = process.env.CURRENT_ANALYSIS_PATH;
+        const baseFolderSuffix = process.env.BASE_FOLDER_SUFFIX || 'Quality-Check-Via-AI';
+
+        if (!currentAnalysisPath) {
+            throw new Error('CURRENT_ANALYSIS_PATH or ANALYSIS_FOLDER environment variable is required');
+        }
+
+        // Construct 2-level path: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}
+        analysisFolder = `./${spaceKey}-${baseFolderSuffix}/${currentAnalysisPath}`;
+    } else {
+        // Prepend ./ if not already present
+        if (!analysisFolder.startsWith('./') && !analysisFolder.startsWith('/')) {
+            analysisFolder = `./${analysisFolder}`;
+        }
     }
-
-    if (!currentAnalysisPath) {
-        throw new Error('CURRENT_ANALYSIS_PATH environment variable is required');
-    }
-
-    // Construct the full path: {SPACE_KEY}-{BASE_FOLDER_SUFFIX}/{TICKET_ID}-{TICKET_FOLDER_SUFFIX}/{CURRENT_ANALYSIS_PATH}
-    const analysisFolder = `./${spaceKey}-${baseFolderSuffix}/${ticketId}-${ticketFolderSuffix}/${currentAnalysisPath}`;
 
     // Verify the folder exists
     if (!fs.existsSync(analysisFolder)) {
@@ -115,49 +119,35 @@ async function main(): Promise<void> {
             console.log(`   Email: ${confluenceConfig.email}`);
             console.log(`   Space: ${confluenceConfig.spaceKey}`);
         }
-        const jiraFileName = process.env.JIRA_FILE_NAME || 'Jira.md';
-        const requirementsFileName = process.env.REQUIREMENTS_FILE_NAME || 'Requirements.md';
-        const analysisReportFileName = process.env.ANALYSIS_REPORT_FILE_NAME || 'AnalysisReport.md';
+        // Define files to upload in sequence (Confluence.md is excluded)
+        const filesToUpload = [
+            {name: process.env.JIRA_FILE_NAME || 'Jira.md', title: 'JIRA Ticket Details'},
+            {name: process.env.CONFLUENCE_RAG_FILE_NAME || 'Confluence-Rag.md', title: 'Confluence Pages (RAG)'},
+            {name: 'Requirements-Rag.md', title: 'Requirements Analysis'},
+            {name: 'PII-Detection-Report.md', title: 'PII Detection Report'},
+        ];
 
-        const jiraFilePath = `${analysisFolder}/${jiraFileName}`;
-        const requirementsFilePath = `${analysisFolder}/${requirementsFileName}`;
-        const analysisReportFilePath = `${analysisFolder}/${analysisReportFileName}`;
+        // Check which files exist and read them
+        console.log('\n📖 Checking and reading files...');
+        const filesData: Array<{name: string; title: string; content: string}> = [];
 
-        // Check if files exist
-        const jiraExists = fs.existsSync(jiraFilePath);
-        const requirementsExists = fs.existsSync(requirementsFilePath);
-        const analysisReportExists = fs.existsSync(analysisReportFilePath);
-
-        if (!jiraExists) {
-            console.log(`⚠️  Warning: ${jiraFileName} not found: ${jiraFilePath}`);
-        }
-        if (!requirementsExists) {
-            console.log(`⚠️  Warning: ${requirementsFileName} not found: ${requirementsFilePath}`);
-        }
-        if (!analysisReportExists) {
-            console.log(`⚠️  Warning: ${analysisReportFileName} not found: ${analysisReportFilePath}`);
+        for (const file of filesToUpload) {
+            const filePath = `${analysisFolder}/${file.name}`;
+            if (fs.existsSync(filePath)) {
+                const content = fs.readFileSync(filePath, 'utf-8');
+                filesData.push({name: file.name, title: file.title, content});
+                console.log(`   ✅ ${file.name} read successfully (${(content.length / 1024).toFixed(2)} KB)`);
+            } else {
+                console.log(`   ⚠️  ${file.name} not found - skipping`);
+            }
         }
 
         // At least one file must exist
-        if (!jiraExists && !requirementsExists && !analysisReportExists) {
-            throw new Error(`No analysis files (${jiraFileName}, ${requirementsFileName}, ${analysisReportFileName}) found in the analysis folder`);
+        if (filesData.length === 0) {
+            throw new Error(`No analysis files found in ${analysisFolder}. Expected: ${filesToUpload.map(f => f.name).join(', ')}`);
         }
 
-        // Read files
-        console.log('\n📖 Reading files...');
-        const jiraContent = jiraExists ? fs.readFileSync(jiraFilePath, 'utf-8') : '';
-        const requirementsContent = requirementsExists ? fs.readFileSync(requirementsFilePath, 'utf-8') : '';
-        const analysisReportContent = analysisReportExists ? fs.readFileSync(analysisReportFilePath, 'utf-8') : '';
-
-        if (jiraContent) {
-            console.log(`   ✅ ${jiraFileName} read successfully (${(jiraContent.length / 1024).toFixed(2)} KB)`);
-        }
-        if (requirementsContent) {
-            console.log(`   ✅ ${requirementsFileName} read successfully (${(requirementsContent.length / 1024).toFixed(2)} KB)`);
-        }
-        if (analysisReportContent) {
-            console.log(`   ✅ ${analysisReportFileName} read successfully (${(analysisReportContent.length / 1024).toFixed(2)} KB)`);
-        }
+        console.log(`\n✅ Found ${filesData.length} file(s) to upload`)
 
         const confluenceService = new ConfluenceService(confluenceConfig);
         confluenceService.validateConfig();
@@ -186,15 +176,17 @@ async function main(): Promise<void> {
             console.log(`   ${scoreIcon} Score: ${testQualityScore}/10 (Threshold: ${minimumThreshold}/10)`);
         }
 
-        // Step 1: Create/Get root page
-        const confluenceRootSuffix = process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Quality-Check-Via-AI';
-        const confluenceTicketSuffix = process.env.CONFLUENCE_TICKET_PAGE_SUFFIX || 'Via-AI';
+        // Create Confluence page hierarchy: Root → Ticket → Timestamp
+        const confluenceRootSuffix = process.env.CONFLUENCE_ROOT_PAGE_SUFFIX || 'Generate-Unit-Tests-Via-AI';
+        const confluenceTicketSuffix = process.env.CONFLUENCE_TICKET_PAGE_SUFFIX || 'UT-Via-AI';
+        const confluenceTimestampSuffix = process.env.CONFLUENCE_TIMESTAMP_PAGE_SUFFIX || 'UT-Via-AI';
 
+        // Step 1: Create/Get root page
         const rootPageTitle = `${spaceKey}-${confluenceRootSuffix}`;
         console.log(`\n📄 Step 1/3: Creating/Getting root page: ${rootPageTitle}`);
         const rootPageResponse = await confluenceService.createPage({
             title: rootPageTitle,
-            content: `<p>This page contains AI-generated quality check reports for ${spaceKey} space.</p>`,
+            content: `<p>This page contains AI-generated unit test reports for ${spaceKey} space.</p>`,
             spaceKey: spaceKey,
         });
         console.log(`   ✅ Root page ID: ${rootPageResponse.pageId}`);
@@ -204,14 +196,17 @@ async function main(): Promise<void> {
         console.log(`\n📄 Step 2/3: Creating/Getting ticket page: ${ticketPageTitle}`);
         const ticketPageResponse = await confluenceService.createPage({
             title: ticketPageTitle,
-            content: `<p>Quality check reports for ticket ${ticketKey}.</p>`,
+            content: `<p>Unit test reports for ticket ${ticketKey}.</p>`,
             spaceKey: spaceKey,
             parentId: rootPageResponse.pageId,
         });
         console.log(`   ✅ Ticket page ID: ${ticketPageResponse.pageId}`);
 
-        // Step 3: Create/Update analysis page (using CURRENT_ANALYSIS_PATH as the page title with content)
-        const analysisPageTitle = timestampFolderName;
+        // Step 3: Create/Update analysis page (timestamp with suffix)
+        // Extract timestamp part from CURRENT_ANALYSIS_PATH (e.g., "2025-11-13-19-26-55-Via-AI" → "2025-11-13-19-26-55")
+        const timestampMatch = timestampFolderName.match(/^(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})/);
+        const timestampPart = timestampMatch ? timestampMatch[1] : timestampFolderName;
+        const analysisPageTitle = `${timestampPart}-${confluenceTimestampSuffix}`;
         console.log(`\n📄 Step 3/3: Creating/Updating analysis page: ${analysisPageTitle}`);
 
         // Format score badge (using variables already defined above)
@@ -229,46 +224,39 @@ async function main(): Promise<void> {
 </p>`;
         }
 
+        // Get branch URL from environment (if provided by GitHub Actions)
+        const branchUrl = process.env.BRANCH_URL;
+        const branchName = process.env.BRANCH_NAME;
+
+        // Format branch info if available
+        let branchInfo = '';
+        if (branchUrl && branchName) {
+            branchInfo = `<p><strong>Generated Branch:</strong> <a href="${branchUrl}">${branchName}</a></p>`;
+        }
+
         // Format content for Confluence
         let confluenceContent = `<h1>Complete Analysis Report</h1>
 <p><strong>Generated:</strong> ${new Date().toISOString()}</p>
 <p><strong>Ticket:</strong> ${ticketKey}</p>
 <p><strong>Space:</strong> ${spaceKey}</p>
-<p><strong>Analysis Path:</strong> ${timestampFolderName}</p>
+${branchInfo}
 ${scoreBadge}
 <hr />`;
 
-        // Add JIRA content if available
-        if (jiraContent) {
+        // Add all uploaded files in sequence
+        filesData.forEach((file, index) => {
             confluenceContent += `
-<h2>1. JIRA Ticket Details</h2>
+<h2>${index + 1}. ${file.title}</h2>
 <ac:structured-macro ac:name="code">
 <ac:parameter ac:name="language">markdown</ac:parameter>
-<ac:plain-text-body><![CDATA[${jiraContent}]]></ac:plain-text-body>
-</ac:structured-macro>
-<hr />`;
-        }
-
-        // Add Requirements content if available
-        if (requirementsContent) {
-            confluenceContent += `
-<h2>2. Requirements Analysis</h2>
-<ac:structured-macro ac:name="code">
-<ac:parameter ac:name="language">markdown</ac:parameter>
-<ac:plain-text-body><![CDATA[${requirementsContent}]]></ac:plain-text-body>
-</ac:structured-macro>
-<hr />`;
-        }
-
-        // Add Analysis Report content if available
-        if (analysisReportContent) {
-            confluenceContent += `
-<h2>3. Test Cases Quality Analysis</h2>
-<ac:structured-macro ac:name="code">
-<ac:parameter ac:name="language">markdown</ac:parameter>
-<ac:plain-text-body><![CDATA[${analysisReportContent}]]></ac:plain-text-body>
+<ac:plain-text-body><![CDATA[${file.content}]]></ac:plain-text-body>
 </ac:structured-macro>`;
-        }
+
+            // Add separator if not the last file
+            if (index < filesData.length - 1) {
+                confluenceContent += '\n<hr />';
+            }
+        });
 
         const analysisPageResponse = await confluenceService.createPage({
             title: analysisPageTitle,
@@ -282,7 +270,9 @@ ${scoreBadge}
         console.log(`   Root Page: ${rootPageTitle}`);
         console.log(`   Ticket Page: ${ticketPageTitle}`);
         console.log(`   Analysis Page: ${analysisPageTitle}`);
-        console.log(`   Files Uploaded: ${[jiraContent && jiraFileName, requirementsContent && requirementsFileName, analysisReportContent && analysisReportFileName].filter(Boolean).join(', ')}`);
+        console.log(`   Hierarchy: ${rootPageTitle} → ${ticketPageTitle} → ${analysisPageTitle}`);
+        console.log(`   Files Uploaded: ${filesData.map(f => f.name).join(', ')}`);
+        console.log(`   Note: Confluence.md was excluded from upload`);
         if (analysisPageResponse.url) {
             console.log(`   URL: ${analysisPageResponse.url}`);
         }

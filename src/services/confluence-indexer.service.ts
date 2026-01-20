@@ -8,6 +8,7 @@ import {ConfluenceService} from './confluence.service';
 import {EmbeddingService} from './embedding.service';
 import {PostgresVectorService} from './postgres-vector.service';
 import {HybridPIIDetectorService} from './hybrid-pii-detector.service';
+import {ConfluenceSmartFilterService} from './confluence-smart-filter.service';
 import * as cheerio from 'cheerio';
 
 export interface IndexStats {
@@ -158,39 +159,24 @@ export class ConfluenceIndexerService {
       allChunks.map(c => c.text),
     );
 
-    // 4. Save to database
-    if (!this.silentMode) console.log('   🔄 Saving to database...');
-    for (let i = 0; i < pages.length; i++) {
-      try {
-        const page = pages[i];
-        const pageChunks = allChunks.filter(
-          c => c.metadata.pageId === page.id,
-        );
+    // 4. Save to database using bulk upsert
+    console.log('   🔄 Saving to database...');
+    try {
+      // Prepare all documents for bulk upsert
+      const documentsToUpsert = pages.map(page => {
+        const pageChunks = allChunks.filter(c => c.metadata.pageId === page.id);
 
         if (pageChunks.length === 0) {
-          continue;
+          console.log(`   ⚠️  No chunks for: ${page.title}`);
+          return null;
         }
 
         // Find embeddings for this page
-        const startIdx = allChunks.findIndex(
-          c => c.metadata.pageId === page.id,
-        );
-        const pageEmbeddings = embeddings.slice(
-          startIdx,
-          startIdx + pageChunks.length,
-        );
+        const startIdx = allChunks.findIndex(c => c.metadata.pageId === page.id);
+        const pageEmbeddings = embeddings.slice(startIdx, startIdx + pageChunks.length);
 
         // Strip HTML from content before saving
         const cleanContent = this.stripHtml(page.content);
-
-        // Upsert document with project key
-        const documentId = await this.vectorService.upsertDocument(
-          page.id,
-          page.title,
-          cleanContent,
-          page.url || '',
-          this.projectKey,
-        );
 
         // Prepare chunks with embeddings
         const chunksWithEmbeddings = pageChunks.map((chunk, idx) => ({
@@ -199,15 +185,46 @@ export class ConfluenceIndexerService {
           metadata: chunk.metadata,
         }));
 
-        // Upsert chunks
-        await this.vectorService.upsertChunks(documentId, chunksWithEmbeddings);
+        return {
+          pageId: page.id,
+          title: page.title,
+          content: cleanContent,
+          url: page.url || '',
+          projectKey: this.projectKey,
+          ticketId: page.smartFilterMetadata?.ticketId,
+          relevanceScore: page.smartFilterMetadata?.relevanceScore,
+          matchedBy: page.smartFilterMetadata?.matchedBy,
+          filterMetadata: page.smartFilterMetadata?.filterDetails,
+          chunks: chunksWithEmbeddings,
+        };
+      }).filter(doc => doc !== null) as Array<{
+        pageId: string;
+        title: string;
+        content: string;
+        url: string;
+        projectKey?: string;
+        ticketId?: string;
+        relevanceScore?: number;
+        matchedBy?: string[];
+        filterMetadata?: any;
+        chunks: any[];
+      }>;
 
-        stats.totalChunks += pageChunks.length;
-      } catch (error) {
-        const errorMsg = `Failed to process page ${pages[i].title}: ${error}`;
-        console.error(`   ❌ ${errorMsg}`);
-        stats.errors.push(errorMsg);
+      // Bulk upsert all documents in a single transaction
+      await this.vectorService.bulkUpsertDocumentsWithChunks(documentsToUpsert);
+
+      // Update stats
+      for (const doc of documentsToUpsert) {
+        stats.totalChunks += doc.chunks.length;
+        if (!this.silentMode) {
+          console.log(`   ✅ Saved: ${doc.title.substring(0, 50)} (${doc.chunks.length} chunks)`);
+        }
       }
+
+    } catch (error) {
+      const errorMsg = `Failed to bulk save pages: ${error}`;
+      console.error(`   ❌ ${errorMsg}`);
+      stats.errors.push(errorMsg);
     }
 
     // Log summary after all pages saved
@@ -311,9 +328,11 @@ export class ConfluenceIndexerService {
    * Note: Use indexPages() if you already have fetched pages to avoid redundant API calls
    * @param spaceKey - Confluence space key
    * @param batchSize - Number of pages to process in each batch
+   * @param maxPages - Maximum number of pages to fetch (0 or undefined means all)
+   * @param jiraIssue - Optional JIRA issue for smart filtering
    * @returns Index statistics
    */
-  async indexSpace(spaceKey: string, batchSize: number = 10): Promise<IndexStats> {
+  async indexSpace(spaceKey: string, batchSize: number = 10, maxPages?: number, jiraIssue?: any): Promise<IndexStats> {
     const startTime = Date.now();
     const stats: IndexStats = {
       spaceKey,
@@ -330,17 +349,60 @@ export class ConfluenceIndexerService {
       const result = await this.confluenceService.listPages({
         spaceKey,
         expand: ['body.storage'],
+        maxPages: maxPages,
       });
 
-      const pages = result.pages.map((p: any) => ({
+      let pages = result.pages.map((p: any) => ({
         id: p.id,
         title: p.title,
         content: p.body?.storage?.value || '',
         url: p._links?.webui ? `${this.confluenceService['config'].host}${p._links.webui}` : '',
+        originalPage: p,  // Keep original page for smart filter
+        smartFilterMetadata: null as any,  // Will be populated by smart filter
       }));
 
+      console.log(`✅ Fetched ${pages.length} pages from space ${spaceKey}`);
+
+      // Apply smart filter if JIRA issue is provided and USE_SMART_FILTER is enabled
+      const useSmartFilter = process.env.USE_SMART_FILTER === 'true';
+      if (useSmartFilter && jiraIssue) {
+        console.log(`\n🔍 Applying Smart Filter...`);
+        const smartFilter = new ConfluenceSmartFilterService();
+        const maxSmartFilterPages = parseInt(process.env.SMART_FILTER_MAX_PAGES || '30');
+        const minScoreThreshold = parseFloat(process.env.SMART_FILTER_MIN_SCORE || '0.3');
+
+        const {results: filteredResults, metrics} = smartFilter.filterPagesWithMetrics(
+          jiraIssue,
+          result.pages,  // Use original pages for filtering
+          {
+            maxPages: maxSmartFilterPages,
+            minScoreThreshold: minScoreThreshold,
+            debug: process.env.SMART_FILTER_DEBUG === 'true',
+          }
+        );
+
+        console.log(`✅ Smart Filter: ${pages.length} → ${filteredResults.length} pages (${metrics.reductionPercentage.toFixed(1)}% reduction)`);
+        console.log(`   Avg score: ${metrics.averageScore.toFixed(3)}`);
+        console.log(`   Ticket ID matches: ${metrics.matchDistribution.ticketId || 0}`);
+
+        // Update pages array with filtered results and metadata
+        pages = filteredResults.map((filterResult: any) => ({
+          id: filterResult.page.id,
+          title: filterResult.page.title,
+          content: filterResult.page.body?.storage?.value || '',
+          url: filterResult.page._links?.webui ? `${this.confluenceService['config'].host}${filterResult.page._links.webui}` : '',
+          originalPage: filterResult.page,
+          smartFilterMetadata: {
+            ticketId: jiraIssue.key,
+            relevanceScore: filterResult.score,
+            matchedBy: filterResult.matchedBy,
+            filterDetails: filterResult.details,
+          },
+        }));
+      }
+
       const totalPages = pages.length;
-      console.log(`✅ Fetched ${totalPages} pages from space ${spaceKey}\n`);
+      console.log(`\n📄 Processing ${totalPages} pages...\n`);
 
       if (totalPages === 0) {
         console.log(

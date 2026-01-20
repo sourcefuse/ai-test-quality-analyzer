@@ -4,16 +4,17 @@
  * Follows SourceFuse design patterns with separation of concerns
  */
 
-import OpenAI from 'openai';
-import {getOptionalEnv} from '../utils/env-validator.util';
+import OpenAI from "openai";
+import { getOptionalEnv } from "../utils/env-validator.util";
 
 export interface EmbeddingConfig {
   apiKey: string;
   model?: string;
-  provider?: 'openai' | 'openrouter';
+  provider?: "openai" | "openrouter";
   concurrency?: number;
   maxRetries?: number;
   retryDelayMs?: number;
+  silentMode?: boolean;
 }
 
 /**
@@ -33,27 +34,27 @@ export class EmbeddingService {
    */
   constructor(config: EmbeddingConfig) {
     this.config = config;
-    this.model = config.model || 'text-embedding-3-small';
+    this.model = config.model || "text-embedding-3-small";
     this.maxRetries = config.maxRetries || 3;
     this.retryDelayMs = config.retryDelayMs || 1000;
 
     // Auto-detect OpenRouter if API key starts with sk-or-
     const useOpenRouter =
-      config.provider === 'openrouter' || config.apiKey?.startsWith('sk-or-');
+      config.provider === "openrouter" || config.apiKey?.startsWith("sk-or-");
 
     if (useOpenRouter) {
-      console.log('✅ Using OpenRouter for embeddings');
+      console.log("✅ Using OpenRouter for embeddings");
       this.client = new OpenAI({
         apiKey: config.apiKey,
-        baseURL: 'https://openrouter.ai/api/v1',
+        baseURL: "https://openrouter.ai/api/v1",
         defaultHeaders: {
-          'HTTP-Referer': getOptionalEnv(
-            'OPENROUTER_SITE_URL',
-            'http://localhost'
+          "HTTP-Referer": getOptionalEnv(
+            "OPENROUTER_SITE_URL",
+            "http://localhost",
           ),
-          'X-Title': getOptionalEnv(
-            'OPENROUTER_SITE_NAME',
-            'CheckUnitTestCases'
+          "X-Title": getOptionalEnv(
+            "OPENROUTER_SITE_NAME",
+            "CheckUnitTestCases",
           ),
         },
       });
@@ -68,26 +69,26 @@ export class EmbeddingService {
    * Sleep helper for retry delays
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**
    * Check if error is retryable (network errors, rate limits, etc.)
    */
   private isRetryableError(error: any): boolean {
-    const message = error?.message?.toLowerCase() || '';
-    const code = error?.code || error?.cause?.code || '';
+    const message = error?.message?.toLowerCase() || "";
+    const code = error?.code || error?.cause?.code || "";
 
     return (
-      message.includes('terminated') ||
-      message.includes('socket') ||
-      message.includes('timeout') ||
-      message.includes('econnreset') ||
-      message.includes('rate limit') ||
-      message.includes('429') ||
-      code === 'UND_ERR_SOCKET' ||
-      code === 'ECONNRESET' ||
-      code === 'ETIMEDOUT'
+      message.includes("terminated") ||
+      message.includes("socket") ||
+      message.includes("timeout") ||
+      message.includes("econnreset") ||
+      message.includes("rate limit") ||
+      message.includes("429") ||
+      code === "UND_ERR_SOCKET" ||
+      code === "ECONNRESET" ||
+      code === "ETIMEDOUT"
     );
   }
 
@@ -142,10 +143,10 @@ export class EmbeddingService {
     const results: number[][] = new Array(texts.length);
 
     // Create a queue of items to process
-    const queue = texts.map((text, index) => ({text, index}));
+    const queue = texts.map((text, index) => ({ text, index }));
 
     // Create worker promises
-    const workers = Array.from({length: concurrency}, async () => {
+    const workers = Array.from({ length: concurrency }, async () => {
       while (queue.length > 0) {
         const item = queue.shift();
         if (!item) break;
@@ -158,7 +159,7 @@ export class EmbeddingService {
     await Promise.all(workers);
 
     // Log summary after all embeddings generated
-    const successCount = results.filter(r => r.length > 0).length;
+    const successCount = results.filter((r) => r.length > 0).length;
     console.log(`   ✅ Generated ${successCount}/${texts.length} embeddings`);
 
     return results;
@@ -171,7 +172,7 @@ export class EmbeddingService {
   getEmbeddingDimensions(): number {
     // text-embedding-3-small has 1536 dimensions
     // text-embedding-3-large has 3072 dimensions
-    if (this.model === 'text-embedding-3-large') {
+    if (this.model === "text-embedding-3-large") {
       return 3072;
     }
     return 1536;
