@@ -1,188 +1,188 @@
-name: 'Check Unit Test Cases Quality'
-description: 'Analyze unit test quality against JIRA requirements and generate comprehensive reports'
-author: 'Vishal Gupta'
+name: "Check Unit Test Cases Quality"
+description: "Analyze unit test quality against JIRA requirements and generate comprehensive reports"
+author: "Vishal Gupta"
 
 branding:
-  icon: 'check-circle'
-  color: 'green'
+  icon: "check-circle"
+  color: "green"
 
 inputs:
   database_host:
-    description: 'PostgreSQL database host'
+    description: "PostgreSQL database host"
     required: false
-    default: 'localhost'
+    default: "localhost"
   database_port:
-    description: 'PostgreSQL database port'
+    description: "PostgreSQL database port"
     required: false
-    default: '5432'
+    default: "5432"
   database_name:
-    description: 'PostgreSQL database name'
+    description: "PostgreSQL database name"
     required: false
-    default: 'postgres-pgvector'
+    default: "postgres-pgvector"
   database_user:
-    description: 'PostgreSQL database user'
+    description: "PostgreSQL database user"
     required: false
-    default: 'postgres'
+    default: "postgres"
   database_password:
-    description: 'PostgreSQL database password'
+    description: "PostgreSQL database password"
     required: false
-    default: 'admin'
+    default: "admin"
   jira_url:
-    description: 'JIRA instance URL'
+    description: "JIRA instance URL"
     required: true
   jira_email:
-    description: 'JIRA user email'
+    description: "JIRA user email"
     required: true
   jira_api_token:
-    description: 'JIRA API token'
+    description: "JIRA API token"
     required: true
   jira_ticket_id:
-    description: 'JIRA ticket ID to analyze (e.g., BB-15690)'
+    description: "JIRA ticket ID to analyze (e.g., BB-15690)"
     required: true
   jira_project_key:
-    description: 'JIRA project key'
+    description: "JIRA project key"
     required: true
   confluence_url:
-    description: 'Confluence instance URL'
+    description: "Confluence instance URL"
     required: true
   confluence_email:
-    description: 'Confluence user email'
+    description: "Confluence user email"
     required: true
   confluence_api_token:
-    description: 'Confluence API token'
+    description: "Confluence API token"
     required: true
   confluence_space_key:
-    description: 'Confluence space key'
+    description: "Confluence space key"
     required: true
   confluence_silent_mode:
-    description: 'Suppress logging during Confluence page downloads (true/false)'
+    description: "Suppress logging during Confluence page downloads (true/false)"
     required: false
-    default: 'true'
+    default: "true"
   current_analysis_path:
-    description: 'Specific analysis folder to use (optional, auto-generated if not provided)'
+    description: "Specific analysis folder to use (optional, auto-generated if not provided)"
     required: false
-    default: ''
+    default: ""
   repository_url:
-    description: 'Repository URL to clone for test analysis'
+    description: "Repository URL to clone for test analysis"
     required: true
   repository_branch:
-    description: 'Branch name to clone'
+    description: "Branch name to clone"
     required: false
-    default: 'main'
+    default: "main"
   target_branch:
-    description: 'Target branch for generated unit test cases (default: dev)'
+    description: "Target branch for generated unit test cases (default: dev)"
     required: false
-    default: 'dev'
+    default: "dev"
   save_to_file:
-    description: 'Save analysis results to files (true/false)'
+    description: "Save analysis results to files (true/false)"
     required: false
-    default: 'true'
+    default: "true"
   upload_to_confluence:
-    description: 'Upload results to Confluence (true/false)'
+    description: "Upload results to Confluence (true/false)"
     required: false
-    default: 'true'
+    default: "true"
   minimum_score:
-    description: 'Minimum acceptable test quality score (0-10)'
+    description: "Minimum acceptable test quality score (0-10)"
     required: false
-    default: '6.0'
+    default: "6.0"
   aws_region_bedrock:
-    description: 'AWS region for Bedrock service'
+    description: "AWS region for Bedrock service"
     required: false
-    default: 'us-east-2'
+    default: "us-east-2"
   aws_access_key_bedrock:
-    description: 'AWS access key for Bedrock authentication'
+    description: "AWS access key for Bedrock authentication"
     required: true
   aws_secret_key_bedrock:
-    description: 'AWS secret key for Bedrock authentication'
+    description: "AWS secret key for Bedrock authentication"
     required: true
   anthropic_model:
-    description: 'Anthropic model name for Claude'
+    description: "Anthropic model name for Claude"
     required: false
-    default: 'sonnet[1m]'
+    default: "sonnet[1m]"
   anthropic_base_url:
-    description: 'Anthropic API base URL (for GLM or custom endpoints)'
+    description: "Anthropic API base URL (for GLM or custom endpoints)"
     required: false
-    default: ''
+    default: ""
   anthropic_auth_token:
-    description: 'Anthropic API authentication token'
+    description: "Anthropic API authentication token"
     required: false
-    default: ''
+    default: ""
   ai_type:
-    description: 'AI provider type: 1 = claude_with_bedrock, 2 = claude_with_glm'
+    description: "AI provider type: 1 = claude_with_bedrock, 2 = claude_with_glm"
     required: false
-    default: '1'
+    default: "1"
   base_folder_suffix:
-    description: 'Base folder suffix for organizing analysis results'
+    description: "Base folder suffix for organizing analysis results"
     required: false
-    default: 'Generate-Unit-Tests-Via-AI'
+    default: "Generate-Unit-Tests-Via-AI"
   confluence_root_page_suffix:
-    description: 'Confluence root page suffix for organizing reports'
+    description: "Confluence root page suffix for organizing reports"
     required: false
-    default: 'Generate-Unit-Tests-Via-AI'
+    default: "Generate-Unit-Tests-Via-AI"
   confluence_upload_url:
-    description: 'Confluence instance URL for uploading results (if different from fetch URL)'
+    description: "Confluence instance URL for uploading results (if different from fetch URL)"
     required: false
-    default: ''
+    default: ""
   confluence_upload_email:
-    description: 'Confluence user email for uploading results (if different from fetch email)'
+    description: "Confluence user email for uploading results (if different from fetch email)"
     required: false
-    default: ''
+    default: ""
   confluence_upload_api_token:
-    description: 'Confluence API token for uploading results (if different from fetch token)'
+    description: "Confluence API token for uploading results (if different from fetch token)"
     required: false
-    default: ''
+    default: ""
   confluence_upload_space_key:
-    description: 'Confluence space key for uploading results (if different from fetch space)'
+    description: "Confluence space key for uploading results (if different from fetch space)"
     required: false
-    default: ''
+    default: ""
   enable_docker_services:
-    description: 'Enable Docker services (pgvector and Presidio from ghcr.io) - true/false'
+    description: "Enable Docker services (pgvector and Presidio from ghcr.io) - true/false"
     required: false
-    default: 'true'
+    default: "true"
   openai_api_key:
-    description: 'OpenAI API key for embeddings (required if USE_POSTGRES_VECTOR_DB is enabled)'
+    description: "OpenAI API key for embeddings (required if USE_POSTGRES_VECTOR_DB is enabled)"
     required: false
-    default: ''
+    default: ""
   use_postgres_vector_db:
-    description: 'Enable PostgreSQL Vector Database with pgvector for RAG-based Confluence fetching (true/false)'
+    description: "Enable PostgreSQL Vector Database with pgvector for RAG-based Confluence fetching (true/false)"
     required: false
-    default: 'true'
+    default: "true"
   embedding_dimensions:
-    description: 'Embedding vector dimensions (1536 for OpenAI, 768 for Ollama nomic-embed-text)'
+    description: "Embedding vector dimensions (1536 for OpenAI, 768 for Ollama nomic-embed-text)"
     required: false
-    default: '1536'
+    default: "1536"
 
 outputs:
   test_quality_score:
-    description: 'Test quality score (0-10)'
+    description: "Test quality score (0-10)"
     value: ${{ steps.extract_score.outputs.score }}
   analysis_path:
-    description: 'Path to the analysis results folder'
+    description: "Path to the analysis results folder"
     value: ${{ steps.extract_paths.outputs.analysis_path }}
   requirements_file:
-    description: 'Path to the requirements file'
+    description: "Path to the requirements file"
     value: ${{ steps.extract_paths.outputs.requirements_file }}
   result_file:
-    description: 'Path to the result file'
+    description: "Path to the result file"
     value: ${{ steps.extract_paths.outputs.result_file }}
   score_passed:
-    description: 'Whether the score meets the minimum threshold (true/false)'
+    description: "Whether the score meets the minimum threshold (true/false)"
     value: ${{ steps.check_score.outputs.passed }}
   confluence_url:
-    description: 'Confluence URL to the uploaded analysis report'
+    description: "Confluence URL to the uploaded analysis report"
     value: ${{ steps.upload_confluence.outputs.confluence_url }}
   pr_url:
-    description: 'URL to the created/updated Pull Request'
+    description: "URL to the created/updated Pull Request"
     value: ${{ steps.create_pr.outputs.pr_url }}
   pr_number:
-    description: 'Pull Request number'
+    description: "Pull Request number"
     value: ${{ steps.create_pr.outputs.pr_number }}
   pr_action:
-    description: 'PR action taken (created/updated/none)'
+    description: "PR action taken (created/updated/none)"
     value: ${{ steps.create_pr.outputs.pr_action }}
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Set analysis path
       id: set_analysis_path
@@ -205,7 +205,7 @@ runs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: "20"
 
     - name: Install dependencies
       shell: bash
@@ -216,14 +216,58 @@ runs:
         npm install
         npm install -g @anthropic-ai/claude-code
 
+    - name: Debug - Print Configuration
+      shell: bash
+      run: |
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║           🔧 CONFIGURATION DEBUG INFO                        ║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo ""
+        echo "📋 JIRA Configuration:"
+        echo "   JIRA Ticket ID: ${{ inputs.jira_ticket_id }}"
+        echo "   JIRA Project Key: ${{ inputs.jira_project_key }}"
+        echo ""
+        echo "📄 Confluence Configuration:"
+        echo "   Confluence Space Key: ${{ inputs.confluence_space_key }}"
+        echo "   Silent Mode: ${{ inputs.confluence_silent_mode }}"
+        echo ""
+        echo "🤖 AI Configuration:"
+        echo "   AI Type: ${{ inputs.ai_type }} (1=Bedrock, 2=GLM)"
+        if [ "${{ inputs.ai_type }}" == "2" ]; then
+          echo "   ✅ Using GLM (Anthropic API)"
+          echo "   Anthropic Base URL: ${{ inputs.anthropic_base_url && '***configured***' || 'not set' }}"
+          echo "   Anthropic Model: ${{ inputs.anthropic_model || 'default' }}"
+        else
+          echo "   ✅ Using AWS Bedrock"
+          echo "   AWS Region: ${{ inputs.aws_region_bedrock || 'not set' }}"
+        fi
+        echo ""
+        echo "🐘 PostgreSQL Configuration:"
+        echo "   Use PostgreSQL Vector DB: ${{ inputs.use_postgres_vector_db }}"
+        echo "   Database Host: ${{ inputs.database_host }}"
+        echo "   Database Name: ${{ inputs.database_name }}"
+        echo "   Embedding Dimensions: ${{ inputs.embedding_dimensions }}"
+        echo ""
+        echo "🐳 Docker Configuration:"
+        echo "   Enable Docker Services: ${{ inputs.enable_docker_services }}"
+        echo ""
+        echo "📊 Generation Configuration:"
+        echo "   Target Branch: ${{ inputs.target_branch }}"
+        echo "   Upload to Confluence: ${{ inputs.upload_to_confluence }}"
+        echo "   Save to File: ${{ inputs.save_to_file }}"
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════"
+
     - name: Login to GitHub Container Registry
       if: inputs.enable_docker_services == 'true'
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
+        # 🔒 Security: Use env var for github.actor to prevent command injection
+        GITHUB_ACTOR: ${{ github.actor }}
       run: |
         echo "🐳 Logging in to GitHub Container Registry..."
-        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
     - name: Setup PostgreSQL Database
       if: inputs.database_host == 'localhost' && inputs.enable_docker_services == 'true'
@@ -236,9 +280,9 @@ runs:
       run: |
         echo "🐘 Setting up PostgreSQL database..."
 
-        # Pull PostgreSQL + pgvector image from ghcr.io
+        # Pull PostgreSQL + pgvector image from ghcr.io (quiet mode)
         echo "📥 Pulling PostgreSQL + pgvector image from ghcr.io..."
-        docker pull ghcr.io/sourcefuse/pgvector-rag:latest
+        docker pull -q ghcr.io/sourcefuse/pgvector-rag:latest
 
         # Start PostgreSQL container
         echo "🚀 Starting PostgreSQL container..."
@@ -262,10 +306,11 @@ runs:
       if: inputs.enable_docker_services == 'true'
       shell: bash
       run: |
-        echo "📥 Pulling Presidio images from ghcr.io..."
-        docker pull ghcr.io/sourcefuse/presidio-analyzer:latest &
-        docker pull ghcr.io/sourcefuse/presidio-anonymizer:latest &
+        echo "📥 Pulling Presidio images from ghcr.io (quiet mode)..."
+        docker pull -q ghcr.io/sourcefuse/presidio-analyzer:latest &
+        docker pull -q ghcr.io/sourcefuse/presidio-anonymizer:latest &
         wait
+        echo "✅ Presidio images pulled successfully"
 
         echo "🚀 Starting Presidio Analyzer (port 5002)..."
         docker run -d \
@@ -526,7 +571,25 @@ runs:
       id: cache-date
       shell: bash
       run: |
-        echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        CACHE_DATE=$(date +'%Y-%m-%d')
+        echo "date=$CACHE_DATE" >> $GITHUB_OUTPUT
+        echo "📅 Cache date key: $CACHE_DATE"
+
+    - name: Debug - Cache Configuration
+      if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost'
+      shell: bash
+      run: |
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║           💾 CACHE DEBUG INFO                                ║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo ""
+        echo "🔑 Cache Key Details:"
+        echo "   Primary Key: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-${{ steps.cache-date.outputs.date }}"
+        echo "   Fallback Key 1: pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-*"
+        echo "   Fallback Key 2: pgvector-${{ inputs.confluence_space_key }}-*"
+        echo ""
+        echo "📂 Cache Path: /tmp/pgvector-data"
+        echo "═══════════════════════════════════════════════════════════════"
 
     - name: Restore PostgreSQL data from cache
       if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost'
@@ -538,6 +601,20 @@ runs:
         restore-keys: |
           pgvector-${{ inputs.confluence_space_key }}-dim${{ inputs.embedding_dimensions }}-
           pgvector-${{ inputs.confluence_space_key }}-
+
+    - name: Debug - Cache Restore Result
+      if: inputs.use_postgres_vector_db == 'true' && inputs.database_host == 'localhost'
+      shell: bash
+      run: |
+        echo "📦 Cache Restore Result:"
+        echo "   Cache Hit: ${{ steps.pgdata-cache.outputs.cache-hit || 'false' }}"
+        if [ -f /tmp/pgvector-data/pgdump.sql ]; then
+          CACHE_SIZE=$(ls -lh /tmp/pgvector-data/pgdump.sql | awk '{print $5}')
+          echo "   Cache File Found: ✅ Yes"
+          echo "   Cache File Size: $CACHE_SIZE"
+        else
+          echo "   Cache File Found: ❌ No"
+        fi
 
     - name: Load PostgreSQL data from cache
       if: inputs.database_host == 'localhost'
@@ -561,16 +638,34 @@ runs:
           DOC_COUNT=$(docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM confluence_documents;" 2>/dev/null || echo "0")
           DOC_COUNT=$(echo "$DOC_COUNT" | tr -d ' ')
 
+          CHUNK_COUNT=$(docker exec postgres-pgvector psql -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT COUNT(*) FROM document_chunks;" 2>/dev/null || echo "0")
+          CHUNK_COUNT=$(echo "$CHUNK_COUNT" | tr -d ' ')
+
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║           📊 CACHE LOAD RESULT                               ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo "   Documents Restored: $DOC_COUNT"
+          echo "   Chunks Restored: $CHUNK_COUNT"
+
           if [ "$DOC_COUNT" -gt 0 ]; then
-            echo "✅ Restored $DOC_COUNT documents from cache"
-            echo "   Confluence fetch will be skipped!"
+            echo "   Status: ✅ CACHE HIT - Data loaded successfully"
+            echo "   Confluence fetch will be SKIPPED!"
             echo "cache_loaded=true" >> $GITHUB_OUTPUT
           else
-            echo "⚠️  Cache restore completed but no documents found"
+            echo "   Status: ⚠️ CACHE MISS - No documents found after restore"
+            echo "   Confluence fetch will be REQUIRED"
             echo "cache_loaded=false" >> $GITHUB_OUTPUT
           fi
+          echo "═══════════════════════════════════════════════════════════════"
         else
-          echo "⚠️  Cache file not found, will fetch from Confluence"
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════╗"
+          echo "║           📊 CACHE LOAD RESULT                               ║"
+          echo "╚══════════════════════════════════════════════════════════════╝"
+          echo "   Status: ⚠️ CACHE MISS - No cache file found"
+          echo "   Confluence fetch will be REQUIRED"
+          echo "═══════════════════════════════════════════════════════════════"
           echo "cache_loaded=false" >> $GITHUB_OUTPUT
         fi
 
@@ -640,7 +735,7 @@ runs:
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
-        ANTHROPIC_BASE_URL:   ${{ inputs.anthropic_base_url }}
+        ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
         ANTHROPIC_AUTH_TOKEN: ${{ inputs.anthropic_auth_token }}
       run: |
         cd "$ACTION_PATH"
@@ -674,10 +769,10 @@ runs:
       env:
         ACTION_PATH: ${{ github.action_path }}
         CLAUDE_CODE_USE_BEDROCK: "1"
-        AWS_REGION:              ${{ inputs.aws_region_bedrock }}
-        ANTHROPIC_MODEL:         ${{ inputs.anthropic_model }}
-        AWS_ACCESS_KEY_ID:       ${{ inputs.aws_access_key_bedrock }}
-        AWS_SECRET_ACCESS_KEY:   ${{ inputs.aws_secret_key_bedrock }}
+        AWS_REGION: ${{ inputs.aws_region_bedrock }}
+        ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_bedrock }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_key_bedrock }}
       run: |
         cd "$ACTION_PATH"
         echo "🤖 Using AWS Bedrock (Region: $AWS_REGION)"
@@ -720,22 +815,22 @@ runs:
         # echo "🔍 Creating analysis folder if it doesn't exist..."
         # mkdir -p "$ANALYSIS_FOLDER"
 
-        
+
         # echo "# Confluence RAG Content" > "$ANALYSIS_FOLDER/Confluence-Rag.md"
         # echo "This is test content for Confluence RAG." >> "$ANALYSIS_FOLDER/Confluence-Rag.md"
-        
+
         # echo "# Confluence Content" > "$ANALYSIS_FOLDER/Confluence.md"
         # echo "This is test content for Confluence." >> "$ANALYSIS_FOLDER/Confluence.md"
-        
+
         # echo "# JIRA Content" > "$ANALYSIS_FOLDER/Jira.md"
         # echo "This is test content for JIRA ticket." >> "$ANALYSIS_FOLDER/Jira.md"
-        
+
         # echo "# PII Detection Report" > "$ANALYSIS_FOLDER/PII-Detection-Report.md"
         # echo "This is test content for PII detection." >> "$ANALYSIS_FOLDER/PII-Detection-Report.md"
-        
+
         # echo "# Requirements RAG" > "$ANALYSIS_FOLDER/Requirements-Rag.md"
         # echo "This is test content for Requirements RAG." >> "$ANALYSIS_FOLDER/Requirements-Rag.md"
-        
+
         if [ -d "$ANALYSIS_FOLDER" ]; then
           echo "✅ Analysis folder: $ANALYSIS_FOLDER"
           ls -alh "$ANALYSIS_FOLDER"
