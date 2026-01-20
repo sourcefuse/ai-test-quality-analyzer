@@ -152,14 +152,14 @@ else
 fi
 
 echo ""
-echo -e "${BLUE}Step 6: Removing unused secrets...${NC}"
+echo -e "${BLUE}Step 6: Removing unused secrets/variables...${NC}"
 echo ""
 
 REMOVED_COUNT=0
 
 # Remove AWS_BEDROCK_MODEL (not used in generate workflow)
 SECRET_NAME="${SECRET_PREFIX}AWS_BEDROCK_MODEL"
-echo -e "   Removing: $SECRET_NAME"
+echo -e "   Removing secret: $SECRET_NAME"
 if gh secret delete "$SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
     echo -e "   ${GREEN}✅ $SECRET_NAME removed${NC}"
     REMOVED_COUNT=$((REMOVED_COUNT + 1))
@@ -169,7 +169,7 @@ fi
 
 # Remove DOCKER_USERNAME (no longer needed - uses GITHUB_TOKEN for ghcr.io)
 SECRET_NAME="${SECRET_PREFIX}DOCKER_USERNAME"
-echo -e "   Removing: $SECRET_NAME"
+echo -e "   Removing secret: $SECRET_NAME"
 if gh secret delete "$SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
     echo -e "   ${GREEN}✅ $SECRET_NAME removed${NC}"
     REMOVED_COUNT=$((REMOVED_COUNT + 1))
@@ -179,12 +179,22 @@ fi
 
 # Remove DOCKER_PASSWORD (no longer needed - uses GITHUB_TOKEN for ghcr.io)
 SECRET_NAME="${SECRET_PREFIX}DOCKER_PASSWORD"
-echo -e "   Removing: $SECRET_NAME"
+echo -e "   Removing secret: $SECRET_NAME"
 if gh secret delete "$SECRET_NAME" --repo "$REPO_NAME" 2>/dev/null; then
     echo -e "   ${GREEN}✅ $SECRET_NAME removed${NC}"
     REMOVED_COUNT=$((REMOVED_COUNT + 1))
 else
     echo -e "   ${YELLOW}⚠️  $SECRET_NAME not found or already removed${NC}"
+fi
+
+# Remove CLAUDE_CODE_USE_BEDROCK (replaced by AI_TYPE)
+VAR_NAME="${SECRET_PREFIX}CLAUDE_CODE_USE_BEDROCK"
+echo -e "   Removing variable: $VAR_NAME"
+if gh variable delete "$VAR_NAME" --repo "$REPO_NAME" 2>/dev/null; then
+    echo -e "   ${GREEN}✅ $VAR_NAME removed${NC}"
+    REMOVED_COUNT=$((REMOVED_COUNT + 1))
+else
+    echo -e "   ${YELLOW}⚠️  $VAR_NAME not found or already removed${NC}"
 fi
 
 # Summary
@@ -207,5 +217,6 @@ echo -e "${BLUE}Removed:${NC}"
 echo "  • ${SECRET_PREFIX}AWS_BEDROCK_MODEL (not used in generate workflow)"
 echo "  • ${SECRET_PREFIX}DOCKER_USERNAME (uses GITHUB_TOKEN for ghcr.io)"
 echo "  • ${SECRET_PREFIX}DOCKER_PASSWORD (uses GITHUB_TOKEN for ghcr.io)"
+echo "  • ${SECRET_PREFIX}CLAUDE_CODE_USE_BEDROCK (replaced by AI_TYPE)"
 echo ""
 echo -e "${GREEN}Done! 🚀${NC}"
