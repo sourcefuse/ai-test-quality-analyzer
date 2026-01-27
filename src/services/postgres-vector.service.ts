@@ -470,6 +470,13 @@ export class PostgresVectorService {
   ): Promise<SearchResult[]> {
     if (!this.pool) throw new Error('Database not initialized');
 
+    // Validate embedding vector is not empty
+    if (!queryEmbedding || queryEmbedding.length === 0) {
+      throw new Error(
+        'Cannot search with empty embedding vector. Embedding generation may have failed.',
+      );
+    }
+
     const embeddingString = `[${queryEmbedding.join(',')}]`;
 
     interface DbSearchResult {
