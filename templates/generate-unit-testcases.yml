@@ -134,13 +134,13 @@ jobs:
           ai_type: ${{ secrets.UT_GENERATE_AI_TYPE }}
           enable_docker_services: 'true'
           openai_api_key: ${{ secrets.UT_GENERATE_OPENAI_API_KEY }}
-        continue-on-error: true
 
       - name: Display Results Summary
         if: always()
         shell: bash
         env:
           TICKET_ID: ${{ steps.extract_ticket.outputs.ticket_id }}
+          STEP_OUTCOME: ${{ steps.generate_tests.outcome }}
           ANALYSIS_PATH: ${{ steps.generate_tests.outputs.analysis_path }}
           REQUIREMENTS_FILE: ${{ steps.generate_tests.outputs.requirements_file }}
           RESULT_FILE: ${{ steps.generate_tests.outputs.result_file }}
@@ -152,6 +152,31 @@ jobs:
           WORKFLOW_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           echo ""
+
+          if [ "$STEP_OUTCOME" == "failure" ]; then
+            echo "========================================"
+            echo "❌ Unit Test Generation Failed"
+            echo "========================================"
+            echo ""
+            echo "📋 JIRA Ticket: $TICKET_ID"
+            echo "🎯 Target Branch: $TARGET_BRANCH"
+            echo ""
+            echo "The test generation action encountered an error."
+            echo "Please check the workflow logs for details."
+            echo ""
+            echo "Common issues:"
+            echo "  - Missing or invalid credentials"
+            echo "  - Network connectivity issues"
+            echo "  - Invalid JIRA ticket ID"
+            echo "  - Embedding service unavailable"
+            echo "  - Code analysis failures"
+            echo ""
+            echo "🔗 Workflow Run: $WORKFLOW_URL"
+            echo "========================================"
+            echo ""
+            exit 1
+          fi
+
           echo "========================================"
           echo "✅ Unit Test Generation Completed"
           echo "========================================"
