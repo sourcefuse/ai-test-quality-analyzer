@@ -293,8 +293,18 @@ export class JiraProcessorService {
     const description = this.extractTextFromADF(issue.fields.description);
     const queryText = `${issue.fields.summary} ${description}`;
     console.log('\n🔄 Generating embedding for search query...');
+    console.log(`   Query text length: ${queryText.length} characters`);
     const queryEmbedding = await this.embeddingService.generateEmbedding(queryText);
-    console.log('✅ Query embedding generated');
+
+    // Validate embedding was generated successfully
+    if (!queryEmbedding || queryEmbedding.length === 0) {
+      throw new Error(
+        `Failed to generate embedding for ticket ${issueKey}. ` +
+        `Query text: "${queryText.substring(0, 100)}..." (${queryText.length} chars). ` +
+        `This may indicate the text is too short or the embedding service is unavailable.`
+      );
+    }
+    console.log(`✅ Query embedding generated (${queryEmbedding.length} dimensions)`);
 
     // 3. Search for similar documents
     console.log(`\n🔍 Searching for top ${topK} related documents...`);

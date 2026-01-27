@@ -100,6 +100,9 @@ export class EmbeddingService {
   async generateEmbedding(text: string): Promise<number[]> {
     // Skip empty or very short text
     if (!text || text.trim().length < 10) {
+      console.warn(
+        `⚠️  Text too short for embedding (${text?.length || 0} chars). Minimum 10 characters required.`
+      );
       return [];
     }
 
@@ -130,6 +133,10 @@ export class EmbeddingService {
 
     // Log error only after all retries failed (suppress verbose error output)
     // Return empty array to allow processing to continue
+    console.error(
+      `❌ Failed to generate embedding after ${this.maxRetries} attempts:`,
+      lastError?.message || lastError
+    );
     return [];
   }
 
