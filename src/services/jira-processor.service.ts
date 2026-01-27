@@ -299,7 +299,7 @@ export class JiraProcessorService {
     // Validate embedding was generated successfully
     if (!queryEmbedding || queryEmbedding.length === 0) {
       throw new Error(
-        `Failed to generate embedding for ticket ${issueKey}. ` +
+        `Failed to generate embedding for ticket ${ticketKey}. ` +
         `Query text: "${queryText.substring(0, 100)}..." (${queryText.length} chars). ` +
         `This may indicate the text is too short or the embedding service is unavailable.`
       );
