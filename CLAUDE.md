@@ -1,0 +1,1 @@
+- dont run bash command untill i asked

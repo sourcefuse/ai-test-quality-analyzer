@@ -128,6 +128,20 @@ async function main(): Promise<void> {
             {name: process.env.EXISTING_TEST_CASES_FILE_NAME || 'ExistingTestCases.md', title: 'Existing Test Cases'},
         ];
 
+        // DEBUG: Show all files in analysis folder
+        console.log('\n🔍 [DEBUG] Analysis folder contents:');
+        console.log(`   Folder: ${analysisFolder}`);
+        if (fs.existsSync(analysisFolder)) {
+            const allFiles = fs.readdirSync(analysisFolder);
+            console.log(`   Files found: ${allFiles.length}`);
+            allFiles.forEach(file => {
+                const stats = fs.statSync(`${analysisFolder}/${file}`);
+                console.log(`   - ${file} (${(stats.size / 1024).toFixed(2)} KB)`);
+            });
+        } else {
+            console.log(`   ⚠️  Folder does not exist!`);
+        }
+
         // Check which files exist and read them
         console.log('\n📖 Checking and reading files...');
         const filesData: Array<{name: string; title: string; content: string}> = [];

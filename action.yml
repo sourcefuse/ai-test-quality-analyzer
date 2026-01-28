@@ -883,7 +883,20 @@ runs:
           echo "🎯 No new tests required - feature is production-ready!"
           echo ""
 
-          # List existing test files
+          # DEBUG: Show analysis folder contents
+          echo "🔍 [DEBUG] Checking analysis folder for ExistingTestCases.md"
+          echo "   ACTION_PATH: $ACTION_PATH"
+          echo "   ANALYSIS_FOLDER: $ANALYSIS_FOLDER"
+          echo "   Expected file: $ACTION_PATH/$ANALYSIS_FOLDER/ExistingTestCases.md"
+          echo ""
+          echo "📂 [DEBUG] Contents of analysis folder:"
+          if [ -d "$ACTION_PATH/$ANALYSIS_FOLDER" ]; then
+            ls -lah "$ACTION_PATH/$ANALYSIS_FOLDER"
+          else
+            echo "   ⚠️ Analysis folder not found: $ACTION_PATH/$ANALYSIS_FOLDER"
+          fi
+          echo ""
+
           # Display existing test cases from the generated report
           EXISTING_TESTS_FILE="$ACTION_PATH/$ANALYSIS_FOLDER/ExistingTestCases.md"
 

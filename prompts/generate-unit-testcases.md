@@ -1726,7 +1726,11 @@ wc -l test-file.ts                       # Must be < 1000
 4. **SEARCH with PRECISE PATTERNS** (not broad keywords)
 5. **VERIFY FILES** implement requirements
 6. **CREATE WHITELIST** with CREATE/UPDATE mode
-7. Launch sub-agents in parallel (one message, multiple Task calls)
-8. **RUN MANDATORY SELF-CHECK** on all generated files
-9. **FIX any errors found** during self-check
-10. Verify and report with summary (ONLY after all checks pass)
+7. **EXECUTE STEP 3.6** - Extract existing test cases (MANDATORY - see STEP 3.6 section above)
+   - Output: `${ANALYSIS_FOLDER}/ExistingTestCases.md`
+   - **DEBUG LOG**: After creating the file, output "✅ [DEBUG] ExistingTestCases.md created at: ${ANALYSIS_FOLDER}/ExistingTestCases.md"
+   - **DEBUG LOG**: If skipped, output "⚠️ [DEBUG] Skipped ExistingTestCases.md - Reason: [explain why]"
+8. Launch sub-agents in parallel (one message, multiple Task calls)
+9. **RUN MANDATORY SELF-CHECK** on all generated files
+10. **FIX any errors found** during self-check
+11. Verify and report with summary (ONLY after all checks pass)
