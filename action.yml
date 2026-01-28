@@ -492,6 +492,7 @@ runs:
         # File Names Configuration
         REQUIREMENTS_FILE_NAME=Requirements.md
         ANALYSIS_REPORT_FILE_NAME=AnalysisReport.md
+        EXISTING_TEST_CASES_FILE_NAME=ExistingTestCases.md
 
         # Folder Naming Configuration
         BASE_FOLDER_SUFFIX=$INPUT_BASE_FOLDER_SUFFIX
@@ -881,6 +882,49 @@ runs:
           echo "📋 JIRA Ticket: $JIRA_TICKET_ID"
           echo "🎯 No new tests required - feature is production-ready!"
           echo ""
+
+          # List existing test files
+          # Display existing test cases from the generated report
+          EXISTING_TESTS_FILE="$ACTION_PATH/$ANALYSIS_FOLDER/ExistingTestCases.md"
+
+          if [ -f "$EXISTING_TESTS_FILE" ]; then
+            echo "📝 Existing Test Coverage Report:"
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            cat "$EXISTING_TESTS_FILE"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo "📊 For detailed test coverage, check Confluence report"
+          else
+            echo "⚠️  ExistingTestCases.md not found - showing file list fallback"
+            echo ""
+
+            # Fallback: List test files
+            echo "📝 Existing Unit Test Files:"
+            echo ""
+
+            TEST_FILES=$(find . -type f \( \
+              -name "*.test.ts" -o -name "*.spec.ts" -o \
+              -name "*.test.js" -o -name "*.spec.js" -o \
+              -name "*.test.tsx" -o -name "*.spec.tsx" -o \
+              -name "*.test.jsx" -o -name "*.spec.jsx" \
+            \) -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*" -not -path "*/build/*" | sort)
+
+            if [ -n "$TEST_FILES" ]; then
+              TEST_COUNT=$(echo "$TEST_FILES" | wc -l | xargs)
+              echo "   Found $TEST_COUNT test file(s):"
+              echo ""
+              echo "$TEST_FILES" | sed 's|^\./||' | while read -r file; do
+                FILE_SIZE=$(du -h "$file" 2>/dev/null | cut -f1)
+                echo "   ✓ $file ($FILE_SIZE)"
+              done
+            else
+              echo "   ⚠️  No test files found in standard locations"
+            fi
+            echo ""
+          fi
+
+          echo ""
           echo "=========================================="
           echo ""
           echo "branch_name=" >> $GITHUB_OUTPUT
@@ -1044,14 +1088,81 @@ runs:
         echo "**Target Branch:** $TARGET_BRANCH" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
-        echo "✅ **Status:** Tests generated and pushed successfully" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        # Check if there were changes or not
+        if [ -n "$BRANCH_NAME" ]; then
+          echo "✅ **Status:** Tests generated and pushed successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-        echo "### 🌿 Generated Branch" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- **Branch Name:** \`$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
-        echo "- **Branch URL:** [View Branch]($BRANCH_URL)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌿 Generated Branch" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch Name:** \`$BRANCH_NAME\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch URL:** [View Branch]($BRANCH_URL)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ **Status:** All unit tests already exist - Production Ready!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> 🎉 No changes required! The codebase already has complete test coverage for this ticket." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check if ExistingTestCases.md exists and display details
+          EXISTING_TESTS_FILE="$ACTION_PATH/$ANALYSIS_FOLDER/ExistingTestCases.md"
+
+          if [ -f "$EXISTING_TESTS_FILE" ]; then
+            echo "### 📝 Existing Test Coverage" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Extract summary stats from the file (look for table rows)
+            RELEVANT_FILES=$(grep -oP '(?<=JIRA-Relevant Test Files \| )\d+' "$EXISTING_TESTS_FILE" || echo "0")
+            OTHER_FILES=$(grep -oP '(?<=Other Test Files \| )\d+' "$EXISTING_TESTS_FILE" || echo "0")
+            RELEVANT_CASES=$(grep -oP '(?<=Total Test Cases \(JIRA-Relevant\) \| )\d+' "$EXISTING_TESTS_FILE" || echo "0")
+            TOTAL_CASES=$(grep -oP '(?<=Total Test Cases \(Repository-Wide\) \| )\d+' "$EXISTING_TESTS_FILE" || echo "0")
+
+            echo "**Summary:**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- **JIRA-Relevant Test Files:** $RELEVANT_FILES" >> $GITHUB_STEP_SUMMARY
+            echo "- **Other Test Files:** $OTHER_FILES" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Test Cases (JIRA-Relevant):** $RELEVANT_CASES" >> $GITHUB_STEP_SUMMARY
+            echo "- **Total Test Cases (Repository-Wide):** $TOTAL_CASES" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Show detailed report in collapsible section
+            echo "<details>" >> $GITHUB_STEP_SUMMARY
+            echo "<summary><b>📊 View Detailed Test Coverage Report</b></summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```markdown' >> $GITHUB_STEP_SUMMARY
+            cat "$EXISTING_TESTS_FILE" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          else
+            # Fallback: List test files if ExistingTestCases.md not found
+            cd "$ACTION_PATH/repo"
+            echo "### 📝 Existing Unit Test Files" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ _ExistingTestCases.md not found - showing file list fallback_" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            TEST_FILES=$(find . -type f \( \
+              -name "*.test.ts" -o -name "*.spec.ts" -o \
+              -name "*.test.js" -o -name "*.spec.js" -o \
+              -name "*.test.tsx" -o -name "*.spec.tsx" -o \
+              -name "*.test.jsx" -o -name "*.spec.jsx" \
+            \) -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*" -not -path "*/build/*" | sort)
+
+            if [ -n "$TEST_FILES" ]; then
+              TEST_COUNT=$(echo "$TEST_FILES" | wc -l | xargs)
+              echo "Found **$TEST_COUNT** test file(s):" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+              echo "$TEST_FILES" | sed 's|^\./||' >> $GITHUB_STEP_SUMMARY
+              echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "⚠️ No test files found in standard locations" >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            cd "$ACTION_PATH"
+          fi
+        fi
 
         echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
@@ -1100,14 +1211,22 @@ runs:
 
         echo "### 📝 Next Steps" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "1. 🔍 Review the generated tests in the branch" >> $GITHUB_STEP_SUMMARY
-        if [ -n "$PR_URL" ]; then
-          echo "2. 🔀 Review and merge the Pull Request" >> $GITHUB_STEP_SUMMARY
+        if [ -n "$BRANCH_NAME" ]; then
+          # Steps when new tests were generated
+          echo "1. 🔍 Review the generated tests in the branch" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$PR_URL" ]; then
+            echo "2. 🔀 Review and merge the Pull Request" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "2. 🔀 Create a Pull Request to merge into \`$TARGET_BRANCH\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "3. 📊 Check Confluence for detailed analysis report" >> $GITHUB_STEP_SUMMARY
+          echo "4. ✅ Run tests locally to verify functionality" >> $GITHUB_STEP_SUMMARY
         else
-          echo "2. 🔀 Create a Pull Request to merge into \`$TARGET_BRANCH\`" >> $GITHUB_STEP_SUMMARY
+          # Steps when tests already exist
+          echo "1. 📊 Review the Confluence analysis report" >> $GITHUB_STEP_SUMMARY
+          echo "2. ✅ Verify existing test coverage meets requirements" >> $GITHUB_STEP_SUMMARY
+          echo "3. 🎯 Proceed with deployment - feature is production-ready!" >> $GITHUB_STEP_SUMMARY
         fi
-        echo "3. 📊 Check Confluence for detailed analysis report" >> $GITHUB_STEP_SUMMARY
-        echo "4. ✅ Run tests locally to verify functionality" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         echo "---" >> $GITHUB_STEP_SUMMARY
