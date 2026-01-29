@@ -123,7 +123,7 @@ async function main(): Promise<void> {
         const filesToUpload = [
             {name: process.env.JIRA_FILE_NAME || 'Jira.md', title: 'JIRA Ticket Details'},
             {name: process.env.CONFLUENCE_RAG_FILE_NAME || 'Confluence-Rag.md', title: 'Confluence Pages (RAG)'},
-            {name: 'Requirements-Rag.md', title: 'Requirements Analysis'},
+            {name: process.env.REQUIREMENTS_FILE_NAME || 'Requirements.md', title: 'Requirements Analysis'},
             {name: 'PII-Detection-Report.md', title: 'PII Detection Report'},
             {name: process.env.EXISTING_TEST_CASES_FILE_NAME || 'ExistingTestCases.md', title: 'Existing Test Cases'},
             {name: 'TestGenerationAnalysis.md', title: 'Test Generation Analysis'},
