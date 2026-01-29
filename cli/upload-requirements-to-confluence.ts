@@ -126,6 +126,7 @@ async function main(): Promise<void> {
             {name: 'Requirements-Rag.md', title: 'Requirements Analysis'},
             {name: 'PII-Detection-Report.md', title: 'PII Detection Report'},
             {name: process.env.EXISTING_TEST_CASES_FILE_NAME || 'ExistingTestCases.md', title: 'Existing Test Cases'},
+            {name: 'TestGenerationAnalysis.md', title: 'Test Generation Analysis'},
         ];
 
         // DEBUG: Show all files in analysis folder

@@ -969,6 +969,7 @@ runs:
 
     - name: Step 5 - Upload to Confluence with Branch URL
       id: upload_confluence
+      if: inputs.upload_to_confluence == 'true'
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
