@@ -213,6 +213,7 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
       run: |
         cd "$ACTION_PATH"
+        npm install -g pnpm@10.24.0
         npm install
         npm install -g @anthropic-ai/claude-code
 
