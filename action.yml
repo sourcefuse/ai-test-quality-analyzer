@@ -726,7 +726,7 @@ runs:
         fi
 
     - name: Step 3 - Create Requirements document (GLM)
-      if: inputs.ai_type == '2'
+      if: inputs.ai_type != '1'
       shell: bash
       env:
         ACTION_PATH: ${{ github.action_path }}
