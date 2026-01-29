@@ -110,7 +110,7 @@ inputs:
   ai_type:
     description: "AI provider type: 1 = claude_with_bedrock, 2 = claude_with_glm"
     required: false
-    default: "1"
+    default: "2"
   base_folder_suffix:
     description: "Base folder suffix for organizing analysis results"
     required: false
