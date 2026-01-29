@@ -543,7 +543,43 @@ Test Plan:
    Write: file_path="${ANALYSIS_FOLDER}/ExistingTestCases.md"
    ```
 
-**Output Format** (`ExistingTestCases.md`):
+**Output Format for Scenario 4 (No Code Found):**
+```markdown
+# Existing Unit Test Cases
+
+**JIRA Ticket:** ${JIRA_TICKET_ID}
+**Analysis Date:** ${CURRENT_DATE}
+**Repository:** ${REPO_NAME}
+
+---
+
+## ⚠️ Analysis Result: No Code Found
+
+**Status:** The backend code described in the JIRA requirements has NOT been implemented yet.
+
+**Search Results:**
+- ✅ Repository analyzed: ${REPO_NAME}
+- ❌ No files found matching requirements
+- ❌ No controllers/services for endpoints described in ticket
+- ❌ No methods matching functionality requirements
+
+**Conclusion:** Cannot generate tests because the code to be tested does not exist yet.
+
+**Recommendation:**
+1. Wait for backend implementation to be completed
+2. Re-run test generation after code is implemented
+3. Or verify if the correct repository was analyzed
+
+---
+
+## 📁 Repository-Wide Test Files (Reference Only)
+
+${TOTAL_TEST_FILES} test files exist in this repository (not related to this JIRA ticket).
+
+*Full test generation report available in TestGenerationAnalysis.md*
+```
+
+**Output Format for Other Scenarios** (`ExistingTestCases.md`):
 ```markdown
 # Existing Unit Test Cases
 
@@ -625,6 +661,7 @@ These test files exist in the repository but are not directly related to this JI
 **When to Skip This Step**:
 - If repository has NO test files at all (brand new project)
 - **Note**: Don't skip even if all files are in CREATE mode - still show other existing tests
+- **Note**: If no code exists for JIRA ticket, create file documenting "No code found" (see Scenario 4)
 
 **Example Scenarios**:
 
@@ -665,6 +702,21 @@ Result:
 - No JIRA-relevant tests to extract
 - Show summary of 73 other test cases in repo
 Output: ExistingTestCases.md (summary only) + new test files (generated)
+```
+
+**Scenario 4: No Code Found for JIRA Ticket (Backend Not Implemented)**
+```
+Whitelist:
+- Empty (no files match requirements - code not implemented yet)
+
+Other tests in repo:
+- product.controller.test.ts (28 tests)
+- payment.service.spec.ts (45 tests)
+
+Result:
+- No JIRA-relevant tests (code doesn't exist yet)
+- Show summary of existing test cases in repo
+Output: ExistingTestCases.md documenting "No code found for JIRA ticket"
 ```
 
 ## SCOPE VALIDATION RULES
@@ -1738,4 +1790,16 @@ wc -l test-file.ts                       # Must be < 1000
 8. Launch sub-agents in parallel (one message, multiple Task calls)
 9. **RUN MANDATORY SELF-CHECK** on all generated files
 10. **FIX any errors found** during self-check
-11. Verify and report with summary (ONLY after all checks pass)
+11. **CREATE TEST GENERATION ANALYSIS REPORT** (MANDATORY - ALWAYS CREATE):
+   a. Use Write tool to create: `${ANALYSIS_FOLDER}/TestGenerationAnalysis.md`
+   b. Document the complete analysis including:
+      - Framework detected
+      - Files analyzed
+      - Tests generated (or reason why not)
+      - Existing test coverage found
+      - Total test count
+      - Any errors or warnings
+   c. **CRITICAL:** Create this file EVEN IF no tests were generated
+   d. If no code found: Document "No code found to test - backend not implemented"
+   e. **DEBUG LOG**: Output "✅ [DEBUG] TestGenerationAnalysis.md created at: ${ANALYSIS_FOLDER}/TestGenerationAnalysis.md"
+12. Verify and report with summary (ONLY after all checks pass)
