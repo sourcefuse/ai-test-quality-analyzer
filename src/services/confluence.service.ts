@@ -379,7 +379,7 @@ export class ConfluenceService {
         pageId: response.id,
         pageTitle: response.title,
         url: response._links?.webui
-          ? `${this.config.host}${response._links.webui}`
+          ? `${this.config.host}/wiki${response._links.webui}`
           : undefined,
       };
     } catch (error: any) {
