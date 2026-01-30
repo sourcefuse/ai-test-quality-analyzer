@@ -291,6 +291,8 @@ ${scoreBadge}
         console.log(`   Note: Confluence.md was excluded from upload`);
         if (analysisPageResponse.url) {
             console.log(`   URL: ${analysisPageResponse.url}`);
+            // Output in parseable format for GitHub Actions
+            console.log(`CONFLUENCE_PAGE_URL=${analysisPageResponse.url}`);
         }
 
         console.log('\n' + '='.repeat(60));

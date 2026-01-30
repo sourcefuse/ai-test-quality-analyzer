@@ -986,14 +986,27 @@ runs:
         echo "$OUTPUT"
 
         # Extract Confluence URL from output (now returns full URL from service)
-        CONFLUENCE_URL="$(echo "$OUTPUT" | grep -oP 'URL: \K.*' | head -1)"
+        # Try new parseable format first
+        CONFLUENCE_URL="$(echo "$OUTPUT" | grep -oP '^CONFLUENCE_PAGE_URL=\K.*' | head -1 | xargs)"
+
+        # Fallback: try old format with leading spaces
+        if [ -z "$CONFLUENCE_URL" ]; then
+          CONFLUENCE_URL="$(echo "$OUTPUT" | grep -oP '^\s*URL:\s*\K.*' | head -1 | xargs)"
+        fi
+
+        # Fallback: try without leading space requirement
+        if [ -z "$CONFLUENCE_URL" ]; then
+          CONFLUENCE_URL="$(echo "$OUTPUT" | grep -oP 'URL:\s*\K.*' | head -1 | xargs)"
+        fi
 
         if [ -n "$CONFLUENCE_URL" ]; then
           echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
-          echo "✅ Results uploaded to Confluence: $CONFLUENCE_URL"
+          echo "✅ Results uploaded to Confluence"
+          echo "📄 Confluence URL: $CONFLUENCE_URL"
           echo "✅ Branch link included: $BRANCH_URL"
         else
           echo "confluence_url=" >> $GITHUB_OUTPUT
+          echo "⚠️  Could not extract Confluence URL from output"
           echo "✅ Results uploaded to Confluence"
         fi
 
@@ -1202,7 +1215,9 @@ runs:
 
         # Add Confluence link if upload was successful
         if [ -n "$CONFLUENCE_URL" ]; then
-          echo "- **Confluence Report:** [View Analysis Report](${CONFLUENCE_URL})" >> $GITHUB_STEP_SUMMARY
+          # Trim whitespace from URL to ensure proper markdown formatting
+          CONFLUENCE_URL_TRIMMED="$(echo "$CONFLUENCE_URL" | xargs)"
+          echo "- **Confluence Report:** [View Analysis Report](${CONFLUENCE_URL_TRIMMED})" >> $GITHUB_STEP_SUMMARY
         fi
         echo "" >> $GITHUB_STEP_SUMMARY
 
