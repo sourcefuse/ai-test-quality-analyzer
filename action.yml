@@ -738,20 +738,34 @@ runs:
         echo "🤖 Using GLM API (ANTHROPIC_BASE_URL: $ANTHROPIC_BASE_URL)"
         echo "📋 Creating requirements document from JIRA and Confluence..."
 
-        # Capture output from create-requirement-doc and extract cost
-        OUTPUT1=$(npm run create-requirement-doc 2>&1)
-        echo "$OUTPUT1"
-        COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | sed 's/.*Cost: \$\([0-9.]*\).*/\1/')
+        # Create requirements document - show output in real-time
+        npm run create-requirement-doc 2>&1 | tee /tmp/requirement-output.txt
+        REQUIREMENT_EXIT_CODE=${PIPESTATUS[0]}
+
+        # Extract cost from output
+        COST1=$(grep "💰 Cost:" /tmp/requirement-output.txt | sed 's/.*Cost: \$\([0-9.]*\).*/\1/' || echo "0.00")
         echo "COST_REQUIREMENT=$COST1" >> $GITHUB_ENV
+
+        if [ $REQUIREMENT_EXIT_CODE -ne 0 ]; then
+          echo "❌ Requirements document generation failed with exit code $REQUIREMENT_EXIT_CODE"
+          exit $REQUIREMENT_EXIT_CODE
+        fi
         echo "✅ Requirements document created (Cost: \$$COST1)"
 
         echo "🔍 Generating unit test cases..."
 
-        # Capture output from generate-unit-testcases and extract cost
-        OUTPUT2=$(npm run generate-unit-testcases 2>&1)
-        echo "$OUTPUT2"
-        COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | sed 's/.*Cost: \$\([0-9.]*\).*/\1/')
+        # Generate unit test cases - show output in real-time
+        npm run generate-unit-testcases 2>&1 | tee /tmp/generation-output.txt
+        GENERATION_EXIT_CODE=${PIPESTATUS[0]}
+
+        # Extract cost from output
+        COST2=$(grep "💰 Cost:" /tmp/generation-output.txt | sed 's/.*Cost: \$\([0-9.]*\).*/\1/' || echo "0.00")
         echo "COST_GENERATION=$COST2" >> $GITHUB_ENV
+
+        if [ $GENERATION_EXIT_CODE -ne 0 ]; then
+          echo "❌ Unit test case generation failed with exit code $GENERATION_EXIT_CODE"
+          exit $GENERATION_EXIT_CODE
+        fi
         echo "✅ Unit test cases generated successfully (Cost: \$$COST2)"
 
         # Calculate total cost
@@ -774,20 +788,34 @@ runs:
         echo "🤖 Using AWS Bedrock (Region: $AWS_REGION)"
         echo "📋 Creating requirements document from JIRA and Confluence..."
 
-        # Capture output from create-requirement-doc and extract cost
-        OUTPUT1=$(npm run create-requirement-doc 2>&1)
-        echo "$OUTPUT1"
-        COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | sed 's/.*Cost: \$\([0-9.]*\).*/\1/')
+        # Create requirements document - show output in real-time
+        npm run create-requirement-doc 2>&1 | tee /tmp/requirement-output.txt
+        REQUIREMENT_EXIT_CODE=${PIPESTATUS[0]}
+
+        # Extract cost from output
+        COST1=$(grep "💰 Cost:" /tmp/requirement-output.txt | sed 's/.*Cost: \$\([0-9.]*\).*/\1/' || echo "0.00")
         echo "COST_REQUIREMENT=$COST1" >> $GITHUB_ENV
+
+        if [ $REQUIREMENT_EXIT_CODE -ne 0 ]; then
+          echo "❌ Requirements document generation failed with exit code $REQUIREMENT_EXIT_CODE"
+          exit $REQUIREMENT_EXIT_CODE
+        fi
         echo "✅ Requirements document created (Cost: \$$COST1)"
 
         echo "🔍 Generating unit test cases..."
 
-        # Capture output from generate-unit-testcases and extract cost
-        OUTPUT2=$(npm run generate-unit-testcases 2>&1)
-        echo "$OUTPUT2"
-        COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | sed 's/.*Cost: \$\([0-9.]*\).*/\1/')
+        # Generate unit test cases - show output in real-time
+        npm run generate-unit-testcases 2>&1 | tee /tmp/generation-output.txt
+        GENERATION_EXIT_CODE=${PIPESTATUS[0]}
+
+        # Extract cost from output
+        COST2=$(grep "💰 Cost:" /tmp/generation-output.txt | sed 's/.*Cost: \$\([0-9.]*\).*/\1/' || echo "0.00")
         echo "COST_GENERATION=$COST2" >> $GITHUB_ENV
+
+        if [ $GENERATION_EXIT_CODE -ne 0 ]; then
+          echo "❌ Unit test case generation failed with exit code $GENERATION_EXIT_CODE"
+          exit $GENERATION_EXIT_CODE
+        fi
         echo "✅ Unit test cases generated successfully (Cost: \$$COST2)"
 
         # Calculate total cost
