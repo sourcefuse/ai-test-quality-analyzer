@@ -259,13 +259,18 @@ ${branchInfo}
 ${scoreBadge}
 <hr />`;
 
-        // Add all uploaded files in sequence
+        // Add all uploaded files in sequence with expand/collapse
         filesData.forEach((file, index) => {
             confluenceContent += `
 <h2>${index + 1}. ${file.title}</h2>
+<ac:structured-macro ac:name="expand">
+<ac:parameter ac:name="title">Click to view ${file.title}</ac:parameter>
+<ac:rich-text-body>
 <ac:structured-macro ac:name="code">
 <ac:parameter ac:name="language">markdown</ac:parameter>
 <ac:plain-text-body><![CDATA[${file.content}]]></ac:plain-text-body>
+</ac:structured-macro>
+</ac:rich-text-body>
 </ac:structured-macro>`;
 
             // Add separator if not the last file
