@@ -1181,12 +1181,25 @@ runs:
             echo "- **Total Test Cases (Repository-Wide):** $TOTAL_CASES" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            # Show detailed report in collapsible section
+            # Show detailed report in collapsible section (limited to first 500 lines to avoid summary truncation)
             echo "<details>" >> $GITHUB_STEP_SUMMARY
             echo "<summary><b>📊 View Detailed Test Coverage Report</b></summary>" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
+
+            # Check file size (GitHub Actions summary limit is 1024 KB)
+            FILE_SIZE=$(wc -c < "$EXISTING_TESTS_FILE")
+            FILE_LINES=$(wc -l < "$EXISTING_TESTS_FILE")
+
             echo '```markdown' >> $GITHUB_STEP_SUMMARY
-            cat "$EXISTING_TESTS_FILE" >> $GITHUB_STEP_SUMMARY
+            if [ "$FILE_LINES" -gt 500 ]; then
+              echo "⚠️ Report truncated to first 500 lines (full report available in Confluence)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              head -500 "$EXISTING_TESTS_FILE" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "... ($(($FILE_LINES - 500)) more lines - see Confluence for full report)" >> $GITHUB_STEP_SUMMARY
+            else
+              cat "$EXISTING_TESTS_FILE" >> $GITHUB_STEP_SUMMARY
+            fi
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "</details>" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
