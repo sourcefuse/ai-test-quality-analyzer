@@ -1,27 +1,24 @@
 #!/bin/bash
 
 ##############################################################################
-# Migrate Secrets to Variables
+# Migrate URL Secrets to Variables
 #
-# This script migrates URL and API key secrets to variables
-# URLs and API keys don't need encryption - variables are more appropriate
-#
+# This script migrates URL secrets to variables (URLs don't need encryption)
 # Migrates:
 #   - UT_GENERATE_CONFLUENCE_URL (secret → variable)
 #   - UT_QUALITY_CONFLUENCE_URL (secret → variable)
 #   - UT_QUALITY_JIRA_URL (secret → variable)
 #   - UT_GENERATE_JIRA_URL (secret → variable)
-#   - UT_QUALITY_OPENAI_API_KEY (secret → variable)
-#   - UT_GENERATE_OPENAI_API_KEY (secret → variable)
 #
 # Prerequisites:
 # - GitHub CLI (gh) installed and authenticated
-# - .env file with required values (CONFLUENCE_URL, JIRA_URL, OPENAI_API_KEY)
+# - .env file with required URL values (CONFLUENCE_URL, JIRA_URL)
 #
 # Usage:
 #   ./migrate-urls-to-variables.sh
 #
-# Note: This script reads values from .env file in the project root.
+# Note: This script reads URL values from .env file in the project root.
+#       API keys remain as secrets (not migrated).
 ##############################################################################
 
 set -e
@@ -39,7 +36,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENV_FILE="$PROJECT_ROOT/.env"
 
-# Secrets to migrate (secret → variable)
+# URLs to migrate (secret → variable)
 # Using indexed arrays for bash 3.2 compatibility
 # Format: GitHub Secret Name
 URL_SECRET_NAMES=(
@@ -47,8 +44,6 @@ URL_SECRET_NAMES=(
     "UT_QUALITY_CONFLUENCE_URL"
     "UT_QUALITY_JIRA_URL"
     "UT_GENERATE_JIRA_URL"
-    "UT_QUALITY_OPENAI_API_KEY"
-    "UT_GENERATE_OPENAI_API_KEY"
 )
 
 # Format: Environment Variable Name (what to read from .env)
@@ -57,8 +52,6 @@ URL_ENV_VARS=(
     "CONFLUENCE_URL"
     "JIRA_URL"
     "JIRA_URL"
-    "OPENAI_API_KEY"
-    "OPENAI_API_KEY"
 )
 
 URL_SECRET_DESCRIPTIONS=(
@@ -66,13 +59,11 @@ URL_SECRET_DESCRIPTIONS=(
     "Confluence URL for Quality Check workflow"
     "JIRA URL for Quality Check workflow"
     "JIRA URL for Generate workflow"
-    "OpenAI API Key for Quality Check workflow"
-    "OpenAI API Key for Generate workflow"
 )
 
 echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Migrate Secrets to Variables                              ║${NC}"
-echo -e "${BLUE}║  URLs and API keys don't need secret encryption           ║${NC}"
+echo -e "${BLUE}║  Migrate URL Secrets to Variables                         ║${NC}"
+echo -e "${BLUE}║  Security Improvement: URLs don't need encryption         ║${NC}"
 echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -96,10 +87,9 @@ echo ""
 # Check if .env file exists
 if [ ! -f "$ENV_FILE" ]; then
     echo -e "${RED}❌ Error: .env file not found at: $ENV_FILE${NC}"
-    echo "Please create a .env file with required values:"
+    echo "Please create a .env file with required URL values:"
     echo "  - CONFLUENCE_URL (used for both UT_GENERATE_CONFLUENCE_URL and UT_QUALITY_CONFLUENCE_URL)"
     echo "  - JIRA_URL (used for both UT_GENERATE_JIRA_URL and UT_QUALITY_JIRA_URL)"
-    echo "  - OPENAI_API_KEY (used for both UT_QUALITY_OPENAI_API_KEY and UT_GENERATE_OPENAI_API_KEY)"
     exit 1
 fi
 
@@ -152,16 +142,18 @@ echo ""
 # Explain the migration
 echo -e "${CYAN}📋 Migration Overview:${NC}"
 echo ""
-echo -e "${BLUE}Why migrate from secrets to variables?${NC}"
-echo "  • URLs and API keys are often visible in logs/workflows anyway"
+echo -e "${BLUE}Why migrate URLs from secrets to variables?${NC}"
+echo "  • URLs are not sensitive data (they're visible in logs/workflows)"
 echo "  • Secrets are encrypted and have API rate limits"
-echo "  • Variables are simpler and more appropriate for non-sensitive data"
+echo "  • Variables are simpler and more appropriate for URLs"
 echo "  • GitHub Actions can use variables without rate limiting"
 echo ""
 echo -e "${BLUE}What will be migrated:${NC}"
 for SECRET_NAME in "${URL_SECRET_NAMES[@]}"; do
     echo -e "  ${YELLOW}•${NC} $SECRET_NAME → ${GREEN}(variable)${NC}"
 done
+echo ""
+echo -e "${BLUE}Note:${NC} API keys (OPENAI_API_KEY) will remain as secrets."
 echo ""
 
 # Check which secrets exist
@@ -197,31 +189,25 @@ done
 echo ""
 
 if [ ${#SECRETS_TO_MIGRATE_NAMES[@]} -eq 0 ]; then
-    echo -e "${YELLOW}ℹ️  No secrets found to migrate${NC}"
-    echo "Either secrets don't exist or values not found in .env file."
+    echo -e "${YELLOW}ℹ️  No URL secrets found to migrate${NC}"
+    echo "Either URL secrets don't exist or values not found in .env file."
+    echo "URLs may have already been migrated to variables."
     exit 0
 fi
 
 # Show what was found
-echo -e "${BLUE}📖 Found ${#SECRETS_TO_MIGRATE_NAMES[@]} secret(s) with values in .env${NC}"
+echo -e "${BLUE}📖 Found ${#SECRETS_TO_MIGRATE_NAMES[@]} URL(s) with values in .env${NC}"
 echo ""
 
 # Confirmation prompt
-echo -e "${YELLOW}⚠️  Ready to migrate ${#SECRETS_TO_MIGRATE_NAMES[@]} secret(s)${NC}"
+echo -e "${YELLOW}⚠️  Ready to migrate ${#SECRETS_TO_MIGRATE_NAMES[@]} URL(s)${NC}"
 echo ""
 echo -e "${BLUE}Migration plan:${NC}"
 for i in "${!SECRETS_TO_MIGRATE_NAMES[@]}"; do
     SECRET_NAME="${SECRETS_TO_MIGRATE_NAMES[$i]}"
     SECRET_VALUE="${SECRETS_TO_MIGRATE_VALUES[$i]}"
     echo -e "  1. Remove secret: ${YELLOW}$SECRET_NAME${NC}"
-
-    # Mask API keys but show URLs
-    if [[ "$SECRET_NAME" == *"API_KEY"* ]]; then
-        MASKED_VALUE="${SECRET_VALUE:0:8}...${SECRET_VALUE: -4}"
-        echo -e "  2. Create variable: ${GREEN}$SECRET_NAME${NC} = ${MASKED_VALUE}"
-    else
-        echo -e "  2. Create variable: ${GREEN}$SECRET_NAME${NC} = ${SECRET_VALUE}"
-    fi
+    echo -e "  2. Create variable: ${GREEN}$SECRET_NAME${NC} = ${SECRET_VALUE}"
     echo ""
 done
 
@@ -282,7 +268,7 @@ echo ""
 echo -e "${BLUE}Repository:${NC} $REPO_NAME"
 echo ""
 echo -e "${BLUE}Results:${NC}"
-echo -e "  Total Secrets:  ${#SECRETS_TO_MIGRATE_NAMES[@]}"
+echo -e "  Total URLs:     ${#SECRETS_TO_MIGRATE_NAMES[@]}"
 echo -e "  ${GREEN}Migrated:       $MIGRATED${NC}"
 if [ $FAILED -gt 0 ]; then
     echo -e "  ${YELLOW}Failed:         $FAILED${NC}"
@@ -305,13 +291,16 @@ if [ $MIGRATED -gt 0 ]; then
     echo "     ${CYAN}gh secret list --repo $REPO_NAME${NC}"
     echo ""
 else
-    echo -e "${YELLOW}⚠️  No secrets were migrated successfully${NC}"
+    echo -e "${YELLOW}⚠️  No URLs were migrated successfully${NC}"
     echo ""
-    echo -e "${BLUE}Troubleshooting:${NC}"
-    echo "  1. Check your GitHub CLI permissions"
-    echo "  2. Verify you have admin access to the repository"
-    echo "  3. Check if variables already exist:"
-    echo "     ${CYAN}gh variable list --repo $REPO_NAME${NC}"
+    echo -e "${BLUE}Possible reasons:${NC}"
+    echo "  • URL secrets may have already been migrated to variables"
+    echo "  • URL secrets may never have been created (already using variables)"
+    echo "  • Values not found in .env file"
+    echo ""
+    echo -e "${BLUE}Check current status:${NC}"
+    echo "  1. Check variables: ${CYAN}gh variable list --repo $REPO_NAME${NC}"
+    echo "  2. Check secrets:   ${CYAN}gh secret list --repo $REPO_NAME${NC}"
     echo ""
 fi
 
