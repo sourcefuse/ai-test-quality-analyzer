@@ -738,9 +738,20 @@ runs:
         echo "🤖 Using GLM API (ANTHROPIC_BASE_URL: $ANTHROPIC_BASE_URL)"
         echo "📋 Creating requirements document from JIRA and Confluence..."
 
-        # Create requirements document - show output in real-time
-        npm run create-requirement-doc 2>&1 | tee /tmp/requirement-output.txt
-        REQUIREMENT_EXIT_CODE=${PIPESTATUS[0]}
+        # Create requirements document - filter verbose output, save full log for debugging
+        npm run create-requirement-doc > /tmp/requirement-output.txt 2>&1 &
+        REQUIREMENT_PID=$!
+
+        # Show filtered output in real-time (only important messages)
+        tail -f /tmp/requirement-output.txt 2>/dev/null | grep -E '(✅|❌|⚠️|💰|🔍|📋|📊|Error|cost|Cost|failed|success|complete|generating)' --line-buffered &
+        TAIL_PID=$!
+
+        # Wait for Claude process to complete
+        wait $REQUIREMENT_PID
+        REQUIREMENT_EXIT_CODE=$?
+
+        # Stop tail process
+        kill $TAIL_PID 2>/dev/null || true
 
         # Extract cost from output
         COST1=$(grep "💰 Cost:" /tmp/requirement-output.txt | sed 's/.*Cost: \$\([0-9.]*\).*/\1/' || echo "0.00")
@@ -748,15 +759,30 @@ runs:
 
         if [ $REQUIREMENT_EXIT_CODE -ne 0 ]; then
           echo "❌ Requirements document generation failed with exit code $REQUIREMENT_EXIT_CODE"
+          echo "📄 Full log available at: /tmp/requirement-output.txt"
+          # Show last 50 lines of output for debugging
+          echo "Last 50 lines of output:"
+          tail -50 /tmp/requirement-output.txt
           exit $REQUIREMENT_EXIT_CODE
         fi
         echo "✅ Requirements document created (Cost: \$$COST1)"
 
         echo "🔍 Generating unit test cases..."
 
-        # Generate unit test cases - show output in real-time
-        npm run generate-unit-testcases 2>&1 | tee /tmp/generation-output.txt
-        GENERATION_EXIT_CODE=${PIPESTATUS[0]}
+        # Generate unit test cases - filter verbose output, save full log for debugging
+        npm run generate-unit-testcases > /tmp/generation-output.txt 2>&1 &
+        GENERATION_PID=$!
+
+        # Show filtered output in real-time (only important messages, hide test coverage details)
+        tail -f /tmp/generation-output.txt 2>/dev/null | grep -vE '(│|┌|└|├|─|Existing Test Coverage Report)' | grep -E '(✅|❌|⚠️|💰|🔍|📋|📊|Error|cost|Cost|failed|success|complete|generating|Writing)' --line-buffered &
+        TAIL_PID=$!
+
+        # Wait for Claude process to complete
+        wait $GENERATION_PID
+        GENERATION_EXIT_CODE=$?
+
+        # Stop tail process
+        kill $TAIL_PID 2>/dev/null || true
 
         # Extract cost from output
         COST2=$(grep "💰 Cost:" /tmp/generation-output.txt | sed 's/.*Cost: \$\([0-9.]*\).*/\1/' || echo "0.00")
@@ -764,6 +790,10 @@ runs:
 
         if [ $GENERATION_EXIT_CODE -ne 0 ]; then
           echo "❌ Unit test case generation failed with exit code $GENERATION_EXIT_CODE"
+          echo "📄 Full log available at: /tmp/generation-output.txt"
+          # Show last 50 lines of output for debugging
+          echo "Last 50 lines of output:"
+          tail -50 /tmp/generation-output.txt
           exit $GENERATION_EXIT_CODE
         fi
         echo "✅ Unit test cases generated successfully (Cost: \$$COST2)"
@@ -788,9 +818,20 @@ runs:
         echo "🤖 Using AWS Bedrock (Region: $AWS_REGION)"
         echo "📋 Creating requirements document from JIRA and Confluence..."
 
-        # Create requirements document - show output in real-time
-        npm run create-requirement-doc 2>&1 | tee /tmp/requirement-output.txt
-        REQUIREMENT_EXIT_CODE=${PIPESTATUS[0]}
+        # Create requirements document - filter verbose output, save full log for debugging
+        npm run create-requirement-doc > /tmp/requirement-output.txt 2>&1 &
+        REQUIREMENT_PID=$!
+
+        # Show filtered output in real-time (only important messages)
+        tail -f /tmp/requirement-output.txt 2>/dev/null | grep -E '(✅|❌|⚠️|💰|🔍|📋|📊|Error|cost|Cost|failed|success|complete|generating)' --line-buffered &
+        TAIL_PID=$!
+
+        # Wait for Claude process to complete
+        wait $REQUIREMENT_PID
+        REQUIREMENT_EXIT_CODE=$?
+
+        # Stop tail process
+        kill $TAIL_PID 2>/dev/null || true
 
         # Extract cost from output
         COST1=$(grep "💰 Cost:" /tmp/requirement-output.txt | sed 's/.*Cost: \$\([0-9.]*\).*/\1/' || echo "0.00")
@@ -798,15 +839,30 @@ runs:
 
         if [ $REQUIREMENT_EXIT_CODE -ne 0 ]; then
           echo "❌ Requirements document generation failed with exit code $REQUIREMENT_EXIT_CODE"
+          echo "📄 Full log available at: /tmp/requirement-output.txt"
+          # Show last 50 lines of output for debugging
+          echo "Last 50 lines of output:"
+          tail -50 /tmp/requirement-output.txt
           exit $REQUIREMENT_EXIT_CODE
         fi
         echo "✅ Requirements document created (Cost: \$$COST1)"
 
         echo "🔍 Generating unit test cases..."
 
-        # Generate unit test cases - show output in real-time
-        npm run generate-unit-testcases 2>&1 | tee /tmp/generation-output.txt
-        GENERATION_EXIT_CODE=${PIPESTATUS[0]}
+        # Generate unit test cases - filter verbose output, save full log for debugging
+        npm run generate-unit-testcases > /tmp/generation-output.txt 2>&1 &
+        GENERATION_PID=$!
+
+        # Show filtered output in real-time (only important messages, hide test coverage details)
+        tail -f /tmp/generation-output.txt 2>/dev/null | grep -vE '(│|┌|└|├|─|Existing Test Coverage Report)' | grep -E '(✅|❌|⚠️|💰|🔍|📋|📊|Error|cost|Cost|failed|success|complete|generating|Writing)' --line-buffered &
+        TAIL_PID=$!
+
+        # Wait for Claude process to complete
+        wait $GENERATION_PID
+        GENERATION_EXIT_CODE=$?
+
+        # Stop tail process
+        kill $TAIL_PID 2>/dev/null || true
 
         # Extract cost from output
         COST2=$(grep "💰 Cost:" /tmp/generation-output.txt | sed 's/.*Cost: \$\([0-9.]*\).*/\1/' || echo "0.00")
@@ -814,6 +870,10 @@ runs:
 
         if [ $GENERATION_EXIT_CODE -ne 0 ]; then
           echo "❌ Unit test case generation failed with exit code $GENERATION_EXIT_CODE"
+          echo "📄 Full log available at: /tmp/generation-output.txt"
+          # Show last 50 lines of output for debugging
+          echo "Last 50 lines of output:"
+          tail -50 /tmp/generation-output.txt
           exit $GENERATION_EXIT_CODE
         fi
         echo "✅ Unit test cases generated successfully (Cost: \$$COST2)"
