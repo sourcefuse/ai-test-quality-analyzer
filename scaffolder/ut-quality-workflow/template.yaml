@@ -113,8 +113,6 @@ spec:
             replace: "${{ parameters.jiraProjectKey }}-1234: Your PR title"
           - search: "[BB-5678] Fix for issue"
             replace: "[${{ parameters.jiraProjectKey }}-5678] Fix for issue"
-          - search: "        continue-on-error: true\n"
-            replace: ""
 
     - id: create-pr
       name: Create Pull Request
