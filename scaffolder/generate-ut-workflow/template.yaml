@@ -100,6 +100,12 @@ spec:
             replace: "default: '${{ parameters.defaultBranch }}'"
           - search: "(default: dev)"
             replace: "(default: ${{ parameters.defaultBranch }})"
+          - search: "(default: main)"
+            replace: "(default: ${{ parameters.defaultBranch }})"
+          - search: "|| 'dev'"
+            replace: "|| '${{ parameters.defaultBranch }}'"
+          - search: "|| 'main'"
+            replace: "|| '${{ parameters.defaultBranch }}'"
 
     - id: create-pr
       name: Create Pull Request
