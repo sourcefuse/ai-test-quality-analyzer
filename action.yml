@@ -287,6 +287,7 @@ runs:
         AWS_BEDROCK_MODEL: ${{ inputs.aws_bedrock_model }}
         ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
         ANTHROPIC_AUTH_TOKEN: ${{ inputs.anthropic_auth_token }}
+        CLAUDE_VERBOSE_MODE: true
       run: |
         cd ${{ github.action_path }}
         echo "╔══════════════════════════════════════════════════════════════╗"
@@ -330,9 +331,9 @@ runs:
           echo "  • Network connectivity issues"
           echo ""
 
-          # Export error for Backstage reporting
-          echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
-          echo "WORKFLOW_ERROR_STEP=ai_connectivity_test" >> $GITHUB_ENV
+          # Export error for Backstage reporting (use file since $GITHUB_ENV doesn't persist across failing steps)
+          echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
+          echo "ai_connectivity_test" > /tmp/workflow_error_step.txt
 
           exit 1
         fi
@@ -871,8 +872,9 @@ runs:
             ERROR_MSG="Requirements document creation failed with exit code $EXIT_CODE1. Check workflow logs for details."
           fi
 
-          echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
-          echo "WORKFLOW_ERROR_STEP=create-requirement-doc" >> $GITHUB_ENV
+          # Write error to file for Backstage reporting ($GITHUB_ENV doesn't persist across failing steps)
+          echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
+          echo "create-requirement-doc" > /tmp/workflow_error_step.txt
 
           exit 1
         fi
@@ -899,8 +901,9 @@ runs:
           if [ -z "$ERROR_MSG" ]; then
             ERROR_MSG="Test quality analysis failed with exit code $EXIT_CODE2. Check workflow logs for details."
           fi
-          echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
-          echo "WORKFLOW_ERROR_STEP=analyze-test-quality" >> $GITHUB_ENV
+          # Write error to file for Backstage reporting ($GITHUB_ENV doesn't persist across failing steps)
+          echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
+          echo "analyze-test-quality" > /tmp/workflow_error_step.txt
 
           exit 1
         fi
@@ -967,8 +970,9 @@ runs:
             ERROR_MSG="Requirements document creation failed with exit code $EXIT_CODE1. Check workflow logs for details."
           fi
 
-          echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
-          echo "WORKFLOW_ERROR_STEP=create-requirement-doc" >> $GITHUB_ENV
+          # Write error to file for Backstage reporting ($GITHUB_ENV doesn't persist across failing steps)
+          echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
+          echo "create-requirement-doc" > /tmp/workflow_error_step.txt
 
           exit 1
         fi
@@ -995,8 +999,9 @@ runs:
           if [ -z "$ERROR_MSG" ]; then
             ERROR_MSG="Test quality analysis failed with exit code $EXIT_CODE2. Check workflow logs for details."
           fi
-          echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
-          echo "WORKFLOW_ERROR_STEP=analyze-test-quality" >> $GITHUB_ENV
+          # Write error to file for Backstage reporting ($GITHUB_ENV doesn't persist across failing steps)
+          echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
+          echo "analyze-test-quality" > /tmp/workflow_error_step.txt
 
           exit 1
         fi
@@ -1410,10 +1415,10 @@ runs:
         TOTAL_COST="${ACTUAL_COST:-0}"
 
         # Determine error message based on what failed
-        # Priority 1: Use captured error from npm command failures (most specific)
-        if [ -n "${WORKFLOW_ERROR_MESSAGE:-}" ]; then
-          ERROR_MSG="$WORKFLOW_ERROR_MESSAGE"
-          ERROR_STEP="${WORKFLOW_ERROR_STEP:-analysis}"
+        # Priority 1: Use captured error from error files (most specific)
+        if [ -f "/tmp/workflow_error_message.txt" ]; then
+          ERROR_MSG=$(cat /tmp/workflow_error_message.txt)
+          ERROR_STEP=$(cat /tmp/workflow_error_step.txt 2>/dev/null || echo "analysis")
           QUALITY_SCORE="0"
         # Priority 2: Configuration validation failure
         elif [ "${{ steps.validate_config.outcome }}" == "failure" ]; then
