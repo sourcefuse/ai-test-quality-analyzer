@@ -317,37 +317,66 @@ runs:
         echo "║           🔌 TESTING AI CONNECTIVITY                         ║"
         echo "╚══════════════════════════════════════════════════════════════╝"
         echo ""
-        echo "📡 Testing Claude API connection with simple prompt..."
+        echo "🔍 DEBUG: Environment Check"
         echo "   AI Type: ${AI_TYPE} (1=Bedrock, 2=GLM)"
+        echo "   AWS Region: ${AWS_REGION:-not set}"
+        echo "   AWS Access Key: ${AWS_ACCESS_KEY_ID:0:10}... (masked)"
+        echo "   Bedrock Model: ${AWS_BEDROCK_MODEL:-not set}"
+        echo "   GLM Base URL: ${ANTHROPIC_BASE_URL:-not set}"
+        echo "   Claude Verbose: ${CLAUDE_VERBOSE_MODE:-not set}"
+        echo ""
+        echo "📡 Testing Claude API connection with simple prompt..."
         echo ""
 
         # Test with a simple "Hi" prompt
+        echo "🔍 DEBUG: Running 'npm run test-ai-connection'..."
         set +e
         TEST_OUTPUT=$(npm run test-ai-connection 2>&1)
         TEST_EXIT_CODE=$?
         set -e
 
         echo "$TEST_OUTPUT"
+        echo ""
+        echo "🔍 DEBUG: Exit Code = $TEST_EXIT_CODE"
 
         if [ $TEST_EXIT_CODE -ne 0 ]; then
           echo ""
           echo "❌ AI connectivity test FAILED"
           echo ""
+          echo "🔍 DEBUG: Extracting error message from output..."
 
           # Extract error from JSON output or plain text
           ERROR_MSG=$(echo "$TEST_OUTPUT" | grep -o '"result":"[^"]*"' | sed 's/"result":"//;s/"$//' | head -1)
+          echo "🔍 DEBUG: Extracted from JSON result field: '$ERROR_MSG'"
+
           if [ -z "$ERROR_MSG" ]; then
             ERROR_MSG=$(echo "$TEST_OUTPUT" | tail -20 | grep -E "Error:|error:|❌|failed|Failed|Exception|403|401|500" | head -2 | tr '\n' ' ')
+            echo "🔍 DEBUG: Extracted from error indicators: '$ERROR_MSG'"
           fi
 
           # Clean ANSI codes and remove ALL JSON characters: { } " \ : ,
-          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g' | sed 's/[{}":,\\]//g' | tr -s ' ' | cut -c1-500 | sed 's/^ *//;s/ *$//')
+          ERROR_MSG_RAW="$ERROR_MSG"
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g' | sed 's/[{}":,\\]//g' | tr -s ' ' | cut -c1-450 | sed 's/^ *//;s/ *$//')
+          echo "🔍 DEBUG: After cleaning: '$ERROR_MSG'"
 
           if [ -z "$ERROR_MSG" ]; then
-            ERROR_MSG="AI connectivity test failed. Unable to communicate with Claude API."
+            ERROR_MSG="Unable to communicate with Claude API"
+            echo "🔍 DEBUG: Using fallback error message"
           fi
 
-          echo "🔍 Error Details: $ERROR_MSG"
+          # Add context about which service is failing
+          if [[ "$AI_TYPE" == "1" ]] || [[ -z "$AI_TYPE" ]]; then
+            CONTEXT_PREFIX="[AWS Bedrock]"
+            echo "🔍 DEBUG: Provider = AWS Bedrock (ai_type=${AI_TYPE:-default})"
+          else
+            CONTEXT_PREFIX="[GLM]"
+            echo "🔍 DEBUG: Provider = GLM (ai_type=$AI_TYPE)"
+          fi
+          ERROR_MSG="${CONTEXT_PREFIX} ${ERROR_MSG}"
+
+          echo ""
+          echo "❌ FINAL ERROR MESSAGE:"
+          echo "   $ERROR_MSG"
           echo ""
           echo "Common issues:"
           echo "  • Invalid AWS credentials (ai_type=1)"
@@ -357,8 +386,10 @@ runs:
           echo ""
 
           # Export simplified error for Backstage reporting (use file since $GITHUB_ENV doesn't persist across failing steps)
+          echo "🔍 DEBUG: Writing error to /tmp/workflow_error_message.txt"
           echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
           echo "ai_connectivity_test" > /tmp/workflow_error_step.txt
+          echo "🔍 DEBUG: Error file contents: $(cat /tmp/workflow_error_message.txt)"
 
           exit 1
         fi
@@ -1452,37 +1483,53 @@ runs:
         TOTAL_COST="${ACTUAL_COST:-0}"
 
         # Determine error message based on what failed
+        echo "🔍 DEBUG: Determining error source..."
+
         # Priority 1: Use captured error from error files (most specific)
         if [ -f "/tmp/workflow_error_message.txt" ]; then
           ERROR_MSG=$(cat /tmp/workflow_error_message.txt)
           ERROR_STEP=$(cat /tmp/workflow_error_step.txt 2>/dev/null || echo "analysis")
           QUALITY_SCORE="0"
+          echo "🔍 DEBUG: Using captured error from file"
+          echo "🔍 DEBUG: Error Step = $ERROR_STEP"
+          echo "🔍 DEBUG: Error Message = $ERROR_MSG"
         # Priority 2: Configuration validation failure
         elif [ "${{ steps.validate_config.outcome }}" == "failure" ]; then
           MISSING_FIELDS="${VALIDATION_MISSING_FIELDS:-unknown}"
           ERROR_MSG="Configuration validation failed - missing required parameters: ${MISSING_FIELDS}. Check workflow secrets and inputs."
           ERROR_STEP="validation"
           QUALITY_SCORE="0"
+          echo "🔍 DEBUG: Using validation failure error"
         # Priority 3: No score generated (generic fallback)
         elif [ -z "$TEST_QUALITY_SCORE" ] || [ "$TEST_QUALITY_SCORE" == "" ]; then
           ERROR_MSG="Workflow failed during analysis - no quality score generated. Check logs for details."
           ERROR_STEP="analysis"
           QUALITY_SCORE="0"
+          echo "🔍 DEBUG: Using generic fallback (no score)"
         # Priority 4: Score below threshold
         else
           ERROR_MSG="Test quality score (${TEST_QUALITY_SCORE}/10) below threshold (${MINIMUM_SCORE}/10)"
           ERROR_STEP="quality_check"
           QUALITY_SCORE="$TEST_QUALITY_SCORE"
+          echo "🔍 DEBUG: Using score below threshold error"
         fi
 
+        echo ""
         echo "⚠️  Error: $ERROR_MSG"
         echo "💰 Total AI Cost: \$$TOTAL_COST"
+        echo ""
 
         # Simple escaping for plain text: only escape quotes for JSON string safety
         ERROR_MSG_SAFE=$(echo "$ERROR_MSG" | sed 's/"/\\"/g' | tr '\n' ' ' | tr '\t' ' ')
+        echo "🔍 DEBUG: Sending to Backstage:"
+        echo "   error_message: $ERROR_MSG_SAFE"
+        echo "   error_step: $ERROR_STEP"
+        echo "   quality_score: $QUALITY_SCORE"
+        echo ""
 
         # Send error data to Backstage (|| true ensures this doesn't fail the workflow)
-        curl -X POST https://sf-portal.sourcef.us/api/test-quality-tracker/record \
+        echo "🔍 DEBUG: Sending POST to Backstage API..."
+        BACKSTAGE_RESPONSE=$(curl -X POST https://sf-portal.sourcef.us/api/test-quality-tracker/record \
           -H "Content-Type: application/json" \
           -d '{
             "repo_name": "'"$REPO_NAME"'",
@@ -1505,8 +1552,11 @@ runs:
             "job_status": "'"$JOB_STATUS"'"
           }' \
           --max-time 10 \
-          --silent \
           --show-error \
-          || echo "⚠️  Failed to report error to Backstage (non-critical, continuing...)"
+          -w "\nHTTP_STATUS:%{http_code}" \
+          2>&1 || echo "⚠️  Failed to report error to Backstage (non-critical, continuing...)")
+
+        echo "🔍 DEBUG: Backstage response:"
+        echo "$BACKSTAGE_RESPONSE"
 
         echo "✅ Error reporting completed (or skipped if unavailable)"
