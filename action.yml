@@ -316,7 +316,9 @@ runs:
           if [ -z "$ERROR_MSG" ]; then
             ERROR_MSG=$(echo "$TEST_OUTPUT" | tail -20 | grep -E "Error:|error:|❌|failed|Failed|Exception|403|401|500" | head -2 | tr '\n' ' ')
           fi
-          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/["\x1b\[]//g' | cut -c1-300)
+
+          # Clean ANSI codes only, preserve JSON structure and content, then truncate
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g' | cut -c1-500)
 
           if [ -z "$ERROR_MSG" ]; then
             ERROR_MSG="AI connectivity test failed. Unable to communicate with Claude API."
@@ -864,8 +866,8 @@ runs:
             ERROR_MSG=$(echo "$OUTPUT1" | tail -30 | grep -E "Error:|error:|❌|failed|Failed|Exception" | grep -v "disable exit-on-error" | head -3 | tr '\n' ' ')
           fi
 
-          # Clean up ANSI codes, quotes, and truncate
-          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/["\x1b\[]//g' | sed 's/\[0m//g' | cut -c1-500)
+          # Clean ANSI codes only, preserve JSON structure and content, then truncate
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g' | cut -c1-500)
 
           # Final fallback
           if [ -z "$ERROR_MSG" ]; then
@@ -962,8 +964,8 @@ runs:
             ERROR_MSG=$(echo "$OUTPUT1" | tail -30 | grep -E "Error:|error:|❌|failed|Failed|Exception" | grep -v "disable exit-on-error" | head -3 | tr '\n' ' ')
           fi
 
-          # Clean up ANSI codes, quotes, and truncate
-          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/["\x1b\[]//g' | sed 's/\[0m//g' | cut -c1-500)
+          # Clean ANSI codes only, preserve JSON structure and content, then truncate
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g' | cut -c1-500)
 
           # Final fallback
           if [ -z "$ERROR_MSG" ]; then
