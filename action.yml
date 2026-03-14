@@ -787,11 +787,23 @@ runs:
           echo "❌ Requirements document creation failed with exit code $EXIT_CODE1"
           echo "See error output above for details"
 
-          # Extract error message for Backstage reporting (last 20 lines, find error indicators)
-          ERROR_MSG=$(echo "$OUTPUT1" | tail -20 | grep -E "Error:|error:|❌|failed|Failed|Exception" | head -3 | tr '\n' ' ' | sed 's/["\x1b\[]//g' | sed 's/\[0m//g' | cut -c1-500)
+          # Extract error message for Backstage reporting
+          # Try to extract from Claude JSON output first (handles authentication errors, API errors)
+          ERROR_MSG=$(echo "$OUTPUT1" | grep -o '"result":"[^"]*"' | sed 's/"result":"//;s/"$//' | head -1)
+
+          # If no JSON result, try extracting from plain text error indicators
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG=$(echo "$OUTPUT1" | tail -30 | grep -E "Error:|error:|❌|failed|Failed|Exception" | grep -v "disable exit-on-error" | head -3 | tr '\n' ' ')
+          fi
+
+          # Clean up ANSI codes, quotes, and truncate
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/["\x1b\[]//g' | sed 's/\[0m//g' | cut -c1-500)
+
+          # Final fallback
           if [ -z "$ERROR_MSG" ]; then
             ERROR_MSG="Requirements document creation failed with exit code $EXIT_CODE1. Check workflow logs for details."
           fi
+
           echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
           echo "WORKFLOW_ERROR_STEP=create-requirement-doc" >> $GITHUB_ENV
 
@@ -871,11 +883,23 @@ runs:
           echo "❌ Requirements document creation failed with exit code $EXIT_CODE1"
           echo "See error output above for details"
 
-          # Extract error message for Backstage reporting (last 20 lines, find error indicators)
-          ERROR_MSG=$(echo "$OUTPUT1" | tail -20 | grep -E "Error:|error:|❌|failed|Failed|Exception" | head -3 | tr '\n' ' ' | sed 's/["\x1b\[]//g' | sed 's/\[0m//g' | cut -c1-500)
+          # Extract error message for Backstage reporting
+          # Try to extract from Claude JSON output first (handles authentication errors, API errors)
+          ERROR_MSG=$(echo "$OUTPUT1" | grep -o '"result":"[^"]*"' | sed 's/"result":"//;s/"$//' | head -1)
+
+          # If no JSON result, try extracting from plain text error indicators
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG=$(echo "$OUTPUT1" | tail -30 | grep -E "Error:|error:|❌|failed|Failed|Exception" | grep -v "disable exit-on-error" | head -3 | tr '\n' ' ')
+          fi
+
+          # Clean up ANSI codes, quotes, and truncate
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/["\x1b\[]//g' | sed 's/\[0m//g' | cut -c1-500)
+
+          # Final fallback
           if [ -z "$ERROR_MSG" ]; then
             ERROR_MSG="Requirements document creation failed with exit code $EXIT_CODE1. Check workflow logs for details."
           fi
+
           echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
           echo "WORKFLOW_ERROR_STEP=create-requirement-doc" >> $GITHUB_ENV
 
