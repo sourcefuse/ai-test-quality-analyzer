@@ -186,6 +186,9 @@ async function main() {
       } catch (error) {
         // Not JSON or couldn't parse, that's okay
       }
+
+      // Explicitly exit with code 0 on success
+      process.exit(0);
     } else {
       console.error(`❌ Claude command failed with exit code: ${code}`);
       process.exit(code);
