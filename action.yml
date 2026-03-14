@@ -923,8 +923,8 @@ runs:
           # Clean ANSI codes, remove JSON structures, convert to plain text
           ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g')
 
-          # Convert JSON to plain text: remove braces, quotes, colons, backslashes - keep just readable message
-          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/{[^}]*}//g' | sed 's/[{}":,]//g' | sed 's/\\//g' | tr -s ' ')
+          # Convert JSON to plain text: remove formatting characters but keep message content
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/[{}":,\\]//g' | tr -s ' ')
 
           # Truncate and trim
           ERROR_MSG=$(echo "$ERROR_MSG" | cut -c1-500 | sed 's/^ *//;s/ *$//')
@@ -1027,8 +1027,8 @@ runs:
           # Clean ANSI codes, remove JSON structures, convert to plain text
           ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g')
 
-          # Convert JSON to plain text: remove braces, quotes, colons, backslashes - keep just readable message
-          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/{[^}]*}//g' | sed 's/[{}":,]//g' | sed 's/\\//g' | tr -s ' ')
+          # Convert JSON to plain text: remove formatting characters but keep message content
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/[{}":,\\]//g' | tr -s ' ')
 
           # Truncate and trim
           ERROR_MSG=$(echo "$ERROR_MSG" | cut -c1-500 | sed 's/^ *//;s/ *$//')
