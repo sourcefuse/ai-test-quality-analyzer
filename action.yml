@@ -1235,6 +1235,7 @@ runs:
         RUN_NUMBER: ${{ github.run_number }}
         BRANCH_NAME: ${{ github.head_ref }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_CREATOR: ${{ github.event.pull_request.user.login }}
         RUN_TIMESTAMP: ${{ github.event.created_at }}
       run: |
         echo "📊 Reporting test quality metrics to Backstage..."
@@ -1271,6 +1272,7 @@ runs:
             "confluence_url": "'"$CONFLUENCE_URL"'",
             "branch_name": "'"$BRANCH_NAME"'",
             "pr_number": '"${PR_NUMBER:-0}"',
+            "pr_creator": "'"${PR_CREATOR:-unknown}"'",
             "run_timestamp": "'"${RUN_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"'"
           }' \
           --max-time 10 \
@@ -1463,6 +1465,7 @@ runs:
         RUN_NUMBER: ${{ github.run_number }}
         BRANCH_NAME: ${{ github.head_ref }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
+        PR_CREATOR: ${{ github.event.pull_request.user.login }}
         RUN_TIMESTAMP: ${{ github.event.created_at }}
         JOB_STATUS: ${{ job.status }}
       run: |
@@ -1545,6 +1548,7 @@ runs:
             "confluence_url": "'"$CONFLUENCE_URL"'",
             "branch_name": "'"$BRANCH_NAME"'",
             "pr_number": '"${PR_NUMBER:-0}"',
+            "pr_creator": "'"${PR_CREATOR:-unknown}"'",
             "run_timestamp": "'"${RUN_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"'",
             "is_error": true,
             "error_message": "'"$ERROR_MSG_SAFE"'",
