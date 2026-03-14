@@ -1127,3 +1127,85 @@ runs:
         echo "::error::Test quality score (${SCORE}/10) is below minimum threshold (${THRESHOLD}/10). Gap: ${GAP} points. This PR requires additional test coverage before it can be merged."
 
         exit 1
+
+    - name: Report Failure to Backstage Test Quality Tracker
+      if: failure()
+      shell: bash
+      env:
+        TEST_QUALITY_SCORE: ${{ steps.extract_score.outputs.score }}
+        SCORE_PASSED: 'false'
+        MINIMUM_SCORE: ${{ inputs.minimum_score }}
+        AI_TYPE: ${{ inputs.ai_type }}
+        AWS_BEDROCK_MODEL: ${{ inputs.aws_bedrock_model }}
+        ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
+        BEDROCK_COST: ${{ steps.bedrock_analysis.outputs.total_cost }}
+        GLM_COST: ${{ steps.glm_analysis.outputs.total_cost }}
+        CONFLUENCE_URL: ${{ steps.upload_confluence.outputs.confluence_url }}
+        JIRA_TICKET_ID: ${{ inputs.jira_ticket_id }}
+        REPO_NAME: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        RUN_NUMBER: ${{ github.run_number }}
+        BRANCH_NAME: ${{ github.head_ref }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        RUN_TIMESTAMP: ${{ github.event.created_at }}
+        JOB_STATUS: ${{ job.status }}
+      run: |
+        echo "📊 Reporting workflow failure to Backstage..."
+
+        # Determine model name and provider based on ai_type
+        if [ "$AI_TYPE" == "1" ] || [ -z "$AI_TYPE" ]; then
+          MODEL_NAME="${AWS_BEDROCK_MODEL:-us.anthropic.claude-3-5-sonnet-20241022-v2:0}"
+          AI_PROVIDER="aws_bedrock"
+          ACTUAL_COST="${BEDROCK_COST:-0}"
+        else
+          MODEL_NAME="${ANTHROPIC_MODEL:-sonnet[1m]}"
+          AI_PROVIDER="glm"
+          ACTUAL_COST="${GLM_COST:-0}"
+        fi
+
+        # Use actual cost from analysis steps (defaults to 0 if not available)
+        TOTAL_COST="${ACTUAL_COST:-0}"
+
+        # Determine error message based on what failed
+        if [ -z "$TEST_QUALITY_SCORE" ] || [ "$TEST_QUALITY_SCORE" == "" ]; then
+          ERROR_MSG="Workflow failed during analysis - no quality score generated. Check logs for details."
+          ERROR_STEP="analysis"
+          QUALITY_SCORE="0"
+        else
+          ERROR_MSG="Test quality score (${TEST_QUALITY_SCORE}/10) below threshold (${MINIMUM_SCORE}/10)"
+          ERROR_STEP="quality_check"
+          QUALITY_SCORE="$TEST_QUALITY_SCORE"
+        fi
+
+        echo "⚠️  Error: $ERROR_MSG"
+        echo "💰 Total AI Cost: \$$TOTAL_COST"
+
+        # Send error data to Backstage (|| true ensures this doesn't fail the workflow)
+        curl -X POST https://sf-portal.sourcef.us/api/test-quality-tracker/record \
+          -H "Content-Type: application/json" \
+          -d '{
+            "repo_name": "'"$REPO_NAME"'",
+            "runner_id": "'"$RUN_ID"'",
+            "workflow_run_number": '"${RUN_NUMBER:-0}"',
+            "jira_ticket_id": "'"$JIRA_TICKET_ID"'",
+            "quality_score": '"${QUALITY_SCORE}"',
+            "score_passed": false,
+            "minimum_score": '"${MINIMUM_SCORE:-6.0}"',
+            "model_name": "'"$MODEL_NAME"'",
+            "ai_provider": "'"$AI_PROVIDER"'",
+            "aws_cost": '"${TOTAL_COST}"',
+            "confluence_url": "'"$CONFLUENCE_URL"'",
+            "branch_name": "'"$BRANCH_NAME"'",
+            "pr_number": '"${PR_NUMBER:-0}"',
+            "run_timestamp": "'"${RUN_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"'",
+            "is_error": true,
+            "error_message": "'"$ERROR_MSG"'",
+            "error_step": "'"$ERROR_STEP"'",
+            "job_status": "'"$JOB_STATUS"'"
+          }' \
+          --max-time 10 \
+          --silent \
+          --show-error \
+          || echo "⚠️  Failed to report error to Backstage (non-critical, continuing...)"
+
+        echo "✅ Error reporting completed (or skipped if unavailable)"
