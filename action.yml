@@ -178,6 +178,74 @@ runs:
       with:
         node-version: "20"
 
+    - name: Validate Required Configuration
+      shell: bash
+      env:
+        JIRA_URL: ${{ inputs.jira_url }}
+        JIRA_EMAIL: ${{ inputs.jira_email }}
+        JIRA_API_TOKEN: ${{ inputs.jira_api_token }}
+        CONFLUENCE_URL: ${{ inputs.confluence_url }}
+        CONFLUENCE_EMAIL: ${{ inputs.confluence_email }}
+        CONFLUENCE_API_TOKEN: ${{ inputs.confluence_api_token }}
+        AWS_REGION: ${{ inputs.aws_region_bedrock }}
+        AWS_ACCESS_KEY: ${{ inputs.aws_access_key_bedrock }}
+        AWS_SECRET_KEY: ${{ inputs.aws_secret_key_bedrock }}
+        AI_TYPE: ${{ inputs.ai_type }}
+        ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
+        ANTHROPIC_AUTH_TOKEN: ${{ inputs.anthropic_auth_token }}
+      run: |
+        echo "============================================================"
+        echo "🔍 Validating Required Configuration"
+        echo "============================================================"
+        MISSING_CONFIGS=()
+
+        # Check JIRA configuration
+        [[ -z "$JIRA_URL" ]] && MISSING_CONFIGS+=("jira_url")
+        [[ -z "$JIRA_EMAIL" ]] && MISSING_CONFIGS+=("jira_email")
+        [[ -z "$JIRA_API_TOKEN" ]] && MISSING_CONFIGS+=("jira_api_token")
+
+        # Check Confluence configuration
+        [[ -z "$CONFLUENCE_URL" ]] && MISSING_CONFIGS+=("confluence_url")
+        [[ -z "$CONFLUENCE_EMAIL" ]] && MISSING_CONFIGS+=("confluence_email")
+        [[ -z "$CONFLUENCE_API_TOKEN" ]] && MISSING_CONFIGS+=("confluence_api_token")
+
+        # Check AI provider configuration based on ai_type
+        if [[ "$AI_TYPE" == "1" ]]; then
+          # Claude with Bedrock
+          [[ -z "$AWS_REGION" ]] && MISSING_CONFIGS+=("aws_region_bedrock")
+          [[ -z "$AWS_ACCESS_KEY" ]] && MISSING_CONFIGS+=("aws_access_key_bedrock")
+          [[ -z "$AWS_SECRET_KEY" ]] && MISSING_CONFIGS+=("aws_secret_key_bedrock")
+        elif [[ "$AI_TYPE" == "2" ]]; then
+          # Claude with GLM
+          [[ -z "$ANTHROPIC_BASE_URL" ]] && MISSING_CONFIGS+=("anthropic_base_url")
+          [[ -z "$ANTHROPIC_AUTH_TOKEN" ]] && MISSING_CONFIGS+=("anthropic_auth_token")
+        fi
+
+        # Report validation results
+        if [ ${#MISSING_CONFIGS[@]} -gt 0 ]; then
+          echo "============================================================"
+          echo "❌ Error occurred:"
+          echo "============================================================"
+          echo "Message: Missing required configuration parameters"
+          echo "Missing fields: ${MISSING_CONFIGS[*]}"
+          echo "============================================================"
+          echo ""
+          echo "Please ensure the following parameters are provided:"
+          for config in "${MISSING_CONFIGS[@]}"; do
+            echo "  - $config"
+          done
+          echo ""
+          echo "For GitHub Actions workflows, ensure these are set in your workflow file:"
+          echo "  Repository secrets: https://github.com/YOUR-ORG/YOUR-REPO/settings/secrets/actions"
+          echo "  Action inputs: Check the 'with:' section in your workflow file"
+          echo ""
+          exit 1
+        fi
+
+        echo "✅ All required configuration validated successfully"
+        echo "============================================================"
+        echo ""
+
     - name: Set analysis path
       id: set_analysis_path
       shell: bash
