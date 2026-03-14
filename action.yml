@@ -1507,8 +1507,10 @@ runs:
           ACTUAL_COST="${GLM_COST:-0}"
         fi
 
-        # Use actual cost from analysis steps (defaults to 0 if not available)
-        TOTAL_COST="${ACTUAL_COST:-0}"
+        # On error, send blank values for optional fields (not 0, but empty string)
+        TOTAL_COST=""
+        QUALITY_SCORE=""
+        CONFLUENCE_URL=""
 
         # Determine error message based on what failed
         echo "🔍 DEBUG: Determining error source..."
@@ -1517,7 +1519,6 @@ runs:
         if [ -f "/tmp/workflow_error_message.txt" ]; then
           ERROR_MSG=$(cat /tmp/workflow_error_message.txt)
           ERROR_STEP=$(cat /tmp/workflow_error_step.txt 2>/dev/null || echo "analysis")
-          QUALITY_SCORE="0"
           echo "🔍 DEBUG: Using captured error from file"
           echo "🔍 DEBUG: Error Step = $ERROR_STEP"
           echo "🔍 DEBUG: Error Message = $ERROR_MSG"
@@ -1526,25 +1527,22 @@ runs:
           MISSING_FIELDS="${VALIDATION_MISSING_FIELDS:-unknown}"
           ERROR_MSG="Configuration validation failed - missing required parameters: ${MISSING_FIELDS}. Check workflow secrets and inputs."
           ERROR_STEP="validation"
-          QUALITY_SCORE="0"
           echo "🔍 DEBUG: Using validation failure error"
         # Priority 3: No score generated (generic fallback)
         elif [ -z "$TEST_QUALITY_SCORE" ] || [ "$TEST_QUALITY_SCORE" == "" ]; then
           ERROR_MSG="Workflow failed during analysis - no quality score generated. Check logs for details."
           ERROR_STEP="analysis"
-          QUALITY_SCORE="0"
           echo "🔍 DEBUG: Using generic fallback (no score)"
         # Priority 4: Score below threshold
         else
           ERROR_MSG="Test quality score (${TEST_QUALITY_SCORE}/10) below threshold (${MINIMUM_SCORE}/10)"
           ERROR_STEP="quality_check"
-          QUALITY_SCORE="$TEST_QUALITY_SCORE"
           echo "🔍 DEBUG: Using score below threshold error"
         fi
 
         echo ""
         echo "⚠️  Error: $ERROR_MSG"
-        echo "💰 Total AI Cost: \$$TOTAL_COST"
+        echo "💰 Total AI Cost: (blank on error)"
         echo ""
 
         # Simple escaping for plain text: only escape quotes for JSON string safety
@@ -1552,10 +1550,13 @@ runs:
         echo "🔍 DEBUG: Sending to Backstage:"
         echo "   error_message: $ERROR_MSG_SAFE"
         echo "   error_step: $ERROR_STEP"
-        echo "   quality_score: $QUALITY_SCORE"
+        echo "   quality_score: (blank)"
+        echo "   confluence_url: (blank)"
+        echo "   aws_cost: (blank)"
         echo ""
 
         # Send error data to Backstage (|| true ensures this doesn't fail the workflow)
+        # On error: quality_score, confluence_url, and aws_cost are sent as empty strings (blank)
         echo "🔍 DEBUG: Sending POST to Backstage API..."
         BACKSTAGE_RESPONSE=$(curl -X POST https://sf-portal.sourcef.us/api/test-quality-tracker/record \
           -H "Content-Type: application/json" \
@@ -1564,12 +1565,12 @@ runs:
             "runner_id": "'"$RUN_ID"'",
             "workflow_run_number": '"${RUN_NUMBER:-0}"',
             "jira_ticket_id": "'"$JIRA_TICKET_ID"'",
-            "quality_score": '"${QUALITY_SCORE}"',
+            "quality_score": "'"$QUALITY_SCORE"'",
             "score_passed": false,
             "minimum_score": '"${MINIMUM_SCORE:-6.0}"',
             "model_name": "'"$MODEL_NAME"'",
             "ai_provider": "'"$AI_PROVIDER"'",
-            "aws_cost": '"${TOTAL_COST}"',
+            "aws_cost": "'"$TOTAL_COST"'",
             "confluence_url": "'"$CONFLUENCE_URL"'",
             "branch_name": "'"$BRANCH_NAME"'",
             "pr_number": '"${PR_NUMBER:-0}"',
