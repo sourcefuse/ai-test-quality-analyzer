@@ -310,7 +310,7 @@ runs:
         AWS_BEDROCK_MODEL: ${{ inputs.aws_bedrock_model }}
         ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
         ANTHROPIC_AUTH_TOKEN: ${{ inputs.anthropic_auth_token }}
-        CLAUDE_VERBOSE_MODE: true
+        CLAUDE_VERBOSE_MODE: false
       run: |
         cd ${{ github.action_path }}
         echo "╔══════════════════════════════════════════════════════════════╗"

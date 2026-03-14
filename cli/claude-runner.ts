@@ -142,7 +142,9 @@ async function main() {
             if (finalResult.type === 'result') {
               console.log('\n📊 Final Summary:');
               console.log('================');
-              console.log(`❌ Error: ${finalResult.is_error || false}`);
+              if (finalResult.is_error) {
+                console.log(`❌ Error: true`);
+              }
               console.log(`💰 Cost: $${finalResult.total_cost_usd || 0}`);
 
               // Show token usage if available
@@ -163,7 +165,9 @@ async function main() {
           const jsonOutput = JSON.parse(stdoutData);
           console.log('\n📊 Claude Response Summary:');
           console.log('================');
-          console.log(`❌ Error: ${jsonOutput.is_error || false}`);
+          if (jsonOutput.is_error) {
+            console.log(`❌ Error: true`);
+          }
           console.log(`💰 Cost: $${jsonOutput.total_cost_usd || 0}`);
 
           // Show token usage if available
