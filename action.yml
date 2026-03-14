@@ -905,6 +905,9 @@ runs:
         EXIT_CODE1=$?
         set -e
         echo "$OUTPUT1"
+        echo ""
+        echo "🔍 DEBUG: create-requirement-doc exit code = $EXIT_CODE1"
+        echo ""
 
         if [ $EXIT_CODE1 -ne 0 ]; then
           echo ""
@@ -952,6 +955,9 @@ runs:
         EXIT_CODE2=$?
         set -e
         echo "$OUTPUT2"
+        echo ""
+        echo "🔍 DEBUG: analyze-test-quality exit code = $EXIT_CODE2"
+        echo ""
 
         if [ $EXIT_CODE2 -ne 0 ]; then
           echo ""
@@ -1009,6 +1015,9 @@ runs:
         EXIT_CODE1=$?
         set -e
         echo "$OUTPUT1"
+        echo ""
+        echo "🔍 DEBUG: create-requirement-doc exit code = $EXIT_CODE1"
+        echo ""
 
         if [ $EXIT_CODE1 -ne 0 ]; then
           echo ""
@@ -1056,6 +1065,9 @@ runs:
         EXIT_CODE2=$?
         set -e
         echo "$OUTPUT2"
+        echo ""
+        echo "🔍 DEBUG: analyze-test-quality exit code = $EXIT_CODE2"
+        echo ""
 
         if [ $EXIT_CODE2 -ne 0 ]; then
           echo ""
