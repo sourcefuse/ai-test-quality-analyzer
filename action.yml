@@ -1443,6 +1443,9 @@ runs:
         echo "⚠️  Error: $ERROR_MSG"
         echo "💰 Total AI Cost: \$$TOTAL_COST"
 
+        # Escape error message for JSON (replace backslashes, quotes, newlines, tabs)
+        ERROR_MSG_ESCAPED=$(echo "$ERROR_MSG" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | tr '\n' ' ' | tr '\t' ' ')
+
         # Send error data to Backstage (|| true ensures this doesn't fail the workflow)
         curl -X POST https://sf-portal.sourcef.us/api/test-quality-tracker/record \
           -H "Content-Type: application/json" \
@@ -1462,7 +1465,7 @@ runs:
             "pr_number": '"${PR_NUMBER:-0}"',
             "run_timestamp": "'"${RUN_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"'",
             "is_error": true,
-            "error_message": "'"$ERROR_MSG"'",
+            "error_message": "'"$ERROR_MSG_ESCAPED"'",
             "error_step": "'"$ERROR_STEP"'",
             "job_status": "'"$JOB_STATUS"'"
           }' \
