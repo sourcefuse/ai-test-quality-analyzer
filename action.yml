@@ -945,7 +945,10 @@ runs:
           exit 1
         fi
 
+        # Extract cost (disable exit-on-error for grep to prevent script exit if not found)
+        set +e
         COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        set -e
         COST1=${COST1:-0}
         echo "✅ Requirements document created (Cost: \$$COST1)"
         echo ""
@@ -977,7 +980,10 @@ runs:
           exit 1
         fi
 
+        # Extract cost (disable exit-on-error for grep to prevent script exit if not found)
+        set +e
         COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        set -e
         COST2=${COST2:-0}
         echo "✅ Test quality analysis completed (Cost: \$$COST2)"
 
@@ -1055,7 +1061,10 @@ runs:
           exit 1
         fi
 
+        # Extract cost (disable exit-on-error for grep to prevent script exit if not found)
+        set +e
         COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        set -e
         COST1=${COST1:-0}
         echo "✅ Requirements document created (Cost: \$$COST1)"
         echo ""
@@ -1087,7 +1096,10 @@ runs:
           exit 1
         fi
 
+        # Extract cost (disable exit-on-error for grep to prevent script exit if not found)
+        set +e
         COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        set -e
         COST2=${COST2:-0}
         echo "✅ Test quality analysis completed (Cost: \$$COST2)"
 
