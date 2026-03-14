@@ -179,6 +179,7 @@ runs:
         node-version: "20"
 
     - name: Validate Required Configuration
+      id: validate_config
       shell: bash
       env:
         JIRA_URL: ${{ inputs.jira_url }}
@@ -223,11 +224,13 @@ runs:
 
         # Report validation results
         if [ ${#MISSING_CONFIGS[@]} -gt 0 ]; then
+          MISSING_FIELDS="${MISSING_CONFIGS[*]}"
+          echo "VALIDATION_MISSING_FIELDS=$MISSING_FIELDS" >> $GITHUB_ENV
           echo "============================================================"
           echo "❌ Error occurred:"
           echo "============================================================"
           echo "Message: Missing required configuration parameters"
-          echo "Missing fields: ${MISSING_CONFIGS[*]}"
+          echo "Missing fields: $MISSING_FIELDS"
           echo "============================================================"
           echo ""
           echo "Please ensure the following parameters are provided:"
@@ -969,7 +972,7 @@ runs:
         fi
 
     - name: Report to Backstage Test Quality Tracker
-      if: always()
+      if: success()
       shell: bash
       env:
         TEST_QUALITY_SCORE: ${{ steps.extract_score.outputs.score }}
@@ -1235,7 +1238,12 @@ runs:
         TOTAL_COST="${ACTUAL_COST:-0}"
 
         # Determine error message based on what failed
-        if [ -z "$TEST_QUALITY_SCORE" ] || [ "$TEST_QUALITY_SCORE" == "" ]; then
+        if [ "${{ steps.validate_config.outcome }}" == "failure" ]; then
+          MISSING_FIELDS="${VALIDATION_MISSING_FIELDS:-unknown}"
+          ERROR_MSG="Configuration validation failed - missing required parameters: ${MISSING_FIELDS}. Check workflow secrets and inputs."
+          ERROR_STEP="validation"
+          QUALITY_SCORE="0"
+        elif [ -z "$TEST_QUALITY_SCORE" ] || [ "$TEST_QUALITY_SCORE" == "" ]; then
           ERROR_MSG="Workflow failed during analysis - no quality score generated. Check logs for details."
           ERROR_STEP="analysis"
           QUALITY_SCORE="0"
