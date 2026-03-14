@@ -685,6 +685,7 @@ runs:
 
     - name: Step 3 - Create Requirements document (GLM)
       if: inputs.ai_type == '2'
+      id: glm_analysis
       shell: bash
       env:
         ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
@@ -701,16 +702,32 @@ runs:
         echo "   Base URL: ${ANTHROPIC_BASE_URL:-not set}"
         echo "   Model: ${ANTHROPIC_MODEL:-default}"
         echo ""
-        npm run create-requirement-doc
-        echo "✅ Requirements document created"
+
+        # Capture cost from create-requirement-doc
+        OUTPUT1=$(npm run create-requirement-doc 2>&1)
+        echo "$OUTPUT1"
+        COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        COST1=${COST1:-0}
+        echo "✅ Requirements document created (Cost: \$$COST1)"
         echo ""
+
         echo "🔍 Analyzing unit test quality..."
-        npm run analyze-test-quality
-        echo "✅ Test quality analysis completed"
+        OUTPUT2=$(npm run analyze-test-quality 2>&1)
+        echo "$OUTPUT2"
+        COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        COST2=${COST2:-0}
+        echo "✅ Test quality analysis completed (Cost: \$$COST2)"
+
+        # Calculate total cost
+        TOTAL_COST=$(awk -v c1="$COST1" -v c2="$COST2" 'BEGIN { printf "%.4f", c1 + c2 }')
+        echo ""
+        echo "💰 Total AI Cost: \$$TOTAL_COST"
+        echo "total_cost=$TOTAL_COST" >> $GITHUB_OUTPUT
         echo "═══════════════════════════════════════════════════════════════"
 
     - name: Step 3 - Create Requirements document (Bedrock)
       if: inputs.ai_type == '1' || inputs.ai_type == ''
+      id: bedrock_analysis
       shell: bash
       env:
         CLAUDE_CODE_USE_BEDROCK: "1"
@@ -729,12 +746,27 @@ runs:
         echo "   AWS Region: ${AWS_REGION:-not set}"
         echo "   Model: ${ANTHROPIC_MODEL:-default}"
         echo ""
-        npm run create-requirement-doc
-        echo "✅ Requirements document created"
+
+        # Capture cost from create-requirement-doc
+        OUTPUT1=$(npm run create-requirement-doc 2>&1)
+        echo "$OUTPUT1"
+        COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        COST1=${COST1:-0}
+        echo "✅ Requirements document created (Cost: \$$COST1)"
         echo ""
+
         echo "🔍 Analyzing unit test quality..."
-        npm run analyze-test-quality
-        echo "✅ Test quality analysis completed"
+        OUTPUT2=$(npm run analyze-test-quality 2>&1)
+        echo "$OUTPUT2"
+        COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        COST2=${COST2:-0}
+        echo "✅ Test quality analysis completed (Cost: \$$COST2)"
+
+        # Calculate total cost
+        TOTAL_COST=$(awk -v c1="$COST1" -v c2="$COST2" 'BEGIN { printf "%.4f", c1 + c2 }')
+        echo ""
+        echo "💰 Total AI Cost: \$$TOTAL_COST"
+        echo "total_cost=$TOTAL_COST" >> $GITHUB_OUTPUT
         echo "═══════════════════════════════════════════════════════════════"
 
     - name: Extract analysis paths
@@ -878,6 +910,8 @@ runs:
         AI_TYPE: ${{ inputs.ai_type }}
         AWS_BEDROCK_MODEL: ${{ inputs.aws_bedrock_model }}
         ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
+        BEDROCK_COST: ${{ steps.bedrock_analysis.outputs.total_cost }}
+        GLM_COST: ${{ steps.glm_analysis.outputs.total_cost }}
         CONFLUENCE_URL: ${{ steps.upload_confluence.outputs.confluence_url }}
         JIRA_TICKET_ID: ${{ inputs.jira_ticket_id }}
         REPO_NAME: ${{ github.repository }}
@@ -893,23 +927,16 @@ runs:
         if [ "$AI_TYPE" == "1" ] || [ -z "$AI_TYPE" ]; then
           MODEL_NAME="${AWS_BEDROCK_MODEL:-us.anthropic.claude-3-5-sonnet-20241022-v2:0}"
           AI_PROVIDER="aws_bedrock"
+          ACTUAL_COST="${BEDROCK_COST:-0}"
         else
           MODEL_NAME="${ANTHROPIC_MODEL:-sonnet[1m]}"
           AI_PROVIDER="glm"
+          ACTUAL_COST="${GLM_COST:-0}"
         fi
 
-        # Estimate AWS cost (rough approximation)
-        # Typical analysis: ~100K input tokens, ~20K output tokens
-        # Sonnet: $3/M input, $15/M output = $0.30 + $0.30 = $0.60
-        # Opus: $15/M input, $75/M output = $1.50 + $1.50 = $3.00
-        # Haiku: $0.25/M input, $1.25/M output = $0.025 + $0.025 = $0.05
-        if echo "$MODEL_NAME" | grep -qi "opus"; then
-          ESTIMATED_COST="3.00"
-        elif echo "$MODEL_NAME" | grep -qi "haiku"; then
-          ESTIMATED_COST="0.05"
-        else
-          ESTIMATED_COST="0.60"
-        fi
+        # Use actual cost from analysis steps (defaults to 0 if not available)
+        TOTAL_COST="${ACTUAL_COST:-0}"
+        echo "💰 Total AI Cost: \$$TOTAL_COST"
 
         # Send data to Backstage (|| true ensures this doesn't fail the workflow)
         curl -X POST https://sf-portal.sourcef.us/api/test-quality-tracker/record \
@@ -924,7 +951,7 @@ runs:
             "minimum_score": '"${MINIMUM_SCORE:-6.0}"',
             "model_name": "'"$MODEL_NAME"'",
             "ai_provider": "'"$AI_PROVIDER"'",
-            "aws_cost": '"${ESTIMATED_COST}"',
+            "aws_cost": '"${TOTAL_COST}"',
             "confluence_url": "'"$CONFLUENCE_URL"'",
             "branch_name": "'"$BRANCH_NAME"'",
             "pr_number": '"${PR_NUMBER:-0}"',
