@@ -16,31 +16,31 @@
   "license": "ISC",
   "description": "Unit test case checker",
   "overrides": {
-    "qs": "^6.14.1",
-    "undici": "^7.18.2",
-    "diff": "^8.0.3"
+    "qs": "6.14.1",
+    "undici": "7.18.2",
+    "diff": "8.0.3"
   },
   "pnpm": {
     "overrides": {
-      "qs": "^6.14.1",
-      "undici": "^7.18.2",
-      "diff": "^8.0.3"
+      "qs": "6.14.1",
+      "undici": "7.18.2",
+      "diff": "8.0.3"
     }
   },
   "devDependencies": {
-    "@types/node": "^24.9.2",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "@types/node": "24.9.2",
+    "ts-node": "10.9.2",
+    "typescript": "5.9.3"
   },
   "dependencies": {
-    "@types/pg": "^8.15.6",
-    "axios": "^1.13.1",
-    "cheerio": "^1.1.2",
-    "confluence.js": "^2.1.0",
-    "dotenv": "^17.2.3",
-    "dotenv-extended": "^2.9.0",
-    "openai": "^6.8.1",
-    "pg": "^8.16.3"
+    "@types/pg": "8.15.6",
+    "axios": "1.13.1",
+    "cheerio": "1.1.2",
+    "confluence.js": "2.1.0",
+    "dotenv": "17.2.3",
+    "dotenv-extended": "2.9.0",
+    "openai": "6.8.1",
+    "pg": "8.16.3"
   },
   "packageManager": "pnpm@10.30.2+sha512.36cdc707e7b7940a988c9c1ecf88d084f8514b5c3f085f53a2e244c2921d3b2545bc20dd4ebe1fc245feec463bb298aecea7a63ed1f7680b877dc6379d8d0cb4"
 }
