@@ -279,8 +279,9 @@ runs:
       shell: bash
       run: |
         cd ${{ github.action_path }}
-        echo "📦 Installing npm dependencies..."
-        npm install
+        echo "📦 Installing pnpm and dependencies..."
+        npm install -g pnpm
+        pnpm install
 
         echo ""
         echo "🤖 Installing Claude Code CLI globally..."
@@ -329,9 +330,9 @@ runs:
         echo ""
 
         # Test with a simple "Hi" prompt
-        echo "🔍 DEBUG: Running 'npm run test-ai-connection'..."
+        echo "🔍 DEBUG: Running 'pnpm run test-ai-connection'..."
         set +e
-        TEST_OUTPUT=$(npm run test-ai-connection 2>&1)
+        TEST_OUTPUT=$(pnpm run test-ai-connection 2>&1)
         TEST_EXIT_CODE=$?
         set -e
 
@@ -825,7 +826,7 @@ runs:
         if [ "$SKIP_CONFLUENCE_FETCH" == "true" ]; then
           echo "   ℹ️  SKIP_CONFLUENCE_FETCH=true (cache loaded)"
         fi
-        npm run start
+        pnpm run start
         echo "✅ Data fetched successfully"
 
     - name: Step 2 - Fetch Confluence with RAG
@@ -836,7 +837,7 @@ runs:
       run: |
         cd "$ACTION_PATH"
         echo "🔄 Fetching Confluence data using RAG-based approach..."
-        npm run process:jira
+        pnpm run process:jira
         echo "✅ Confluence RAG data fetched successfully"
 
     - name: Skip Confluence RAG fetch (cache hit)
@@ -901,7 +902,7 @@ runs:
 
         # Capture cost from create-requirement-doc (disable exit-on-error to show output)
         set +e
-        OUTPUT1=$(npm run create-requirement-doc 2>&1)
+        OUTPUT1=$(pnpm run create-requirement-doc 2>&1)
         EXIT_CODE1=$?
         set -e
         echo "$OUTPUT1"
@@ -951,7 +952,7 @@ runs:
 
         echo "🔍 Analyzing unit test quality..."
         set +e
-        OUTPUT2=$(npm run analyze-test-quality 2>&1)
+        OUTPUT2=$(pnpm run analyze-test-quality 2>&1)
         EXIT_CODE2=$?
         set -e
         echo "$OUTPUT2"
@@ -1011,7 +1012,7 @@ runs:
 
         # Capture cost from create-requirement-doc (disable exit-on-error to show output)
         set +e
-        OUTPUT1=$(npm run create-requirement-doc 2>&1)
+        OUTPUT1=$(pnpm run create-requirement-doc 2>&1)
         EXIT_CODE1=$?
         set -e
         echo "$OUTPUT1"
@@ -1061,7 +1062,7 @@ runs:
 
         echo "🔍 Analyzing unit test quality..."
         set +e
-        OUTPUT2=$(npm run analyze-test-quality 2>&1)
+        OUTPUT2=$(pnpm run analyze-test-quality 2>&1)
         EXIT_CODE2=$?
         set -e
         echo "$OUTPUT2"
@@ -1214,7 +1215,7 @@ runs:
         cd ${{ github.action_path }}
         echo "📤 Uploading results to Confluence..."
         echo "   Score: ${TEST_QUALITY_SCORE}/10 (Threshold: ${MINIMUM_SCORE_THRESHOLD})"
-        OUTPUT=$(npm run upload-requirements 2>&1)
+        OUTPUT=$(pnpm run upload-requirements 2>&1)
         echo "$OUTPUT"
 
         # Extract Confluence URL from output
