@@ -275,6 +275,73 @@ runs:
         npm install
         npm install -g @anthropic-ai/claude-code
 
+    - name: Test AI Connectivity
+      id: test_ai_connectivity
+      shell: bash
+      env:
+        AI_TYPE: ${{ inputs.ai_type }}
+        AWS_REGION: ${{ inputs.aws_region_bedrock }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.aws_access_key_bedrock }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.aws_secret_key_bedrock }}
+        ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
+        AWS_BEDROCK_MODEL: ${{ inputs.aws_bedrock_model }}
+        ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
+        ANTHROPIC_AUTH_TOKEN: ${{ inputs.anthropic_auth_token }}
+      run: |
+        cd ${{ github.action_path }}
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║           🔌 TESTING AI CONNECTIVITY                         ║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo ""
+        echo "📡 Testing Claude API connection with simple prompt..."
+        echo "   AI Type: ${AI_TYPE} (1=Bedrock, 2=GLM)"
+        echo ""
+
+        # Test with a simple "Hi" prompt
+        set +e
+        TEST_OUTPUT=$(npm run test-ai-connection 2>&1)
+        TEST_EXIT_CODE=$?
+        set -e
+
+        echo "$TEST_OUTPUT"
+
+        if [ $TEST_EXIT_CODE -ne 0 ]; then
+          echo ""
+          echo "❌ AI connectivity test FAILED"
+          echo ""
+
+          # Extract error from JSON output or plain text
+          ERROR_MSG=$(echo "$TEST_OUTPUT" | grep -o '"result":"[^"]*"' | sed 's/"result":"//;s/"$//' | head -1)
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG=$(echo "$TEST_OUTPUT" | tail -20 | grep -E "Error:|error:|❌|failed|Failed|Exception|403|401|500" | head -2 | tr '\n' ' ')
+          fi
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/["\x1b\[]//g' | cut -c1-300)
+
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG="AI connectivity test failed. Unable to communicate with Claude API."
+          fi
+
+          echo "🔍 Error Details: $ERROR_MSG"
+          echo ""
+          echo "Common issues:"
+          echo "  • Invalid AWS credentials (ai_type=1)"
+          echo "  • Incorrect AWS region or Bedrock model ID"
+          echo "  • GLM endpoint unreachable or invalid auth token (ai_type=2)"
+          echo "  • Network connectivity issues"
+          echo ""
+
+          # Export error for Backstage reporting
+          echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
+          echo "WORKFLOW_ERROR_STEP=ai_connectivity_test" >> $GITHUB_ENV
+
+          exit 1
+        fi
+
+        echo ""
+        echo "✅ AI connectivity test PASSED - Claude API is reachable and responding"
+        echo "============================================================"
+        echo ""
+
     - name: Debug - Print Configuration
       shell: bash
       run: |

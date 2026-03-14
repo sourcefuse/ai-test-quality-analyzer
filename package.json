@@ -8,7 +8,8 @@
     "upload-requirements": "npx ts-node cli/upload-requirements-to-confluence.ts",
     "create-requirement-doc": "npm run claude prompts/create-requirement.md",
     "analyze-test-quality": "npm run claude prompts/analyze-test-quality.md",
-    "process:jira": "npx ts-node cli/process-jira-with-rag-search.ts"
+    "process:jira": "npx ts-node cli/process-jira-with-rag-search.ts",
+    "test-ai-connection": "npm run claude prompts/test-connection.md"
   },
   "keywords": [],
   "author": "Vishal Gupta",
