@@ -774,17 +774,39 @@ runs:
         echo "   Model: ${ANTHROPIC_MODEL:-default}"
         echo ""
 
-        # Capture cost from create-requirement-doc
+        # Capture cost from create-requirement-doc (disable exit-on-error to show output)
+        set +e
         OUTPUT1=$(npm run create-requirement-doc 2>&1)
+        EXIT_CODE1=$?
+        set -e
         echo "$OUTPUT1"
+
+        if [ $EXIT_CODE1 -ne 0 ]; then
+          echo ""
+          echo "❌ Requirements document creation failed with exit code $EXIT_CODE1"
+          echo "See error output above for details"
+          exit 1
+        fi
+
         COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
         COST1=${COST1:-0}
         echo "✅ Requirements document created (Cost: \$$COST1)"
         echo ""
 
         echo "🔍 Analyzing unit test quality..."
+        set +e
         OUTPUT2=$(npm run analyze-test-quality 2>&1)
+        EXIT_CODE2=$?
+        set -e
         echo "$OUTPUT2"
+
+        if [ $EXIT_CODE2 -ne 0 ]; then
+          echo ""
+          echo "❌ Test quality analysis failed with exit code $EXIT_CODE2"
+          echo "See error output above for details"
+          exit 1
+        fi
+
         COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
         COST2=${COST2:-0}
         echo "✅ Test quality analysis completed (Cost: \$$COST2)"
@@ -818,17 +840,39 @@ runs:
         echo "   Model: ${ANTHROPIC_MODEL:-default}"
         echo ""
 
-        # Capture cost from create-requirement-doc
+        # Capture cost from create-requirement-doc (disable exit-on-error to show output)
+        set +e
         OUTPUT1=$(npm run create-requirement-doc 2>&1)
+        EXIT_CODE1=$?
+        set -e
         echo "$OUTPUT1"
+
+        if [ $EXIT_CODE1 -ne 0 ]; then
+          echo ""
+          echo "❌ Requirements document creation failed with exit code $EXIT_CODE1"
+          echo "See error output above for details"
+          exit 1
+        fi
+
         COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
         COST1=${COST1:-0}
         echo "✅ Requirements document created (Cost: \$$COST1)"
         echo ""
 
         echo "🔍 Analyzing unit test quality..."
+        set +e
         OUTPUT2=$(npm run analyze-test-quality 2>&1)
+        EXIT_CODE2=$?
+        set -e
         echo "$OUTPUT2"
+
+        if [ $EXIT_CODE2 -ne 0 ]; then
+          echo ""
+          echo "❌ Test quality analysis failed with exit code $EXIT_CODE2"
+          echo "See error output above for details"
+          exit 1
+        fi
+
         COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
         COST2=${COST2:-0}
         echo "✅ Test quality analysis completed (Cost: \$$COST2)"
