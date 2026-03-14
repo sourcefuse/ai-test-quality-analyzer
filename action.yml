@@ -340,14 +340,8 @@ runs:
             ERROR_MSG=$(echo "$TEST_OUTPUT" | tail -20 | grep -E "Error:|error:|❌|failed|Failed|Exception|403|401|500" | head -2 | tr '\n' ' ')
           fi
 
-          # Clean ANSI codes, remove JSON structures, convert to plain text
-          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g')
-
-          # Convert JSON to plain text: remove braces, quotes, colons - keep just the readable message
-          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/{[^}]*}//g' | sed 's/[{}"]//g' | sed 's/\\//g' | tr -s ' ')
-
-          # Truncate and trim
-          ERROR_MSG=$(echo "$ERROR_MSG" | cut -c1-500 | sed 's/^ *//;s/ *$//')
+          # Clean ANSI codes and remove ALL JSON characters: { } " \ : ,
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g' | sed 's/[{}":,\\]//g' | tr -s ' ' | cut -c1-500 | sed 's/^ *//;s/ *$//')
 
           if [ -z "$ERROR_MSG" ]; then
             ERROR_MSG="AI connectivity test failed. Unable to communicate with Claude API."
