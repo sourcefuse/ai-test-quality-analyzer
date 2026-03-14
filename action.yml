@@ -786,6 +786,15 @@ runs:
           echo ""
           echo "❌ Requirements document creation failed with exit code $EXIT_CODE1"
           echo "See error output above for details"
+
+          # Extract error message for Backstage reporting (last 20 lines, find error indicators)
+          ERROR_MSG=$(echo "$OUTPUT1" | tail -20 | grep -E "Error:|error:|❌|failed|Failed|Exception" | head -3 | tr '\n' ' ' | sed 's/["\x1b\[]//g' | sed 's/\[0m//g' | cut -c1-500)
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG="Requirements document creation failed with exit code $EXIT_CODE1. Check workflow logs for details."
+          fi
+          echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
+          echo "WORKFLOW_ERROR_STEP=create-requirement-doc" >> $GITHUB_ENV
+
           exit 1
         fi
 
@@ -805,6 +814,15 @@ runs:
           echo ""
           echo "❌ Test quality analysis failed with exit code $EXIT_CODE2"
           echo "See error output above for details"
+
+          # Extract error message for Backstage reporting
+          ERROR_MSG=$(echo "$OUTPUT2" | tail -20 | grep -E "Error:|error:|❌|failed|Failed|Exception" | head -3 | tr '\n' ' ' | sed 's/["\x1b\[]//g' | sed 's/\[0m//g' | cut -c1-500)
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG="Test quality analysis failed with exit code $EXIT_CODE2. Check workflow logs for details."
+          fi
+          echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
+          echo "WORKFLOW_ERROR_STEP=analyze-test-quality" >> $GITHUB_ENV
+
           exit 1
         fi
 
@@ -852,6 +870,15 @@ runs:
           echo ""
           echo "❌ Requirements document creation failed with exit code $EXIT_CODE1"
           echo "See error output above for details"
+
+          # Extract error message for Backstage reporting (last 20 lines, find error indicators)
+          ERROR_MSG=$(echo "$OUTPUT1" | tail -20 | grep -E "Error:|error:|❌|failed|Failed|Exception" | head -3 | tr '\n' ' ' | sed 's/["\x1b\[]//g' | sed 's/\[0m//g' | cut -c1-500)
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG="Requirements document creation failed with exit code $EXIT_CODE1. Check workflow logs for details."
+          fi
+          echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
+          echo "WORKFLOW_ERROR_STEP=create-requirement-doc" >> $GITHUB_ENV
+
           exit 1
         fi
 
@@ -871,6 +898,15 @@ runs:
           echo ""
           echo "❌ Test quality analysis failed with exit code $EXIT_CODE2"
           echo "See error output above for details"
+
+          # Extract error message for Backstage reporting
+          ERROR_MSG=$(echo "$OUTPUT2" | tail -20 | grep -E "Error:|error:|❌|failed|Failed|Exception" | head -3 | tr '\n' ' ' | sed 's/["\x1b\[]//g' | sed 's/\[0m//g' | cut -c1-500)
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG="Test quality analysis failed with exit code $EXIT_CODE2. Check workflow logs for details."
+          fi
+          echo "WORKFLOW_ERROR_MESSAGE=$ERROR_MSG" >> $GITHUB_ENV
+          echo "WORKFLOW_ERROR_STEP=analyze-test-quality" >> $GITHUB_ENV
+
           exit 1
         fi
 
@@ -1283,15 +1319,23 @@ runs:
         TOTAL_COST="${ACTUAL_COST:-0}"
 
         # Determine error message based on what failed
-        if [ "${{ steps.validate_config.outcome }}" == "failure" ]; then
+        # Priority 1: Use captured error from npm command failures (most specific)
+        if [ -n "${WORKFLOW_ERROR_MESSAGE:-}" ]; then
+          ERROR_MSG="$WORKFLOW_ERROR_MESSAGE"
+          ERROR_STEP="${WORKFLOW_ERROR_STEP:-analysis}"
+          QUALITY_SCORE="0"
+        # Priority 2: Configuration validation failure
+        elif [ "${{ steps.validate_config.outcome }}" == "failure" ]; then
           MISSING_FIELDS="${VALIDATION_MISSING_FIELDS:-unknown}"
           ERROR_MSG="Configuration validation failed - missing required parameters: ${MISSING_FIELDS}. Check workflow secrets and inputs."
           ERROR_STEP="validation"
           QUALITY_SCORE="0"
+        # Priority 3: No score generated (generic fallback)
         elif [ -z "$TEST_QUALITY_SCORE" ] || [ "$TEST_QUALITY_SCORE" == "" ]; then
           ERROR_MSG="Workflow failed during analysis - no quality score generated. Check logs for details."
           ERROR_STEP="analysis"
           QUALITY_SCORE="0"
+        # Priority 4: Score below threshold
         else
           ERROR_MSG="Test quality score (${TEST_QUALITY_SCORE}/10) below threshold (${MINIMUM_SCORE}/10)"
           ERROR_STEP="quality_check"
