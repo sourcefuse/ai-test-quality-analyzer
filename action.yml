@@ -317,8 +317,14 @@ runs:
             ERROR_MSG=$(echo "$TEST_OUTPUT" | tail -20 | grep -E "Error:|error:|❌|failed|Failed|Exception|403|401|500" | head -2 | tr '\n' ' ')
           fi
 
-          # Clean ANSI codes only, preserve JSON structure and content, then truncate
-          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g' | cut -c1-500)
+          # Clean ANSI codes, remove JSON structures, convert to plain text
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g')
+
+          # Convert JSON to plain text: remove braces, quotes, colons - keep just the readable message
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/{[^}]*}//g' | sed 's/[{}"]//g' | sed 's/\\//g' | tr -s ' ')
+
+          # Truncate and trim
+          ERROR_MSG=$(echo "$ERROR_MSG" | cut -c1-500 | sed 's/^ *//;s/ *$//')
 
           if [ -z "$ERROR_MSG" ]; then
             ERROR_MSG="AI connectivity test failed. Unable to communicate with Claude API."
@@ -333,7 +339,7 @@ runs:
           echo "  • Network connectivity issues"
           echo ""
 
-          # Export error for Backstage reporting (use file since $GITHUB_ENV doesn't persist across failing steps)
+          # Export simplified error for Backstage reporting (use file since $GITHUB_ENV doesn't persist across failing steps)
           echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
           echo "ai_connectivity_test" > /tmp/workflow_error_step.txt
 
@@ -866,15 +872,21 @@ runs:
             ERROR_MSG=$(echo "$OUTPUT1" | tail -30 | grep -E "Error:|error:|❌|failed|Failed|Exception" | grep -v "disable exit-on-error" | head -3 | tr '\n' ' ')
           fi
 
-          # Clean ANSI codes only, preserve JSON structure and content, then truncate
-          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g' | cut -c1-500)
+          # Clean ANSI codes, remove JSON structures, convert to plain text
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g')
+
+          # Convert JSON to plain text: remove braces, quotes, colons, backslashes - keep just readable message
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/{[^}]*}//g' | sed 's/[{}":,]//g' | sed 's/\\//g' | tr -s ' ')
+
+          # Truncate and trim
+          ERROR_MSG=$(echo "$ERROR_MSG" | cut -c1-500 | sed 's/^ *//;s/ *$//')
 
           # Final fallback
           if [ -z "$ERROR_MSG" ]; then
             ERROR_MSG="Requirements document creation failed with exit code $EXIT_CODE1. Check workflow logs for details."
           fi
 
-          # Write error to file for Backstage reporting ($GITHUB_ENV doesn't persist across failing steps)
+          # Write simplified error to file for Backstage reporting ($GITHUB_ENV doesn't persist across failing steps)
           echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
           echo "create-requirement-doc" > /tmp/workflow_error_step.txt
 
@@ -964,15 +976,21 @@ runs:
             ERROR_MSG=$(echo "$OUTPUT1" | tail -30 | grep -E "Error:|error:|❌|failed|Failed|Exception" | grep -v "disable exit-on-error" | head -3 | tr '\n' ' ')
           fi
 
-          # Clean ANSI codes only, preserve JSON structure and content, then truncate
-          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g' | cut -c1-500)
+          # Clean ANSI codes, remove JSON structures, convert to plain text
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/\x1b\[//g')
+
+          # Convert JSON to plain text: remove braces, quotes, colons, backslashes - keep just readable message
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/{[^}]*}//g' | sed 's/[{}":,]//g' | sed 's/\\//g' | tr -s ' ')
+
+          # Truncate and trim
+          ERROR_MSG=$(echo "$ERROR_MSG" | cut -c1-500 | sed 's/^ *//;s/ *$//')
 
           # Final fallback
           if [ -z "$ERROR_MSG" ]; then
             ERROR_MSG="Requirements document creation failed with exit code $EXIT_CODE1. Check workflow logs for details."
           fi
 
-          # Write error to file for Backstage reporting ($GITHUB_ENV doesn't persist across failing steps)
+          # Write simplified error to file for Backstage reporting ($GITHUB_ENV doesn't persist across failing steps)
           echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
           echo "create-requirement-doc" > /tmp/workflow_error_step.txt
 
@@ -1443,8 +1461,8 @@ runs:
         echo "⚠️  Error: $ERROR_MSG"
         echo "💰 Total AI Cost: \$$TOTAL_COST"
 
-        # Escape error message for JSON (replace backslashes, quotes, newlines, tabs)
-        ERROR_MSG_ESCAPED=$(echo "$ERROR_MSG" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | tr '\n' ' ' | tr '\t' ' ')
+        # Simple escaping for plain text: only escape quotes for JSON string safety
+        ERROR_MSG_SAFE=$(echo "$ERROR_MSG" | sed 's/"/\\"/g' | tr '\n' ' ' | tr '\t' ' ')
 
         # Send error data to Backstage (|| true ensures this doesn't fail the workflow)
         curl -X POST https://sf-portal.sourcef.us/api/test-quality-tracker/record \
@@ -1465,7 +1483,7 @@ runs:
             "pr_number": '"${PR_NUMBER:-0}"',
             "run_timestamp": "'"${RUN_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"'",
             "is_error": true,
-            "error_message": "'"$ERROR_MSG_ESCAPED"'",
+            "error_message": "'"$ERROR_MSG_SAFE"'",
             "error_step": "'"$ERROR_STEP"'",
             "job_status": "'"$JOB_STATUS"'"
           }' \
