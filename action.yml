@@ -194,6 +194,8 @@ runs:
         AI_TYPE: ${{ inputs.ai_type }}
         ANTHROPIC_BASE_URL: ${{ inputs.anthropic_base_url }}
         ANTHROPIC_AUTH_TOKEN: ${{ inputs.anthropic_auth_token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        USE_POSTGRES_VECTOR_DB: ${{ inputs.use_postgres_vector_db }}
       run: |
         echo "============================================================"
         echo "🔍 Validating Required Configuration"
@@ -211,8 +213,8 @@ runs:
         [[ -z "$CONFLUENCE_API_TOKEN" ]] && MISSING_CONFIGS+=("confluence_api_token")
 
         # Check AI provider configuration based on ai_type
-        if [[ "$AI_TYPE" == "1" ]]; then
-          # Claude with Bedrock
+        if [[ "$AI_TYPE" == "1" ]] || [[ -z "$AI_TYPE" ]]; then
+          # Claude with Bedrock (default)
           [[ -z "$AWS_REGION" ]] && MISSING_CONFIGS+=("aws_region_bedrock")
           [[ -z "$AWS_ACCESS_KEY" ]] && MISSING_CONFIGS+=("aws_access_key_bedrock")
           [[ -z "$AWS_SECRET_KEY" ]] && MISSING_CONFIGS+=("aws_secret_key_bedrock")
@@ -220,6 +222,11 @@ runs:
           # Claude with GLM
           [[ -z "$ANTHROPIC_BASE_URL" ]] && MISSING_CONFIGS+=("anthropic_base_url")
           [[ -z "$ANTHROPIC_AUTH_TOKEN" ]] && MISSING_CONFIGS+=("anthropic_auth_token")
+        fi
+
+        # Check OpenAI API key if PostgreSQL Vector DB is enabled
+        if [[ "$USE_POSTGRES_VECTOR_DB" == "true" ]]; then
+          [[ -z "$OPENAI_API_KEY" ]] && MISSING_CONFIGS+=("openai_api_key (required for embeddings when use_postgres_vector_db=true)")
         fi
 
         # Report validation results
@@ -272,8 +279,24 @@ runs:
       shell: bash
       run: |
         cd ${{ github.action_path }}
+        echo "📦 Installing npm dependencies..."
         npm install
+
+        echo ""
+        echo "🤖 Installing Claude Code CLI globally..."
         npm install -g @anthropic-ai/claude-code
+
+        echo ""
+        echo "✅ Verifying Claude CLI installation..."
+        if ! command -v claude &> /dev/null; then
+          echo "❌ Error: Claude CLI not found in PATH after installation"
+          echo "Expected location: $(npm root -g)/@anthropic-ai/claude-code"
+          echo "PATH: $PATH"
+          exit 1
+        fi
+
+        CLAUDE_VERSION=$(claude --version 2>&1 || echo "unknown")
+        echo "✅ Claude CLI installed successfully: $CLAUDE_VERSION"
 
     - name: Test AI Connectivity
       id: test_ai_connectivity
