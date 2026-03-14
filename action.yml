@@ -641,7 +641,7 @@ runs:
         AI_TYPE=${{ inputs.ai_type }}
         ANTHROPIC_BASE_URL=${{ inputs.anthropic_base_url }}
         ANTHROPIC_AUTH_TOKEN=${{ inputs.anthropic_auth_token }}
-        CLAUDE_VERBOSE_MODE=true
+        CLAUDE_VERBOSE_MODE=false
 
         # AWS Bedrock Configuration
         AWS_REGION_BEDROCK=${{ inputs.aws_region_bedrock }}
