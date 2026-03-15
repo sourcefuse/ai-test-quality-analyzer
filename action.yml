@@ -1234,15 +1234,16 @@ runs:
         OUTPUT=$(pnpm run upload-requirements 2>&1)
         echo "$OUTPUT"
 
-        # Extract Confluence URL from output
-        CONFLUENCE_URL="${{ inputs.confluence_url }}/wiki$(echo "$OUTPUT" | grep -oP 'URL: \K.*' | head -1)"
+        # Extract Confluence URL from output (the script prints "   URL: <full-url>")
+        # The URL is already complete, no need to prepend confluence_url or append /wiki
+        CONFLUENCE_URL=$(echo "$OUTPUT" | sed -n 's/.*URL:[[:space:]]*\(.*\)/\1/p' | head -1 | xargs)
 
         if [ -n "$CONFLUENCE_URL" ]; then
           echo "confluence_url=$CONFLUENCE_URL" >> $GITHUB_OUTPUT
           echo "✅ Results uploaded to Confluence: $CONFLUENCE_URL"
         else
           echo "confluence_url=" >> $GITHUB_OUTPUT
-          echo "✅ Results uploaded to Confluence"
+          echo "⚠️  Results uploaded to Confluence (URL extraction failed - check logs)"
         fi
 
     - name: Report to Backstage Test Quality Tracker
