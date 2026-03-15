@@ -98,7 +98,7 @@ inputs:
   anthropic_model:
     description: "Anthropic model name for Claude"
     required: false
-    default: "sonnet[1m]"
+    default: "claude-sonnet-4-5"
   ai_type:
     description: "AI provider type: 1 = claude_with_bedrock, 2 = claude_with_glm"
     required: false
@@ -946,8 +946,9 @@ runs:
         fi
 
         # Extract cost (disable exit-on-error for grep to prevent script exit if not found)
+        # Strip ANSI codes first, then extract cost with flexible decimal pattern
         set +e
-        COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        COST1=$(echo "$OUTPUT1" | sed 's/\x1b\[[0-9;]*m//g' | grep "💰 Cost:" | grep -oE '\$[0-9]+(\.[0-9]+)?' | sed 's/\$//' | tail -1)
         set -e
         COST1=${COST1:-0}
         echo "✅ Requirements document created (Cost: \$$COST1)"
@@ -981,8 +982,9 @@ runs:
         fi
 
         # Extract cost (disable exit-on-error for grep to prevent script exit if not found)
+        # Strip ANSI codes first, then extract cost with flexible decimal pattern
         set +e
-        COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        COST2=$(echo "$OUTPUT2" | sed 's/\x1b\[[0-9;]*m//g' | grep "💰 Cost:" | grep -oE '\$[0-9]+(\.[0-9]+)?' | sed 's/\$//' | tail -1)
         set -e
         COST2=${COST2:-0}
         echo "✅ Test quality analysis completed (Cost: \$$COST2)"
@@ -1062,8 +1064,9 @@ runs:
         fi
 
         # Extract cost (disable exit-on-error for grep to prevent script exit if not found)
+        # Strip ANSI codes first, then extract cost with flexible decimal pattern
         set +e
-        COST1=$(echo "$OUTPUT1" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        COST1=$(echo "$OUTPUT1" | sed 's/\x1b\[[0-9;]*m//g' | grep "💰 Cost:" | grep -oE '\$[0-9]+(\.[0-9]+)?' | sed 's/\$//' | tail -1)
         set -e
         COST1=${COST1:-0}
         echo "✅ Requirements document created (Cost: \$$COST1)"
@@ -1097,8 +1100,9 @@ runs:
         fi
 
         # Extract cost (disable exit-on-error for grep to prevent script exit if not found)
+        # Strip ANSI codes first, then extract cost with flexible decimal pattern
         set +e
-        COST2=$(echo "$OUTPUT2" | grep "💰 Cost:" | grep -oE "\$[0-9]+\.[0-9]+" | sed 's/\$//' | tail -1)
+        COST2=$(echo "$OUTPUT2" | sed 's/\x1b\[[0-9;]*m//g' | grep "💰 Cost:" | grep -oE '\$[0-9]+(\.[0-9]+)?' | sed 's/\$//' | tail -1)
         set -e
         COST2=${COST2:-0}
         echo "✅ Test quality analysis completed (Cost: \$$COST2)"
@@ -1271,7 +1275,7 @@ runs:
           AI_PROVIDER="aws_bedrock"
           ACTUAL_COST="${BEDROCK_COST:-0}"
         else
-          MODEL_NAME="${ANTHROPIC_MODEL:-sonnet[1m]}"
+          MODEL_NAME="glm-4-plus"
           AI_PROVIDER="glm"
           ACTUAL_COST="${GLM_COST:-0}"
         fi
@@ -1502,7 +1506,7 @@ runs:
           AI_PROVIDER="aws_bedrock"
           ACTUAL_COST="${BEDROCK_COST:-0}"
         else
-          MODEL_NAME="${ANTHROPIC_MODEL:-sonnet[1m]}"
+          MODEL_NAME="glm-4-plus"
           AI_PROVIDER="glm"
           ACTUAL_COST="${GLM_COST:-0}"
         fi
