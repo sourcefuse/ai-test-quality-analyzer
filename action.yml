@@ -1522,12 +1522,12 @@ runs:
           AI_PROVIDER="glm"
         fi
 
-        # On error, send blank values for optional fields
+        # On error, use actual values if available, otherwise blank
         ACTUAL_COST=""
-        BRANCH_NAME_VAL=""
-        BRANCH_URL_VAL=""
-        PR_URL_VAL=""
-        CONFLUENCE_URL_VAL=""
+        BRANCH_NAME_VAL="${BRANCH_NAME:-}"
+        BRANCH_URL_VAL="${BRANCH_URL:-}"
+        PR_URL_VAL="${PR_URL:-}"
+        CONFLUENCE_URL_VAL="${CONFLUENCE_URL:-}"
 
         # Determine error message and step
         echo "🔍 DEBUG: Determining error source..."
