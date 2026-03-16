@@ -3,14 +3,6 @@
     "description": "Sensitive data that must be encrypted. Set these in: Repository Settings → Secrets and variables → Actions → Secrets",
     "required": [
       {
-        "name": "JIRA_URL",
-        "env_var": "JIRA_URL",
-        "description": "JIRA instance URL (e.g., https://yourcompany.atlassian.net)",
-        "example": "https://yourcompany.atlassian.net",
-        "sensitive": true,
-        "reason": "May contain company-specific domain information"
-      },
-      {
         "name": "JIRA_EMAIL",
         "env_var": "JIRA_EMAIL",
         "description": "JIRA user email for authentication",
@@ -25,14 +17,6 @@
         "example": "ATBBxxxxxxxxxxxxxxxxxxxxxx",
         "sensitive": true,
         "reason": "API token with full access to JIRA"
-      },
-      {
-        "name": "CONFLUENCE_URL",
-        "env_var": "CONFLUENCE_URL",
-        "description": "Confluence instance URL",
-        "example": "https://yourcompany.atlassian.net/wiki",
-        "sensitive": true,
-        "reason": "May contain company-specific domain information"
       },
       {
         "name": "CONFLUENCE_EMAIL",
@@ -51,14 +35,6 @@
         "reason": "API token with full access to Confluence"
       },
       {
-        "name": "CONFLUENCE_UPLOAD_URL",
-        "env_var": "CONFLUENCE_UPLOAD_URL",
-        "description": "Confluence instance URL for uploading results (optional - if different from fetch URL)",
-        "example": "https://targetcompany.atlassian.net/wiki",
-        "sensitive": true,
-        "reason": "May contain company-specific domain information"
-      },
-      {
         "name": "CONFLUENCE_UPLOAD_EMAIL",
         "env_var": "CONFLUENCE_UPLOAD_EMAIL",
         "description": "Confluence user email for uploading results (optional - if different from fetch email)",
@@ -75,17 +51,9 @@
         "reason": "API token with full access to Confluence"
       },
       {
-        "name": "AWS_REGION_BEDROCK",
-        "env_var": "AWS_REGION_BEDROCK",
-        "description": "AWS region for Bedrock service",
-        "example": "us-east-2",
-        "sensitive": false,
-        "reason": "AWS region configuration"
-      },
-      {
         "name": "AWS_ACCESS_KEY_BEDROCK",
         "env_var": "AWS_ACCESS_KEY_BEDROCK",
-        "description": "AWS access key for Bedrock authentication",
+        "description": "AWS access key for Bedrock authentication (optional - only required when AI_TYPE=1)",
         "example": "AKIAIOSFODNN7EXAMPLE",
         "sensitive": true,
         "reason": "AWS access credentials"
@@ -93,7 +61,7 @@
       {
         "name": "AWS_SECRET_KEY_BEDROCK",
         "env_var": "AWS_SECRET_KEY_BEDROCK",
-        "description": "AWS secret key for Bedrock authentication",
+        "description": "AWS secret key for Bedrock authentication (optional - only required when AI_TYPE=1)",
         "example": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
         "sensitive": true,
         "reason": "AWS secret credentials"
@@ -101,50 +69,39 @@
       {
         "name": "ANTHROPIC_MODEL",
         "env_var": "ANTHROPIC_MODEL",
-        "description": "Anthropic model name for Claude (used with Bedrock)",
-        "example": "sonnet",
+        "description": "Anthropic model name for Claude",
+        "example": "sonnet[1m]",
         "sensitive": false,
         "reason": "Model configuration, not sensitive"
       },
       {
         "name": "ANTHROPIC_BASE_URL",
         "env_var": "ANTHROPIC_BASE_URL",
-        "description": "Anthropic API base URL (for GLM or custom endpoints)",
-        "example": "https://your-glm-endpoint.com",
+        "description": "Anthropic API base URL (for GLM or custom endpoints) - required when AI_TYPE=2",
+        "example": "https://api.z.ai/api/anthropic",
         "sensitive": true,
         "reason": "API endpoint configuration"
       },
       {
         "name": "ANTHROPIC_AUTH_TOKEN",
         "env_var": "ANTHROPIC_AUTH_TOKEN",
-        "description": "Anthropic API authentication token (for GLM)",
+        "description": "Anthropic API authentication token (for GLM) - required when AI_TYPE=2",
         "example": "glm_xxxxxxxxxxxxxxxxxxxxxx",
         "sensitive": true,
         "reason": "API authentication credentials"
       },
       {
-        "name": "DOCKER_USERNAME",
-        "env_var": "DOCKER_USERNAME",
-        "description": "Docker registry username for authentication",
-        "example": "dockerhub-user",
-        "sensitive": true,
-        "reason": "Docker registry credentials"
-      },
-      {
-        "name": "DOCKER_PASSWORD",
-        "env_var": "DOCKER_PASSWORD",
-        "description": "Docker registry password/token for authentication",
-        "example": "dckr_pat_xxxxxxxxxxxxxxxxxxxx",
-        "sensitive": true,
-        "reason": "Docker registry authentication token"
-      },
-      {
         "name": "OPENAI_API_KEY",
         "env_var": "OPENAI_API_KEY",
-        "description": "OpenAI API key for embeddings (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
+        "description": "OpenAI API key for embeddings - used by both quality check and test generation workflows (optional - required only if USE_POSTGRES_VECTOR_DB is enabled)",
         "example": "sk-proj-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
         "sensitive": true,
-        "reason": "OpenAI API credentials for embeddings generation"
+        "reason": "OpenAI API credentials for embeddings generation",
+        "workflows": ["quality-check", "generate-tests"],
+        "secret_names": {
+          "quality_check": "UT_QUALITY_OPENAI_API_KEY",
+          "generate_tests": "UT_GENERATE_OPENAI_API_KEY"
+        }
       }
     ],
     "optional_with_defaults": [
@@ -197,7 +154,43 @@
   },
   "variables": {
     "description": "Non-sensitive configuration values. Set these in: Repository Settings → Secrets and variables → Actions → Variables",
+    "required": [
+      {
+        "name": "JIRA_URL",
+        "env_var": "JIRA_URL",
+        "description": "JIRA instance URL (e.g., https://yourcompany.atlassian.net)",
+        "example": "https://yourcompany.atlassian.net",
+        "sensitive": false,
+        "reason": "Public JIRA instance URL, not sensitive"
+      },
+      {
+        "name": "CONFLUENCE_URL",
+        "env_var": "CONFLUENCE_URL",
+        "description": "Confluence instance URL",
+        "example": "https://yourcompany.atlassian.net/wiki",
+        "sensitive": false,
+        "reason": "Public Confluence instance URL, not sensitive"
+      }
+    ],
     "optional": [
+      {
+        "name": "CONFLUENCE_UPLOAD_URL",
+        "env_var": "CONFLUENCE_UPLOAD_URL",
+        "description": "Confluence instance URL for uploading results (optional - if different from fetch URL)",
+        "example": "https://targetcompany.atlassian.net/wiki",
+        "default": "",
+        "sensitive": false,
+        "reason": "Public Confluence instance URL, not sensitive"
+      },
+      {
+        "name": "AWS_REGION_BEDROCK",
+        "env_var": "AWS_REGION_BEDROCK",
+        "description": "AWS region for Bedrock service (optional - only required when AI_TYPE=1)",
+        "example": "us-east-2",
+        "default": "us-east-2",
+        "sensitive": false,
+        "reason": "AWS region configuration"
+      },
       {
         "name": "JIRA_PROJECT_KEY",
         "env_var": "JIRA_PROJECT_KEY",
@@ -226,15 +219,6 @@
         "reason": "Public space identifier, not sensitive"
       },
       {
-        "name": "MINIMUM_SCORE",
-        "env_var": "MINIMUM_SCORE",
-        "description": "Minimum acceptable test quality score (0-10)",
-        "example": "1.0",
-        "default": "1.0",
-        "sensitive": false,
-        "reason": "Quality threshold configuration, not sensitive"
-      },
-      {
         "name": "UPLOAD_TO_CONFLUENCE",
         "env_var": "UPLOAD_TO_CONFLUENCE",
         "description": "Whether to upload results to Confluence (true/false)",
@@ -246,9 +230,9 @@
       {
         "name": "AI_TYPE",
         "env_var": "AI_TYPE",
-        "description": "AI provider type: 1 = claude_with_bedrock, 2 = claude_with_glm",
-        "example": "1",
-        "default": "1",
+        "description": "AI provider type: 1 = claude_with_bedrock, 2 = claude_with_glm (default)",
+        "example": "2",
+        "default": "2",
         "sensitive": false,
         "reason": "AI provider selection, not sensitive"
       },
@@ -256,8 +240,8 @@
         "name": "USE_POSTGRES_VECTOR_DB",
         "env_var": "USE_POSTGRES_VECTOR_DB",
         "description": "Enable PostgreSQL Vector Database with pgvector for RAG-based Confluence fetching (true/false)",
-        "example": "false",
-        "default": "false",
+        "example": "true",
+        "default": "true",
         "sensitive": false,
         "reason": "Feature flag, not sensitive"
       }
@@ -301,61 +285,60 @@
   "usage_in_workflow": {
     "note": "Two types of workflows use different secret prefixes: UT_QUALITY_* for quality check workflow, UT_GENERATE_* for test generation workflow",
     "secrets_example_quality_check": {
-      "jira_url": "${{ secrets.UT_QUALITY_JIRA_URL }}",
       "jira_email": "${{ secrets.UT_QUALITY_JIRA_EMAIL }}",
       "jira_api_token": "${{ secrets.UT_QUALITY_JIRA_API_TOKEN }}",
-      "confluence_url": "${{ secrets.UT_QUALITY_CONFLUENCE_URL }}",
       "confluence_email": "${{ secrets.UT_QUALITY_CONFLUENCE_EMAIL }}",
       "confluence_api_token": "${{ secrets.UT_QUALITY_CONFLUENCE_API_TOKEN }}",
-      "confluence_upload_url": "${{ secrets.UT_QUALITY_CONFLUENCE_UPLOAD_URL }}",
       "confluence_upload_email": "${{ secrets.UT_QUALITY_CONFLUENCE_UPLOAD_EMAIL }}",
       "confluence_upload_api_token": "${{ secrets.UT_QUALITY_CONFLUENCE_UPLOAD_API_TOKEN }}",
-      "aws_region_bedrock": "${{ secrets.UT_QUALITY_AWS_REGION_BEDROCK }}",
       "aws_access_key_bedrock": "${{ secrets.UT_QUALITY_AWS_ACCESS_KEY_BEDROCK }}",
       "aws_secret_key_bedrock": "${{ secrets.UT_QUALITY_AWS_SECRET_KEY_BEDROCK }}",
       "anthropic_model": "${{ secrets.UT_QUALITY_ANTHROPIC_MODEL }}",
       "anthropic_base_url": "${{ secrets.UT_QUALITY_ANTHROPIC_BASE_URL }}",
       "anthropic_auth_token": "${{ secrets.UT_QUALITY_ANTHROPIC_AUTH_TOKEN }}",
-      "enable_docker_services": "true",
-      "openai_api_key": "${{ secrets.UT_QUALITY_OPENAI_API_KEY }}",
-      "database_host": "${{ secrets.UT_QUALITY_DATABASE_HOST }}",
-      "database_port": "${{ secrets.UT_QUALITY_DATABASE_PORT }}",
-      "database_name": "${{ secrets.UT_QUALITY_DATABASE_NAME }}",
-      "database_user": "${{ secrets.UT_QUALITY_DATABASE_USER }}",
-      "database_password": "${{ secrets.UT_QUALITY_DATABASE_PASSWORD }}"
+      "openai_api_key": "${{ secrets.UT_QUALITY_OPENAI_API_KEY }}"
     },
     "secrets_example_generate_tests": {
-      "jira_url": "${{ secrets.UT_GENERATE_JIRA_URL }}",
       "jira_email": "${{ secrets.UT_GENERATE_JIRA_EMAIL }}",
       "jira_api_token": "${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}",
-      "confluence_url": "${{ secrets.UT_GENERATE_CONFLUENCE_URL }}",
       "confluence_email": "${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}",
       "confluence_api_token": "${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}",
-      "aws_region_bedrock": "${{ secrets.UT_GENERATE_AWS_REGION_BEDROCK }}",
+      "confluence_upload_email": "${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL }}",
+      "confluence_upload_api_token": "${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN }}",
       "aws_access_key_bedrock": "${{ secrets.UT_GENERATE_AWS_ACCESS_KEY_BEDROCK }}",
       "aws_secret_key_bedrock": "${{ secrets.UT_GENERATE_AWS_SECRET_KEY_BEDROCK }}",
       "anthropic_model": "${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}",
       "anthropic_base_url": "${{ secrets.UT_GENERATE_ANTHROPIC_BASE_URL }}",
       "anthropic_auth_token": "${{ secrets.UT_GENERATE_ANTHROPIC_AUTH_TOKEN }}",
-      "openai_api_key": "${{ secrets.UT_GENERATE_OPENAI_API_KEY }}",
-      "database_host": "${{ secrets.UT_GENERATE_DATABASE_HOST }}",
-      "database_port": "${{ secrets.UT_GENERATE_DATABASE_PORT }}",
-      "database_name": "${{ secrets.UT_GENERATE_DATABASE_NAME }}",
-      "database_user": "${{ secrets.UT_GENERATE_DATABASE_USER }}",
-      "database_password": "${{ secrets.UT_GENERATE_DATABASE_PASSWORD }}"
+      "openai_api_key": "${{ secrets.UT_GENERATE_OPENAI_API_KEY }}"
     },
-    "variables_example": {
+    "variables_example_quality_check": {
+      "jira_url": "${{ vars.UT_QUALITY_JIRA_URL }}",
+      "confluence_url": "${{ vars.UT_QUALITY_CONFLUENCE_URL }}",
+      "confluence_upload_url": "${{ vars.UT_QUALITY_CONFLUENCE_UPLOAD_URL || '' }}",
+      "aws_region_bedrock": "${{ vars.UT_QUALITY_AWS_REGION_BEDROCK || 'us-east-2' }}",
       "jira_project_key": "${{ vars.UT_QUALITY_JIRA_PROJECT_KEY || 'BB' }}",
       "confluence_space_key": "${{ vars.UT_QUALITY_CONFLUENCE_SPACE_KEY || 'BB' }}",
       "confluence_upload_space_key": "${{ vars.UT_QUALITY_CONFLUENCE_UPLOAD_SPACE_KEY || '' }}",
-      "minimum_score": "${{ vars.UT_QUALITY_MINIMUM_SCORE || '1.0' }}",
       "upload_to_confluence": "${{ vars.UT_QUALITY_UPLOAD_TO_CONFLUENCE || 'true' }}",
-      "ai_type": "${{ vars.UT_QUALITY_AI_TYPE || '1' }}",
-      "use_postgres_vector_db": "${{ vars.UT_QUALITY_USE_POSTGRES_VECTOR_DB || 'false' }}"
+      "ai_type": "${{ vars.UT_QUALITY_AI_TYPE || '2' }}",
+      "use_postgres_vector_db": "${{ vars.UT_QUALITY_USE_POSTGRES_VECTOR_DB || 'true' }}"
+    },
+    "variables_example_generate_tests": {
+      "jira_url": "${{ vars.UT_GENERATE_JIRA_URL }}",
+      "confluence_url": "${{ vars.UT_GENERATE_CONFLUENCE_URL }}",
+      "confluence_upload_url": "${{ vars.UT_GENERATE_CONFLUENCE_UPLOAD_URL || '' }}",
+      "aws_region_bedrock": "${{ vars.UT_GENERATE_AWS_REGION_BEDROCK || 'us-east-2' }}",
+      "jira_project_key": "${{ vars.UT_GENERATE_JIRA_PROJECT_KEY || 'BB' }}",
+      "confluence_space_key": "${{ vars.UT_GENERATE_CONFLUENCE_SPACE_KEY || 'BB' }}",
+      "confluence_upload_space_key": "${{ vars.UT_GENERATE_CONFLUENCE_UPLOAD_SPACE_KEY || '' }}",
+      "upload_to_confluence": "${{ vars.UT_GENERATE_UPLOAD_TO_CONFLUENCE || 'true' }}",
+      "ai_type": "${{ vars.UT_GENERATE_AI_TYPE || '2' }}",
+      "use_postgres_vector_db": "${{ vars.UT_GENERATE_USE_POSTGRES_VECTOR_DB || 'true' }}"
     }
   },
   "setup_instructions": {
-    "important_note": "⚠️ Each secret needs TWO entries with different prefixes: UT_QUALITY_* for quality check workflow and UT_GENERATE_* for test generation workflow. For example, OPENAI_API_KEY needs both UT_QUALITY_OPENAI_API_KEY and UT_GENERATE_OPENAI_API_KEY.",
+    "important_note": "⚠️ Each secret needs TWO entries with different prefixes: UT_QUALITY_* for quality check workflow and UT_GENERATE_* for test generation workflow. For example, OPENAI_API_KEY needs both UT_QUALITY_OPENAI_API_KEY and UT_GENERATE_OPENAI_API_KEY. JIRA_URL and CONFLUENCE_URL are now VARIABLES, not secrets.",
     "secrets": [
       "1. Go to your repository on GitHub",
       "2. Navigate to Settings → Secrets and variables → Actions",
@@ -364,9 +347,9 @@
       "5. Add each secret from the 'required' list above with BOTH prefixes:",
       "   - UT_QUALITY_* (for quality check workflow)",
       "   - UT_GENERATE_* (for test generation workflow)",
-      "6. Example: For JIRA_URL, create:",
-      "   - UT_QUALITY_JIRA_URL",
-      "   - UT_GENERATE_JIRA_URL",
+      "6. Example: For JIRA_EMAIL, create:",
+      "   - UT_QUALITY_JIRA_EMAIL",
+      "   - UT_GENERATE_JIRA_EMAIL",
       "7. Click 'Add secret' to save each one"
     ],
     "variables": [
@@ -374,8 +357,15 @@
       "2. Navigate to Settings → Secrets and variables → Actions",
       "3. Click on 'Variables' tab",
       "4. Click 'New repository variable'",
-      "5. Add variables from the 'optional' list above (if you want to override defaults)",
-      "6. Click 'Add variable' to save"
+      "5. Add REQUIRED variables with BOTH prefixes:",
+      "   - UT_QUALITY_JIRA_URL",
+      "   - UT_GENERATE_JIRA_URL",
+      "   - UT_QUALITY_CONFLUENCE_URL",
+      "   - UT_GENERATE_CONFLUENCE_URL",
+      "6. Add OPTIONAL variables to override defaults:",
+      "   - UT_QUALITY_AI_TYPE=2",
+      "   - UT_GENERATE_AI_TYPE=2",
+      "7. Click 'Add variable' to save"
     ]
   },
   "security_best_practices": [
@@ -385,6 +375,7 @@
     "Limit API token permissions to minimum required scope",
     "Use organization-level secrets for shared credentials across repos",
     "Enable secret scanning on your repository",
-    "Review and audit secret access logs periodically"
+    "Review and audit secret access logs periodically",
+    "JIRA_URL and CONFLUENCE_URL are now public variables (not secrets) - they don't contain sensitive information"
   ]
 }
