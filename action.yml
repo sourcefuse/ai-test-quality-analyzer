@@ -1449,6 +1449,12 @@ runs:
 
         # Use actual cost from generation steps (defaults to 0 if not available)
         ACTUAL_COST="${TOTAL_COST:-0}"
+
+        # Ensure cost has leading zero for valid JSON (fixes .XXX -> 0.XXX)
+        if [[ "$ACTUAL_COST" == .* ]]; then
+          ACTUAL_COST="0${ACTUAL_COST}"
+        fi
+
         echo "💰 Total AI Cost: \$$ACTUAL_COST"
 
         # Send data to Backstage (|| true ensures this doesn't fail the workflow)
