@@ -70,6 +70,7 @@
 ##############################################################################
 
 name: Generate Unit Test Cases Via AI
+run-name: Generate Unit Tests - ${{ inputs.jira_ticket_id }}
 
 on:
   workflow_dispatch:
@@ -129,12 +130,12 @@ jobs:
         id: generate_tests
         uses: sourcefuse/ai-test-quality-analyzer@UT-V3.0
         with:
-          jira_url: ${{ vars.UT_GENERATE_JIRA_URL }}
+          jira_url: ${{ secrets.UT_GENERATE_JIRA_URL }}
           jira_email: ${{ secrets.UT_GENERATE_JIRA_EMAIL }}
           jira_api_token: ${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}
           jira_ticket_id: ${{ steps.extract_ticket.outputs.ticket_id }}
           jira_project_key: ${{ vars.UT_GENERATE_JIRA_PROJECT_KEY }}
-          confluence_url: ${{ vars.UT_GENERATE_CONFLUENCE_URL }}
+          confluence_url: ${{ secrets.UT_GENERATE_CONFLUENCE_URL }}
           confluence_email: ${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}
           confluence_api_token: ${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}
           confluence_space_key: ${{ vars.UT_GENERATE_CONFLUENCE_SPACE_KEY }}
