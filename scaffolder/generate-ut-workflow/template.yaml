@@ -96,6 +96,8 @@ spec:
             replace: "(e.g., ${{ parameters.jiraProjectKey }}-15690)"
           - search: "(e.g., BB)"
             replace: "(e.g., ${{ parameters.jiraProjectKey }})"
+          - search: 'default: "BB-"'
+            replace: "default: \"${{ parameters.jiraProjectKey }}-\""
           - search: 'default: "develop"'
             replace: "default: \"${{ parameters.defaultBranch }}\""
           - search: "default: 'dev'"

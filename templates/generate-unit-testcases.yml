@@ -77,6 +77,7 @@ on:
       jira_ticket_id:
         description: "JIRA Ticket ID / Branch Name (e.g., BB-15690)"
         required: true
+        default: "BB-"
         type: string
       target_branch:
         description: "Target branch for generated unit test cases (default: dev)"
