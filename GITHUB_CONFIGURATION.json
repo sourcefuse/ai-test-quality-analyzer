@@ -3,14 +3,6 @@
     "description": "Sensitive data that must be encrypted. Set these in: Repository Settings → Secrets and variables → Actions → Secrets",
     "required": [
       {
-        "name": "JIRA_URL",
-        "env_var": "JIRA_URL",
-        "description": "JIRA instance URL (e.g., https://yourcompany.atlassian.net)",
-        "example": "https://yourcompany.atlassian.net",
-        "sensitive": true,
-        "reason": "May contain company-specific domain information"
-      },
-      {
         "name": "JIRA_EMAIL",
         "env_var": "JIRA_EMAIL",
         "description": "JIRA user email for authentication",
@@ -25,14 +17,6 @@
         "example": "ATBBxxxxxxxxxxxxxxxxxxxxxx",
         "sensitive": true,
         "reason": "API token with full access to JIRA"
-      },
-      {
-        "name": "CONFLUENCE_URL",
-        "env_var": "CONFLUENCE_URL",
-        "description": "Confluence instance URL",
-        "example": "https://yourcompany.atlassian.net/wiki",
-        "sensitive": true,
-        "reason": "May contain company-specific domain information"
       },
       {
         "name": "CONFLUENCE_EMAIL",
@@ -51,14 +35,6 @@
         "reason": "API token with full access to Confluence"
       },
       {
-        "name": "CONFLUENCE_UPLOAD_URL",
-        "env_var": "CONFLUENCE_UPLOAD_URL",
-        "description": "Confluence instance URL for uploading results (optional - if different from fetch URL)",
-        "example": "https://targetcompany.atlassian.net/wiki",
-        "sensitive": true,
-        "reason": "May contain company-specific domain information"
-      },
-      {
         "name": "CONFLUENCE_UPLOAD_EMAIL",
         "env_var": "CONFLUENCE_UPLOAD_EMAIL",
         "description": "Confluence user email for uploading results (optional - if different from fetch email)",
@@ -73,14 +49,6 @@
         "example": "ATBBxxxxxxxxxxxxxxxxxxxxxx",
         "sensitive": true,
         "reason": "API token with full access to Confluence"
-      },
-      {
-        "name": "AWS_REGION_BEDROCK",
-        "env_var": "AWS_REGION_BEDROCK",
-        "description": "AWS region for Bedrock service",
-        "example": "us-east-2",
-        "sensitive": false,
-        "reason": "AWS region configuration"
       },
       {
         "name": "AWS_ACCESS_KEY_BEDROCK",
@@ -187,7 +155,43 @@
   },
   "variables": {
     "description": "Non-sensitive configuration values. Set these in: Repository Settings → Secrets and variables → Actions → Variables",
+    "required": [
+      {
+        "name": "JIRA_URL",
+        "env_var": "JIRA_URL",
+        "description": "JIRA instance URL (e.g., https://yourcompany.atlassian.net)",
+        "example": "https://yourcompany.atlassian.net",
+        "sensitive": false,
+        "reason": "Public JIRA instance URL, not sensitive"
+      },
+      {
+        "name": "CONFLUENCE_URL",
+        "env_var": "CONFLUENCE_URL",
+        "description": "Confluence instance URL",
+        "example": "https://yourcompany.atlassian.net/wiki",
+        "sensitive": false,
+        "reason": "Public Confluence instance URL, not sensitive"
+      }
+    ],
     "optional": [
+      {
+        "name": "CONFLUENCE_UPLOAD_URL",
+        "env_var": "CONFLUENCE_UPLOAD_URL",
+        "description": "Confluence instance URL for uploading results (optional - if different from fetch URL)",
+        "example": "https://targetcompany.atlassian.net/wiki",
+        "default": "",
+        "sensitive": false,
+        "reason": "Public Confluence instance URL, not sensitive"
+      },
+      {
+        "name": "AWS_REGION_BEDROCK",
+        "env_var": "AWS_REGION_BEDROCK",
+        "description": "AWS region for Bedrock service (optional - only required when AI_TYPE=1)",
+        "example": "us-east-2",
+        "default": "us-east-2",
+        "sensitive": false,
+        "reason": "AWS region configuration"
+      },
       {
         "name": "JIRA_PROJECT_KEY",
         "env_var": "JIRA_PROJECT_KEY",
