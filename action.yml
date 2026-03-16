@@ -763,6 +763,16 @@ runs:
           # Show last 50 lines of output for debugging
           echo "Last 50 lines of output:"
           tail -50 /tmp/requirement-output.txt
+
+          # Extract error message for Backstage reporting
+          ERROR_MSG=$(tail -30 /tmp/requirement-output.txt | grep -E "Error:|error:|❌|failed|Failed|Exception" | grep -v "exit code" | head -3 | tr '\n' ' ')
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/[{}":,\\]//g' | tr -s ' ' | cut -c1-500 | sed 's/^ *//;s/ *$//')
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG="Requirements document generation failed with exit code $REQUIREMENT_EXIT_CODE. Check workflow logs for details."
+          fi
+          echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
+          echo "create-requirement-doc" > /tmp/workflow_error_step.txt
+
           exit $REQUIREMENT_EXIT_CODE
         fi
         echo "✅ Requirements document created (Cost: \$$COST1)"
@@ -794,6 +804,16 @@ runs:
           # Show last 50 lines of output for debugging
           echo "Last 50 lines of output:"
           tail -50 /tmp/generation-output.txt
+
+          # Extract error message for Backstage reporting
+          ERROR_MSG=$(tail -30 /tmp/generation-output.txt | grep -E "Error:|error:|❌|failed|Failed|Exception" | grep -v "exit code" | head -3 | tr '\n' ' ')
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/[{}":,\\]//g' | tr -s ' ' | cut -c1-500 | sed 's/^ *//;s/ *$//')
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG="Unit test case generation failed with exit code $GENERATION_EXIT_CODE. Check workflow logs for details."
+          fi
+          echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
+          echo "generate-unit-testcases" > /tmp/workflow_error_step.txt
+
           exit $GENERATION_EXIT_CODE
         fi
         echo "✅ Unit test cases generated successfully (Cost: \$$COST2)"
@@ -843,6 +863,16 @@ runs:
           # Show last 50 lines of output for debugging
           echo "Last 50 lines of output:"
           tail -50 /tmp/requirement-output.txt
+
+          # Extract error message for Backstage reporting
+          ERROR_MSG=$(tail -30 /tmp/requirement-output.txt | grep -E "Error:|error:|❌|failed|Failed|Exception" | grep -v "exit code" | head -3 | tr '\n' ' ')
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/[{}":,\\]//g' | tr -s ' ' | cut -c1-500 | sed 's/^ *//;s/ *$//')
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG="Requirements document generation failed with exit code $REQUIREMENT_EXIT_CODE. Check workflow logs for details."
+          fi
+          echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
+          echo "create-requirement-doc" > /tmp/workflow_error_step.txt
+
           exit $REQUIREMENT_EXIT_CODE
         fi
         echo "✅ Requirements document created (Cost: \$$COST1)"
@@ -874,6 +904,16 @@ runs:
           # Show last 50 lines of output for debugging
           echo "Last 50 lines of output:"
           tail -50 /tmp/generation-output.txt
+
+          # Extract error message for Backstage reporting
+          ERROR_MSG=$(tail -30 /tmp/generation-output.txt | grep -E "Error:|error:|❌|failed|Failed|Exception" | grep -v "exit code" | head -3 | tr '\n' ' ')
+          ERROR_MSG=$(echo "$ERROR_MSG" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/[{}":,\\]//g' | tr -s ' ' | cut -c1-500 | sed 's/^ *//;s/ *$//')
+          if [ -z "$ERROR_MSG" ]; then
+            ERROR_MSG="Unit test case generation failed with exit code $GENERATION_EXIT_CODE. Check workflow logs for details."
+          fi
+          echo "$ERROR_MSG" > /tmp/workflow_error_message.txt
+          echo "generate-unit-testcases" > /tmp/workflow_error_step.txt
+
           exit $GENERATION_EXIT_CODE
         fi
         echo "✅ Unit test cases generated successfully (Cost: \$$COST2)"
@@ -1363,3 +1403,190 @@ runs:
         echo "---" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "🤖 _Generated via GitHub Actions - Unit Test Generation Workflow_" >> $GITHUB_STEP_SUMMARY
+
+    - name: Report to Backstage Unit Test Generation Tracker
+      if: always()
+      shell: bash
+      env:
+        HAS_CHANGES: ${{ steps.commit_tests.outputs.has_changes }}
+        BRANCH_NAME: ${{ steps.commit_tests.outputs.branch_name }}
+        BRANCH_URL: ${{ steps.commit_tests.outputs.branch_url }}
+        PR_NUMBER: ${{ steps.create_pr.outputs.pr_number || steps.skip_pr.outputs.pr_number }}
+        PR_URL: ${{ steps.create_pr.outputs.pr_url || steps.skip_pr.outputs.pr_url }}
+        PR_ACTION: ${{ steps.create_pr.outputs.pr_action || steps.skip_pr.outputs.pr_action }}
+        AI_TYPE: ${{ inputs.ai_type }}
+        ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
+        TOTAL_COST: ${{ env.TOTAL_CLAUDE_COST }}
+        CONFLUENCE_URL: ${{ steps.upload_confluence.outputs.confluence_url }}
+        JIRA_TICKET_ID: ${{ inputs.jira_ticket_id }}
+        TARGET_BRANCH: ${{ inputs.target_branch }}
+        REPO_NAME: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        RUN_NUMBER: ${{ github.run_number }}
+        BRANCH_REF: ${{ github.head_ref || github.ref_name }}
+        WORKFLOW_ACTOR: ${{ github.actor }}
+        RUN_TIMESTAMP: ${{ github.event.created_at }}
+      run: |
+        echo "📊 Reporting test generation metrics to Backstage..."
+
+        # Determine generation status
+        if [ "$HAS_CHANGES" == "true" ]; then
+          GENERATION_STATUS="success"
+        elif [ "$HAS_CHANGES" == "false" ]; then
+          GENERATION_STATUS="no_changes"
+        else
+          GENERATION_STATUS="error"
+        fi
+
+        # Determine model name and provider based on ai_type
+        if [ "$AI_TYPE" == "1" ]; then
+          MODEL_NAME="${ANTHROPIC_MODEL:-sonnet[1m]}"
+          AI_PROVIDER="aws_bedrock"
+        else
+          MODEL_NAME="glm-4-plus"
+          AI_PROVIDER="glm"
+        fi
+
+        # Use actual cost from generation steps (defaults to 0 if not available)
+        ACTUAL_COST="${TOTAL_COST:-0}"
+        echo "💰 Total AI Cost: \$$ACTUAL_COST"
+
+        # Send data to Backstage (|| true ensures this doesn't fail the workflow)
+        curl -X POST https://sf-portal.sourcef.us/api/unit-test-generation-tracker/record \
+          -H "Content-Type: application/json" \
+          -d '{
+            "repo_name": "'"$REPO_NAME"'",
+            "runner_id": "'"$RUN_ID"'",
+            "workflow_run_number": '"${RUN_NUMBER:-0}"',
+            "jira_ticket_id": "'"$JIRA_TICKET_ID"'",
+            "generation_status": "'"$GENERATION_STATUS"'",
+            "has_changes": '"${HAS_CHANGES:-false}"',
+            "branch_name": "'"$BRANCH_NAME"'",
+            "branch_url": "'"$BRANCH_URL"'",
+            "pr_number": '"${PR_NUMBER:-0}"',
+            "pr_url": "'"$PR_URL"'",
+            "pr_action": "'"$PR_ACTION"'",
+            "target_branch": "'"$TARGET_BRANCH"'",
+            "model_name": "'"$MODEL_NAME"'",
+            "ai_provider": "'"$AI_PROVIDER"'",
+            "ai_cost": '"${ACTUAL_COST}"',
+            "confluence_url": "'"$CONFLUENCE_URL"'",
+            "pr_creator": "'"${WORKFLOW_ACTOR:-unknown}"'",
+            "run_timestamp": "'"${RUN_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"'"
+          }' \
+          --max-time 10 \
+          --silent \
+          --show-error \
+          || echo "⚠️  Failed to report to Backstage (non-critical, continuing...)"
+
+        echo "✅ Backstage reporting completed (or skipped if unavailable)"
+
+    - name: Report Failure to Backstage Unit Test Generation Tracker
+      if: failure()
+      shell: bash
+      env:
+        HAS_CHANGES: ${{ steps.commit_tests.outputs.has_changes }}
+        BRANCH_NAME: ${{ steps.commit_tests.outputs.branch_name }}
+        BRANCH_URL: ${{ steps.commit_tests.outputs.branch_url }}
+        PR_NUMBER: ${{ steps.create_pr.outputs.pr_number || steps.skip_pr.outputs.pr_number }}
+        PR_URL: ${{ steps.create_pr.outputs.pr_url || steps.skip_pr.outputs.pr_url }}
+        PR_ACTION: ${{ steps.create_pr.outputs.pr_action || steps.skip_pr.outputs.pr_action }}
+        AI_TYPE: ${{ inputs.ai_type }}
+        ANTHROPIC_MODEL: ${{ inputs.anthropic_model }}
+        TOTAL_COST: ${{ env.TOTAL_CLAUDE_COST }}
+        CONFLUENCE_URL: ${{ steps.upload_confluence.outputs.confluence_url }}
+        JIRA_TICKET_ID: ${{ inputs.jira_ticket_id }}
+        TARGET_BRANCH: ${{ inputs.target_branch }}
+        REPO_NAME: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        RUN_NUMBER: ${{ github.run_number }}
+        BRANCH_REF: ${{ github.head_ref || github.ref_name }}
+        WORKFLOW_ACTOR: ${{ github.actor }}
+        RUN_TIMESTAMP: ${{ github.event.created_at }}
+        JOB_STATUS: ${{ job.status }}
+      run: |
+        echo "📊 Reporting workflow failure to Backstage..."
+
+        # Determine model name and provider based on ai_type
+        if [ "$AI_TYPE" == "1" ]; then
+          MODEL_NAME="${ANTHROPIC_MODEL:-sonnet[1m]}"
+          AI_PROVIDER="aws_bedrock"
+        else
+          MODEL_NAME="glm-4-plus"
+          AI_PROVIDER="glm"
+        fi
+
+        # On error, send blank values for optional fields
+        ACTUAL_COST=""
+        BRANCH_NAME_VAL=""
+        BRANCH_URL_VAL=""
+        PR_URL_VAL=""
+        CONFLUENCE_URL_VAL=""
+
+        # Determine error message and step
+        echo "🔍 DEBUG: Determining error source..."
+
+        # Priority 1: Use captured error from error files (most specific)
+        if [ -f "/tmp/workflow_error_message.txt" ]; then
+          ERROR_MSG=$(cat /tmp/workflow_error_message.txt)
+          ERROR_STEP=$(cat /tmp/workflow_error_step.txt 2>/dev/null || echo "unknown")
+          echo "🔍 DEBUG: Using captured error from file"
+          echo "🔍 DEBUG: Error Step = $ERROR_STEP"
+          echo "🔍 DEBUG: Error Message = $ERROR_MSG"
+        # Priority 2: Generic fallback
+        else
+          ERROR_MSG="Unit test generation workflow failed. Check logs for details."
+          ERROR_STEP="workflow"
+          echo "🔍 DEBUG: Using generic fallback error"
+        fi
+
+        echo ""
+        echo "⚠️  Error: $ERROR_MSG"
+        echo "💰 Total AI Cost: (blank on error)"
+        echo ""
+
+        # Simple escaping for plain text: only escape quotes for JSON string safety
+        ERROR_MSG_SAFE=$(echo "$ERROR_MSG" | sed 's/"/\\"/g' | tr '\n' ' ' | tr '\t' ' ')
+        echo "🔍 DEBUG: Sending to Backstage:"
+        echo "   error_message: $ERROR_MSG_SAFE"
+        echo "   error_step: $ERROR_STEP"
+        echo "   generation_status: error"
+        echo ""
+
+        # Send error data to Backstage (|| true ensures this doesn't fail the workflow)
+        echo "🔍 DEBUG: Sending POST to Backstage API..."
+        BACKSTAGE_RESPONSE=$(curl -X POST https://sf-portal.sourcef.us/api/unit-test-generation-tracker/record \
+          -H "Content-Type: application/json" \
+          -d '{
+            "repo_name": "'"$REPO_NAME"'",
+            "runner_id": "'"$RUN_ID"'",
+            "workflow_run_number": '"${RUN_NUMBER:-0}"',
+            "jira_ticket_id": "'"$JIRA_TICKET_ID"'",
+            "generation_status": "error",
+            "has_changes": false,
+            "branch_name": "'"$BRANCH_NAME_VAL"'",
+            "branch_url": "'"$BRANCH_URL_VAL"'",
+            "pr_number": '"${PR_NUMBER:-0}"',
+            "pr_url": "'"$PR_URL_VAL"'",
+            "pr_action": "none",
+            "target_branch": "'"$TARGET_BRANCH"'",
+            "model_name": "'"$MODEL_NAME"'",
+            "ai_provider": "'"$AI_PROVIDER"'",
+            "ai_cost": "'"$ACTUAL_COST"'",
+            "confluence_url": "'"$CONFLUENCE_URL_VAL"'",
+            "pr_creator": "'"${WORKFLOW_ACTOR:-unknown}"'",
+            "run_timestamp": "'"${RUN_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"'",
+            "is_error": true,
+            "error_message": "'"$ERROR_MSG_SAFE"'",
+            "error_step": "'"$ERROR_STEP"'",
+            "job_status": "'"$JOB_STATUS"'"
+          }' \
+          --max-time 10 \
+          --show-error \
+          -w "\nHTTP_STATUS:%{http_code}" \
+          2>&1 || echo "⚠️  Failed to report error to Backstage (non-critical, continuing...)")
+
+        echo "🔍 DEBUG: Backstage response:"
+        echo "$BACKSTAGE_RESPONSE"
+
+        echo "✅ Error reporting completed (or skipped if unavailable)"

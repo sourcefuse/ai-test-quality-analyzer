@@ -7,6 +7,15 @@
 # Copy this file to your repository at:
 # .github/workflows/generate-unit-testcases.yml
 #
+# 📊 Backstage Integration:
+# This workflow automatically reports test generation metrics to Backstage:
+# - Generation success/failure status
+# - AI costs and model usage
+# - PR creation status and URLs
+# - Branch information
+# - Error tracking and debugging info
+# View reports at: https://sf-portal.sourcef.us/unit-test-generation
+#
 # Required Secrets:
 # - UT_GENERATE_JIRA_URL
 # - UT_GENERATE_JIRA_EMAIL
@@ -41,6 +50,7 @@
 # 4. Upload results to Confluence
 # 5. Commit generated tests to {ticket_id}-via-ai branch
 # 6. Create Pull Request targeting the specified branch
+# 7. Report generation metrics to Backstage (success or failure)
 #
 # Inputs:
 # - jira_ticket_id: JIRA ticket ID (used for branch name: {ticket_id}-via-ai)
@@ -48,6 +58,15 @@
 #
 # Environment Variables Available:
 # - TARGET_BRANCH: Available in all workflow steps for custom logic
+#
+# Backstage Tracking Metrics:
+# - Generation status (success/no_changes/error)
+# - Branch and PR information
+# - AI model and provider used
+# - AI usage costs
+# - Confluence report URLs
+# - Error messages and debugging info
+# - Workflow execution times
 ##############################################################################
 
 name: Generate Unit Test Cases Via AI
@@ -56,13 +75,13 @@ on:
   workflow_dispatch:
     inputs:
       jira_ticket_id:
-        description: 'JIRA Ticket ID / Branch Name (e.g., BB-15690)'
+        description: "JIRA Ticket ID / Branch Name (e.g., BB-15690)"
         required: true
         type: string
       target_branch:
-        description: 'Target branch for generated unit test cases (default: main)'
+        description: "Target branch for generated unit test cases (default: dev)"
         required: false
-        default: 'dev'
+        default: "develop"
         type: string
 
 concurrency:
@@ -75,12 +94,12 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write      # Required to push commits
+      contents: write # Required to push commits
       pull-requests: write # Required to create PRs
-      packages: read       # Required to pull Docker images from ghcr.io
+      packages: read # Required to pull Docker images from ghcr.io
 
     env:
-      TARGET_BRANCH: ${{ github.event.inputs.target_branch || 'main' }}
+      TARGET_BRANCH: ${{ github.event.inputs.target_branch || 'develop' }}
       # TARGET_BRANCH is available to all steps in this job
       # Use ${{ env.TARGET_BRANCH }} to access it in workflow steps
       # Or use $TARGET_BRANCH in bash scripts
@@ -107,14 +126,14 @@ jobs:
 
       - name: Generate Unit Test Cases with AI
         id: generate_tests
-        uses: sourcefuse/ai-test-quality-analyzer@UT-V2.0
+        uses: sourcefuse/ai-test-quality-analyzer@UT-V3.0
         with:
-          jira_url: ${{ secrets.UT_GENERATE_JIRA_URL }}
+          jira_url: ${{ vars.UT_GENERATE_JIRA_URL }}
           jira_email: ${{ secrets.UT_GENERATE_JIRA_EMAIL }}
           jira_api_token: ${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}
           jira_ticket_id: ${{ steps.extract_ticket.outputs.ticket_id }}
           jira_project_key: ${{ vars.UT_GENERATE_JIRA_PROJECT_KEY }}
-          confluence_url: ${{ secrets.UT_GENERATE_CONFLUENCE_URL }}
+          confluence_url: ${{ vars.UT_GENERATE_CONFLUENCE_URL }}
           confluence_email: ${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}
           confluence_api_token: ${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}
           confluence_space_key: ${{ vars.UT_GENERATE_CONFLUENCE_SPACE_KEY }}
@@ -131,8 +150,8 @@ jobs:
           anthropic_model: ${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}
           anthropic_base_url: ${{ secrets.UT_GENERATE_ANTHROPIC_BASE_URL }}
           anthropic_auth_token: ${{ secrets.UT_GENERATE_ANTHROPIC_AUTH_TOKEN }}
-          ai_type: ${{ secrets.UT_GENERATE_AI_TYPE }}
-          enable_docker_services: 'true'
+          ai_type: ${{ vars.UT_GENERATE_AI_TYPE }}
+          enable_docker_services: "true"
           openai_api_key: ${{ secrets.UT_GENERATE_OPENAI_API_KEY }}
 
       - name: Display Results Summary
