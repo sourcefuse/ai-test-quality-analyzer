@@ -10,7 +10,8 @@
 #
 # Prerequisites:
 # - GitHub CLI (gh) must be installed and authenticated
-# - You must have admin access to the repository
+# - You must have admin access to the repository (for deleting repo secrets)
+# - You must have organization admin access (for creating org secrets)
 #
 # Usage:
 #   ./delete-old-secrets.sh <owner/repo>
@@ -39,6 +40,7 @@ if [ $# -eq 0 ]; then
 fi
 
 REPO=$1
+ORG=$(echo "$REPO" | cut -d'/' -f1)
 
 # Check if gh CLI is installed
 if ! command -v gh &> /dev/null; then
@@ -205,18 +207,20 @@ for var in "${VARIABLES_TO_DELETE[@]}"; do
     fi
 done
 
-# Create new secrets
+# Create new organization secrets
 echo ""
 echo -e "${BLUE}========================================"
-echo "Step 3: Create New Secrets"
+echo "Step 3: Create New Organization Secrets"
 echo -e "========================================${NC}"
+echo ""
+echo -e "Organization: ${GREEN}$ORG${NC}"
 echo ""
 
 created_secrets=0
 failed_new_secrets=0
 
-echo -n "Creating secret: UT_QUALITY_POST_DATA_URL ... "
-if echo "$UT_QUALITY_POST_DATA_URL" | gh secret set UT_QUALITY_POST_DATA_URL --repo "$REPO" 2>/dev/null; then
+echo -n "Creating organization secret: UT_QUALITY_POST_DATA_URL ... "
+if echo "$UT_QUALITY_POST_DATA_URL" | gh secret set UT_QUALITY_POST_DATA_URL --org "$ORG" --visibility all 2>/dev/null; then
     echo -e "${GREEN}✓ Created${NC}"
     ((created_secrets++))
 else
@@ -224,8 +228,8 @@ else
     ((failed_new_secrets++))
 fi
 
-echo -n "Creating secret: UT_GENERATE_POST_DATA_URL ... "
-if echo "$UT_GENERATE_POST_DATA_URL" | gh secret set UT_GENERATE_POST_DATA_URL --repo "$REPO" 2>/dev/null; then
+echo -n "Creating organization secret: UT_GENERATE_POST_DATA_URL ... "
+if echo "$UT_GENERATE_POST_DATA_URL" | gh secret set UT_GENERATE_POST_DATA_URL --org "$ORG" --visibility all 2>/dev/null; then
     echo -e "${GREEN}✓ Created${NC}"
     ((created_secrets++))
 else
@@ -249,18 +253,25 @@ echo -e "  ${GREEN}Deleted: $deleted_vars${NC}"
 echo -e "  ${YELLOW}Not found: $not_found_vars${NC}"
 echo -e "  ${RED}Failed: $failed_vars${NC}"
 echo ""
-echo "New Secrets Created:"
+echo "New Organization Secrets Created:"
 echo -e "  ${GREEN}Created: $created_secrets${NC}"
 echo -e "  ${RED}Failed: $failed_new_secrets${NC}"
 echo ""
 
 if [ $failed_secrets -gt 0 ] || [ $failed_vars -gt 0 ] || [ $failed_new_secrets -gt 0 ]; then
     echo -e "${RED}Some operations failed. Please check your permissions.${NC}"
+    echo ""
+    if [ $failed_new_secrets -gt 0 ]; then
+        echo -e "${YELLOW}Note: Creating organization secrets requires organization admin permissions.${NC}"
+        echo "If you don't have org admin access, ask your org admin to create:"
+        echo "  - UT_QUALITY_POST_DATA_URL: $UT_QUALITY_POST_DATA_URL"
+        echo "  - UT_GENERATE_POST_DATA_URL: $UT_GENERATE_POST_DATA_URL"
+    fi
     exit 1
 else
     echo -e "${GREEN}✓ Migration completed successfully!${NC}"
     echo ""
     echo "The repository now uses:"
     echo "  • Global organization secrets (JIRA_*, CONFLUENCE_*, ANTHROPIC_*, OPENAI_API_KEY)"
-    echo "  • Workflow-specific secrets (UT_QUALITY_POST_DATA_URL, UT_GENERATE_POST_DATA_URL)"
+    echo "  • Workflow-specific organization secrets (UT_QUALITY_POST_DATA_URL, UT_GENERATE_POST_DATA_URL)"
 fi
