@@ -151,6 +151,9 @@ inputs:
     description: "Embedding vector dimensions (1536 for OpenAI, 768 for Ollama nomic-embed-text)"
     required: false
     default: "1536"
+  post_data_url:
+    description: "URL endpoint for posting unit test generation metrics data"
+    required: true
 
 outputs:
   test_quality_score:
@@ -1458,7 +1461,7 @@ runs:
         echo "💰 Total AI Cost: \$$ACTUAL_COST"
 
         # Send data to Backstage (|| true ensures this doesn't fail the workflow)
-        curl -X POST https://sf-portal.sourcef.us/api/unit-test-generation-tracker/record \
+        curl -X POST ${{ inputs.post_data_url }} \
           -H "Content-Type: application/json" \
           -d '{
             "repo_name": "'"$REPO_NAME"'",
@@ -1561,7 +1564,7 @@ runs:
 
         # Send error data to Backstage (|| true ensures this doesn't fail the workflow)
         echo "🔍 DEBUG: Sending POST to Backstage API..."
-        BACKSTAGE_RESPONSE=$(curl -X POST https://sf-portal.sourcef.us/api/unit-test-generation-tracker/record \
+        BACKSTAGE_RESPONSE=$(curl -X POST ${{ inputs.post_data_url }} \
           -H "Content-Type: application/json" \
           -d '{
             "repo_name": "'"$REPO_NAME"'",

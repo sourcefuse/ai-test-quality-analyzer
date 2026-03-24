@@ -26,6 +26,7 @@
 # - ANTHROPIC_BASE_URL
 # - ANTHROPIC_AUTH_TOKEN
 # - OPENAI_API_KEY
+# - UT_GENERATE_POST_DATA_URL
 #
 # Optional Secrets:
 # - UT_GENERATE_CONFLUENCE_UPLOAD_URL (optional - for separate upload instance)
@@ -131,7 +132,7 @@ jobs:
 
       - name: Generate Unit Test Cases with AI
         id: generate_tests
-        uses: sourcefuse/ai-test-quality-analyzer@UT-V3.0
+        uses: sourcefuse/ai-test-quality-analyzer@UT-V4.0
         with:
           jira_url: ${{ secrets.JIRA_URL }}
           jira_email: ${{ secrets.JIRA_EMAIL }}
@@ -158,6 +159,7 @@ jobs:
           ai_type: ${{ vars.UT_GENERATE_AI_TYPE }}
           enable_docker_services: "true"
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          post_data_url: ${{ secrets.UT_GENERATE_POST_DATA_URL }}
 
       - name: Display Results Summary
         if: always()
