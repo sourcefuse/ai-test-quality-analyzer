@@ -216,20 +216,24 @@ created_secrets=0
 failed_new_secrets=0
 
 echo -n "Creating repository secret: UT_QUALITY_POST_DATA_URL ... "
-if echo "$UT_QUALITY_POST_DATA_URL" | gh secret set UT_QUALITY_POST_DATA_URL --repo "$REPO" 2>/dev/null; then
+ERROR_MSG=$(echo "$UT_QUALITY_POST_DATA_URL" | gh secret set UT_QUALITY_POST_DATA_URL --repo "$REPO" 2>&1)
+if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Created${NC}"
     ((created_secrets++))
 else
     echo -e "${RED}✗ Failed${NC}"
+    echo -e "${YELLOW}Error: $ERROR_MSG${NC}"
     ((failed_new_secrets++))
 fi
 
 echo -n "Creating repository secret: UT_GENERATE_POST_DATA_URL ... "
-if echo "$UT_GENERATE_POST_DATA_URL" | gh secret set UT_GENERATE_POST_DATA_URL --repo "$REPO" 2>/dev/null; then
+ERROR_MSG=$(echo "$UT_GENERATE_POST_DATA_URL" | gh secret set UT_GENERATE_POST_DATA_URL --repo "$REPO" 2>&1)
+if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Created${NC}"
     ((created_secrets++))
 else
     echo -e "${RED}✗ Failed${NC}"
+    echo -e "${YELLOW}Error: $ERROR_MSG${NC}"
     ((failed_new_secrets++))
 fi
 
