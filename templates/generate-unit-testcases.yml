@@ -16,22 +16,25 @@
 # - Error tracking and debugging info
 # View reports at: https://sf-portal.sourcef.us/unit-test-generation
 #
-# Required Secrets:
-# - UT_GENERATE_JIRA_URL
-# - UT_GENERATE_JIRA_EMAIL
-# - UT_GENERATE_JIRA_API_TOKEN
-# - UT_GENERATE_CONFLUENCE_URL
-# - UT_GENERATE_CONFLUENCE_EMAIL
-# - UT_GENERATE_CONFLUENCE_API_TOKEN
+# Required Secrets (Global Organization Secrets):
+# - JIRA_URL
+# - JIRA_EMAIL
+# - JIRA_TOKEN
+# - CONFLUENCE_URL
+# - CONFLUENCE_EMAIL
+# - CONFLUENCE_TOKEN
+# - ANTHROPIC_BASE_URL
+# - ANTHROPIC_AUTH_TOKEN
+# - OPENAI_API_KEY
+#
+# Optional Secrets:
 # - UT_GENERATE_CONFLUENCE_UPLOAD_URL (optional - for separate upload instance)
 # - UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL (optional)
 # - UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN (optional)
 # - UT_GENERATE_AWS_ACCESS_KEY_BEDROCK (optional - for AWS Bedrock)
 # - UT_GENERATE_AWS_SECRET_KEY_BEDROCK (optional - for AWS Bedrock)
-# - UT_GENERATE_ANTHROPIC_BASE_URL (optional - for GLM or custom endpoints)
-# - UT_GENERATE_ANTHROPIC_AUTH_TOKEN (optional - for GLM or custom endpoints)
-# - UT_GENERATE_OPENAI_API_KEY (optional - for OpenAI embeddings if RAG enabled)
-# - UT_GENERATE_AI_TYPE (1 = claude_with_bedrock, 2 = claude_with_glm)
+# - UT_GENERATE_AWS_REGION_BEDROCK (optional - for AWS Bedrock)
+# - UT_GENERATE_ANTHROPIC_MODEL (optional - for custom model)
 #
 # Required Variables (non-sensitive - set in Repository Settings → Variables):
 # - UT_GENERATE_JIRA_PROJECT_KEY (e.g., BB)
@@ -130,14 +133,14 @@ jobs:
         id: generate_tests
         uses: sourcefuse/ai-test-quality-analyzer@UT-V3.0
         with:
-          jira_url: ${{ vars.UT_GENERATE_JIRA_URL }}
-          jira_email: ${{ secrets.UT_GENERATE_JIRA_EMAIL }}
-          jira_api_token: ${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}
+          jira_url: ${{ secrets.JIRA_URL }}
+          jira_email: ${{ secrets.JIRA_EMAIL }}
+          jira_api_token: ${{ secrets.JIRA_TOKEN }}
           jira_ticket_id: ${{ steps.extract_ticket.outputs.ticket_id }}
           jira_project_key: ${{ vars.UT_GENERATE_JIRA_PROJECT_KEY }}
-          confluence_url: ${{ vars.UT_GENERATE_CONFLUENCE_URL }}
-          confluence_email: ${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}
-          confluence_api_token: ${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}
+          confluence_url: ${{ secrets.CONFLUENCE_URL }}
+          confluence_email: ${{ secrets.CONFLUENCE_EMAIL }}
+          confluence_api_token: ${{ secrets.CONFLUENCE_TOKEN }}
           confluence_space_key: ${{ vars.UT_GENERATE_CONFLUENCE_SPACE_KEY }}
           confluence_upload_url: ${{ vars.UT_GENERATE_CONFLUENCE_UPLOAD_URL }}
           confluence_upload_email: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL }}
@@ -150,11 +153,11 @@ jobs:
           aws_access_key_bedrock: ${{ secrets.UT_GENERATE_AWS_ACCESS_KEY_BEDROCK }}
           aws_secret_key_bedrock: ${{ secrets.UT_GENERATE_AWS_SECRET_KEY_BEDROCK }}
           anthropic_model: ${{ secrets.UT_GENERATE_ANTHROPIC_MODEL }}
-          anthropic_base_url: ${{ secrets.UT_GENERATE_ANTHROPIC_BASE_URL }}
-          anthropic_auth_token: ${{ secrets.UT_GENERATE_ANTHROPIC_AUTH_TOKEN }}
+          anthropic_base_url: ${{ secrets.ANTHROPIC_BASE_URL }}
+          anthropic_auth_token: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
           ai_type: ${{ vars.UT_GENERATE_AI_TYPE }}
           enable_docker_services: "true"
-          openai_api_key: ${{ secrets.UT_GENERATE_OPENAI_API_KEY }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Display Results Summary
         if: always()
