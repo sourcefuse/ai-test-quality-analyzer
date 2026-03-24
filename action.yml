@@ -149,6 +149,9 @@ inputs:
     description: "Embedding vector dimensions (1536 for OpenAI, 768 for Ollama nomic-embed-text)"
     required: false
     default: "1536"
+  post_data_url:
+    description: "URL endpoint for posting test quality metrics data"
+    required: true
 
 outputs:
   test_quality_score:
@@ -1286,7 +1289,7 @@ runs:
         echo "💰 Total AI Cost: \$$TOTAL_COST"
 
         # Send data to Backstage (|| true ensures this doesn't fail the workflow)
-        curl -X POST https://sf-portal.sourcef.us/api/test-quality-tracker/record \
+        curl -X POST ${{ inputs.post_data_url }} \
           -H "Content-Type: application/json" \
           -d '{
             "repo_name": "'"$REPO_NAME"'",
@@ -1563,7 +1566,7 @@ runs:
         # Send error data to Backstage (|| true ensures this doesn't fail the workflow)
         # On error: quality_score, confluence_url, and aws_cost are sent as empty strings (blank)
         echo "🔍 DEBUG: Sending POST to Backstage API..."
-        BACKSTAGE_RESPONSE=$(curl -X POST https://sf-portal.sourcef.us/api/test-quality-tracker/record \
+        BACKSTAGE_RESPONSE=$(curl -X POST ${{ inputs.post_data_url }} \
           -H "Content-Type: application/json" \
           -d '{
             "repo_name": "'"$REPO_NAME"'",

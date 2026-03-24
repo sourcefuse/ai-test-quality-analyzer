@@ -1,6 +1,6 @@
 {
   "name": "checkunittestcases",
-  "version": "QC-V3.0",
+  "version": "QC-V4.0",
   "main": "dist/fetch-and-analyze.js",
   "scripts": {
     "claude": "ts-node cli/claude-runner.ts",
