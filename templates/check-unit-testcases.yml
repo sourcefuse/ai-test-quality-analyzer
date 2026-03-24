@@ -14,6 +14,7 @@
 # - ANTHROPIC_BASE_URL
 # - ANTHROPIC_AUTH_TOKEN
 # - OPENAI_API_KEY
+# - POST_DATA_URL
 #
 # Optional Secrets:
 # - UT_QUALITY_AWS_REGION_BEDROCK (required when AI_TYPE=1)
@@ -150,7 +151,7 @@ jobs:
       - name: Run Unit Test Quality Analysis
         id: quality_check
         if: steps.extract_ticket.outputs.ticket_id != 'UNKNOWN'
-        uses: sourcefuse/ai-test-quality-analyzer@QC-V3.0
+        uses: sourcefuse/ai-test-quality-analyzer@QC-V4.0
         with:
           jira_url: ${{ secrets.JIRA_URL }}
           jira_email: ${{ secrets.JIRA_EMAIL }}
@@ -173,6 +174,7 @@ jobs:
           anthropic_base_url: ${{ secrets.ANTHROPIC_BASE_URL }}
           anthropic_auth_token: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          post_data_url: ${{ secrets.POST_DATA_URL }}
           upload_to_confluence: 'true'
           save_to_file: 'true'
 
