@@ -7,21 +7,28 @@
 # Copy this file to your repository at:
 # .github/workflows/generate-unit-testcases.yml
 #
-# Required Secrets:
-# - UT_GENERATE_JIRA_URL
-# - UT_GENERATE_JIRA_EMAIL
-# - UT_GENERATE_JIRA_API_TOKEN
-# - UT_GENERATE_CONFLUENCE_URL
-# - UT_GENERATE_CONFLUENCE_EMAIL
-# - UT_GENERATE_CONFLUENCE_API_TOKEN
+# Required Secrets (Global Organization Secrets):
+# - JIRA_URL
+# - JIRA_EMAIL
+# - JIRA_TOKEN
+# - CONFLUENCE_URL
+# - CONFLUENCE_EMAIL
+# - CONFLUENCE_TOKEN
+# - ANTHROPIC_BASE_URL
+# - ANTHROPIC_AUTH_TOKEN
+# - OPENAI_API_KEY
+#
+# Optional Secrets:
 # - UT_GENERATE_CONFLUENCE_UPLOAD_URL (optional - for separate upload instance)
 # - UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL (optional)
 # - UT_GENERATE_CONFLUENCE_UPLOAD_API_TOKEN (optional)
-# - UT_GENERATE_AWS_ACCESS_KEY_BEDROCK
-# - UT_GENERATE_AWS_SECRET_KEY_BEDROCK
+# - UT_GENERATE_AWS_ACCESS_KEY_BEDROCK (optional - for AWS Bedrock)
+# - UT_GENERATE_AWS_SECRET_KEY_BEDROCK (optional - for AWS Bedrock)
+# - UT_GENERATE_AWS_REGION_BEDROCK (optional - for AWS Bedrock)
+# - UT_GENERATE_AWS_BEDROCK_MODEL (optional - custom Bedrock model)
+# - UT_GENERATE_ANTHROPIC_MODEL (optional - custom Anthropic model)
 # - UT_GENERATE_DOCKER_USERNAME (optional - for Docker registry authentication)
 # - UT_GENERATE_DOCKER_PASSWORD (optional - for Docker registry authentication)
-# - UT_GENERATE_OPENAI_API_KEY (optional - for OpenAI embeddings if RAG enabled)
 #
 # Required Variables:
 # - UT_GENERATE_JIRA_PROJECT_KEY (optional, default: BB)
@@ -107,14 +114,14 @@ jobs:
         id: generate_tests
         uses: sourcefuse/ai-test-quality-analyzer@UT-V1.0
         with:
-          jira_url: ${{ secrets.UT_GENERATE_JIRA_URL }}
-          jira_email: ${{ secrets.UT_GENERATE_JIRA_EMAIL }}
-          jira_api_token: ${{ secrets.UT_GENERATE_JIRA_API_TOKEN }}
+          jira_url: ${{ secrets.JIRA_URL }}
+          jira_email: ${{ secrets.JIRA_EMAIL }}
+          jira_api_token: ${{ secrets.JIRA_TOKEN }}
           jira_ticket_id: ${{ steps.extract_ticket.outputs.ticket_id }}
           jira_project_key: ${{ vars.UT_GENERATE_JIRA_PROJECT_KEY || 'BB' }}
-          confluence_url: ${{ secrets.UT_GENERATE_CONFLUENCE_URL }}
-          confluence_email: ${{ secrets.UT_GENERATE_CONFLUENCE_EMAIL }}
-          confluence_api_token: ${{ secrets.UT_GENERATE_CONFLUENCE_API_TOKEN }}
+          confluence_url: ${{ secrets.CONFLUENCE_URL }}
+          confluence_email: ${{ secrets.CONFLUENCE_EMAIL }}
+          confluence_api_token: ${{ secrets.CONFLUENCE_TOKEN }}
           confluence_space_key: ${{ vars.UT_GENERATE_CONFLUENCE_SPACE_KEY || 'BB' }}
           confluence_upload_url: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_URL }}
           confluence_upload_email: ${{ secrets.UT_GENERATE_CONFLUENCE_UPLOAD_EMAIL }}
@@ -131,7 +138,7 @@ jobs:
           claude_code_use_bedrock: ${{ vars.UT_GENERATE_CLAUDE_CODE_USE_BEDROCK || '1' }}
           docker_username: ${{ secrets.UT_GENERATE_DOCKER_USERNAME }}
           docker_password: ${{ secrets.UT_GENERATE_DOCKER_PASSWORD }}
-          openai_api_key: ${{ secrets.UT_GENERATE_OPENAI_API_KEY }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
         continue-on-error: true
 
       - name: Display Results Summary
