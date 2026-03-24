@@ -1,10 +1,12 @@
 #!/bin/bash
 
 ##############################################################################
-# Delete Old Prefixed Secrets from GitHub Repository
+# Migrate GitHub Repository Secrets
 #
 # This script removes old UT_GENERATE_* and UT_QUALITY_* secrets that have
 # been replaced by global organization secrets (JIRA_URL, JIRA_TOKEN, etc.)
+# It also removes the old POST_DATA_URL secret and adds the new workflow-specific
+# secrets (UT_QUALITY_POST_DATA_URL and UT_GENERATE_POST_DATA_URL).
 #
 # Prerequisites:
 # - GitHub CLI (gh) must be installed and authenticated
@@ -53,7 +55,7 @@ if ! gh auth status &> /dev/null; then
 fi
 
 echo -e "${BLUE}========================================"
-echo "Delete Old Prefixed Secrets"
+echo "Migrate Repository Secrets"
 echo -e "========================================${NC}"
 echo ""
 echo -e "Repository: ${GREEN}$REPO${NC}"
@@ -82,6 +84,9 @@ SECRETS_TO_DELETE=(
     "UT_QUALITY_ANTHROPIC_BASE_URL"
     "UT_QUALITY_ANTHROPIC_AUTH_TOKEN"
     "UT_QUALITY_OPENAI_API_KEY"
+
+    # Old POST_DATA_URL secret (replaced by UT_QUALITY_POST_DATA_URL and UT_GENERATE_POST_DATA_URL)
+    "POST_DATA_URL"
 )
 
 # List of variables to delete (now replaced by global org secrets)
@@ -119,10 +124,12 @@ echo "  - CONFLUENCE_TOKEN"
 echo "  - ANTHROPIC_BASE_URL"
 echo "  - ANTHROPIC_AUTH_TOKEN"
 echo "  - OPENAI_API_KEY"
+echo "  - UT_QUALITY_POST_DATA_URL (for quality check workflow)"
+echo "  - UT_GENERATE_POST_DATA_URL (for generate tests workflow)"
 echo ""
 
 # Ask for confirmation
-read -p "Do you want to proceed with deletion? (yes/no): " confirm
+read -p "Do you want to proceed with migration? (yes/no): " confirm
 
 if [ "$confirm" != "yes" ]; then
     echo -e "${YELLOW}Operation cancelled${NC}"
@@ -130,7 +137,25 @@ if [ "$confirm" != "yes" ]; then
 fi
 
 echo ""
-echo -e "${BLUE}Starting deletion...${NC}"
+echo -e "${BLUE}========================================"
+echo "Step 1: Set New Secret Values"
+echo -e "========================================${NC}"
+echo ""
+
+# Default values from the original hardcoded URLs
+UT_QUALITY_POST_DATA_URL="https://sf-portal.sourcef.us/api/test-quality-tracker/record"
+UT_GENERATE_POST_DATA_URL="https://sf-portal.sourcef.us/api/unit-test-generation-tracker/record"
+
+echo -e "${GREEN}Using default values:${NC}"
+echo "  UT_QUALITY_POST_DATA_URL: $UT_QUALITY_POST_DATA_URL"
+echo "  UT_GENERATE_POST_DATA_URL: $UT_GENERATE_POST_DATA_URL"
+echo ""
+echo -e "${YELLOW}Note: These are the same URLs that were previously hardcoded in action.yml${NC}"
+
+echo ""
+echo -e "${BLUE}========================================"
+echo "Step 2: Delete Old Secrets"
+echo -e "========================================${NC}"
 echo ""
 
 # Delete secrets
@@ -180,28 +205,62 @@ for var in "${VARIABLES_TO_DELETE[@]}"; do
     fi
 done
 
+# Create new secrets
+echo ""
+echo -e "${BLUE}========================================"
+echo "Step 3: Create New Secrets"
+echo -e "========================================${NC}"
+echo ""
+
+created_secrets=0
+failed_new_secrets=0
+
+echo -n "Creating secret: UT_QUALITY_POST_DATA_URL ... "
+if echo "$UT_QUALITY_POST_DATA_URL" | gh secret set UT_QUALITY_POST_DATA_URL --repo "$REPO" 2>/dev/null; then
+    echo -e "${GREEN}✓ Created${NC}"
+    ((created_secrets++))
+else
+    echo -e "${RED}✗ Failed${NC}"
+    ((failed_new_secrets++))
+fi
+
+echo -n "Creating secret: UT_GENERATE_POST_DATA_URL ... "
+if echo "$UT_GENERATE_POST_DATA_URL" | gh secret set UT_GENERATE_POST_DATA_URL --repo "$REPO" 2>/dev/null; then
+    echo -e "${GREEN}✓ Created${NC}"
+    ((created_secrets++))
+else
+    echo -e "${RED}✗ Failed${NC}"
+    ((failed_new_secrets++))
+fi
+
 # Summary
 echo ""
 echo -e "${BLUE}========================================"
 echo "Summary"
 echo -e "========================================${NC}"
 echo ""
-echo "Secrets:"
+echo "Old Secrets Deleted:"
 echo -e "  ${GREEN}Deleted: $deleted_secrets${NC}"
 echo -e "  ${YELLOW}Not found: $not_found_secrets${NC}"
 echo -e "  ${RED}Failed: $failed_secrets${NC}"
 echo ""
-echo "Variables:"
+echo "Variables Deleted:"
 echo -e "  ${GREEN}Deleted: $deleted_vars${NC}"
 echo -e "  ${YELLOW}Not found: $not_found_vars${NC}"
 echo -e "  ${RED}Failed: $failed_vars${NC}"
 echo ""
+echo "New Secrets Created:"
+echo -e "  ${GREEN}Created: $created_secrets${NC}"
+echo -e "  ${RED}Failed: $failed_new_secrets${NC}"
+echo ""
 
-if [ $failed_secrets -gt 0 ] || [ $failed_vars -gt 0 ]; then
-    echo -e "${RED}Some deletions failed. Please check your permissions.${NC}"
+if [ $failed_secrets -gt 0 ] || [ $failed_vars -gt 0 ] || [ $failed_new_secrets -gt 0 ]; then
+    echo -e "${RED}Some operations failed. Please check your permissions.${NC}"
     exit 1
 else
-    echo -e "${GREEN}✓ Cleanup completed successfully!${NC}"
+    echo -e "${GREEN}✓ Migration completed successfully!${NC}"
     echo ""
-    echo "The repository now uses global organization secrets."
+    echo "The repository now uses:"
+    echo "  • Global organization secrets (JIRA_*, CONFLUENCE_*, ANTHROPIC_*, OPENAI_API_KEY)"
+    echo "  • Workflow-specific secrets (UT_QUALITY_POST_DATA_URL, UT_GENERATE_POST_DATA_URL)"
 fi
