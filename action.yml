@@ -1431,6 +1431,19 @@ runs:
         RUN_TIMESTAMP: ${{ github.event.created_at }}
       run: |
         echo "📊 Reporting test generation metrics to Backstage..."
+        echo ""
+        echo "🔍 DEBUG: Backstage Reporting Configuration"
+        echo "   POST_DATA_URL: ${{ inputs.post_data_url }}"
+        echo "   HAS_CHANGES: $HAS_CHANGES"
+        echo "   JIRA_TICKET_ID: $JIRA_TICKET_ID"
+        echo ""
+
+        # Check if post_data_url is configured
+        if [ -z "${{ inputs.post_data_url }}" ]; then
+          echo "⚠️  WARNING: post_data_url is not configured"
+          echo "   Skipping Backstage reporting (set UT_GENERATE_POST_DATA_URL secret)"
+          exit 0
+        fi
 
         # Determine generation status
         if [ "$HAS_CHANGES" == "true" ]; then
@@ -1440,6 +1453,8 @@ runs:
         else
           GENERATION_STATUS="error"
         fi
+
+        echo "🔍 DEBUG: Determined generation_status = $GENERATION_STATUS"
 
         # Determine model name and provider based on ai_type
         if [ "$AI_TYPE" == "1" ]; then
@@ -1459,9 +1474,11 @@ runs:
         fi
 
         echo "💰 Total AI Cost: \$$ACTUAL_COST"
+        echo ""
+        echo "🔍 DEBUG: Sending POST request to Backstage..."
 
-        # Send data to Backstage (|| true ensures this doesn't fail the workflow)
-        curl -X POST ${{ inputs.post_data_url }} \
+        # Send data to Backstage with verbose output for debugging
+        HTTP_CODE=$(curl -X POST ${{ inputs.post_data_url }} \
           -H "Content-Type: application/json" \
           -d '{
             "repo_name": "'"$REPO_NAME"'",
@@ -1484,11 +1501,25 @@ runs:
             "run_timestamp": "'"${RUN_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"'"
           }' \
           --max-time 10 \
-          --silent \
+          --write-out "%{http_code}" \
+          --output /tmp/backstage_response.txt \
           --show-error \
-          || echo "⚠️  Failed to report to Backstage (non-critical, continuing...)"
+          2>&1 || echo "000")
 
-        echo "✅ Backstage reporting completed (or skipped if unavailable)"
+        echo "🔍 DEBUG: HTTP Status Code = $HTTP_CODE"
+
+        if [ -f /tmp/backstage_response.txt ]; then
+          echo "🔍 DEBUG: Response Body:"
+          cat /tmp/backstage_response.txt
+          echo ""
+        fi
+
+        if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+          echo "✅ Backstage reporting successful (HTTP $HTTP_CODE)"
+        else
+          echo "⚠️  Backstage reporting failed (HTTP $HTTP_CODE)"
+          echo "   This is non-critical and won't fail the workflow"
+        fi
 
     - name: Report Failure to Backstage Unit Test Generation Tracker
       if: failure()
