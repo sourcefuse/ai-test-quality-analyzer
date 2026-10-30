@@ -35,7 +35,7 @@ This directory contains custom Git hooks for maintaining code security and quali
 ```
 🔒 Running pre-commit secret detection...
 ❌ Potential secret found in src/config.ts (line 42):
-   API_KEY=AKIA1234567890123456
+   API_KEY=AKIA<redacted>
 
 ╔════════════════════════════════════════════════════════════════╗
 ║  ⚠️  COMMIT BLOCKED - Potential secrets detected!             ║
@@ -187,7 +187,7 @@ Instead of hardcoding:
 
 ```typescript
 // ❌ Bad
-const apiKey = 'sk-proj-abc123xyz';
+const apiKey = '<your-openai-api-key>';
 
 // ✅ Good
 const apiKey = process.env.API_KEY;
@@ -201,7 +201,7 @@ Always use placeholders in `.env.example`:
 # ❌ Bad
 JIRA_URL=https://sourcefuse.atlassian.net
 JIRA_EMAIL=real.person@sourcefuse.com
-JIRA_API_TOKEN=ATATT3xFfGF0123456789
+JIRA_API_TOKEN=<real-atlassian-api-token>
 
 # ✅ Good
 JIRA_URL=https://your-instance.atlassian.net
@@ -267,11 +267,11 @@ chmod +x .git/hooks/pre-commit
 Create a test file with a fake secret:
 
 ```bash
-echo "API_KEY=AKIA1234567890123456" > test-secret.txt
-git add test-secret.txt
+echo "API_KEY=AKIA$(printf '%016d' 0)" > fake-secret.txt
+git add fake-secret.txt
 git commit -m "Test commit"  # Should be blocked
-git reset HEAD test-secret.txt
-rm test-secret.txt
+git rm --cached -q fake-secret.txt
+rm fake-secret.txt
 ```
 
 ### Test .env.example Validation
