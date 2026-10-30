@@ -104,8 +104,10 @@ echo ""
 echo -e "${BLUE}🧪 Testing hook installation...${NC}"
 
 # Create a temporary test file with a fake secret
+# Built at runtime so the script source does not trip secret scanners
 TEST_FILE=".test-secret-detection.tmp"
-echo "API_KEY=AKIA1234567890123456" > "$TEST_FILE"
+FAKE_AWS_KEY="AKIA$(printf '%016d' 0)"
+echo "API_KEY=${FAKE_AWS_KEY}" > "$TEST_FILE"
 git add "$TEST_FILE" 2>/dev/null || true
 
 # Run the hook
@@ -116,7 +118,7 @@ else
 fi
 
 # Clean up test file
-git reset HEAD "$TEST_FILE" 2>/dev/null || true
+git rm --cached -q "$TEST_FILE" 2>/dev/null || true
 rm -f "$TEST_FILE"
 
 echo ""
